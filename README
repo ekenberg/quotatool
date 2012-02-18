@@ -14,7 +14,7 @@ Quick Start
 
 Usage
 =====
-   quotatool [options ... filesystem
+   quotatool [ options ... ] filesystem
    quotatool -u | -g  -t time -i | -r filesystem
 
 The actual arguments accepted depends on your system.  Solaris,
