@@ -1,0 +1,116 @@
+dnl Process this file with autoconf to produce a configure script.
+
+AC_INIT(src/main.c)
+AC_CONFIG_AUX_DIR(tools)
+
+
+
+dnl Set program, version info
+
+PROGNAME=quotatool   
+AC_SUBST(PROGNAME)
+AC_DEFINE_UNQUOTED(PROGNAME, "$PROGNAME")
+
+MAJOR_VERSION=1      
+AC_SUBST(MAJOR_VERSION)
+AC_DEFINE_UNQUOTED(MAJOR_VERSION, $MAJOR_VERSION)
+
+MINOR_VERSION=4
+AC_SUBST(MINOR_VERSION)
+AC_DEFINE_UNQUOTED(MINOR_VERSION, $MINOR_VERSION)
+
+PATCHLEVEL=11
+AC_SUBST(PATCHLEVEL)
+AC_DEFINE_UNQUOTED(PATCHLEVEL, "$PATCHLEVEL")
+
+COPYRIGHT_NOTICE="Copyright (c) 1999-2009 Mike Glover / Johan Ekenberg"
+AC_DEFINE_UNQUOTED(COPYRIGHT_NOTICE, "$COPYRIGHT_NOTICE")
+
+WWW_URL="http://quotatool.ekenberg.se"
+AC_DEFINE_UNQUOTED(WWW_URL, "$WWW_URL")
+
+dnl get the system type (for the makefile)
+
+AC_CANONICAL_HOST
+case [$host] in
+  *linux*)
+	PLATFORM=linux
+	AC_DEFINE(PLATFORM_LINUX, 1)
+	;;
+  *solaris*)
+	PLATFORM=solaris
+	AC_DEFINE(PLATFORM_SOLARIS, 1)
+	;;
+  *aix*)
+	PLATFORM=aix
+	AC_DEFINE(PLATFORM_AIX, 1)
+	;;
+  *)
+	PLATFORM=unknown
+	AC_DEFINE(PLATFORM_UNKNOWN, 1)
+	;;
+esac
+AC_SUBST(PLATFORM)
+AC_DEFINE_UNQUOTED(PLATFORM, $PLATFORM)
+
+dnl Check for programs.
+
+AC_PROG_CC
+AC_PROG_INSTALL
+
+dnl Check for absolutely required header files.
+
+AC_HEADER_STDC
+AC_CHECK_HEADERS(unistd.h fcntl.h limits.h, ,\
+                 AC_MSG_ERROR([Missing required headers]))
+
+dnl Check for pick-one header files (required)
+
+AC_CHECK_HEADERS(mntent.h sys/mnttab.h sys/mntctl.h, FOUND_MNT=1;break)
+test [$FOUND_MNT] || AC_MSG_ERROR([Can't find getmntent()])
+
+AC_CHECK_HEADERS(linux/types.h sys/types.h, FOUND_TYPES=1;break)
+test [$FOUND_TYPES] || AC_MSG_ERROR([Can't find system types])
+
+dnl Check for quota header files except for linux (we ship our own)
+if test "$PLATFORM" != "linux"; then
+  AC_CHECK_HEADERS(sys/fs/ufs_quota.h jfs/quota.h, FOUND_QUOTA=1;break)
+  test [$FOUND_QUOTA] || AC_MSG_ERROR([Can't find quota defs])
+fi
+
+dnl Check for pick-one header files (optional)
+
+AC_CHECK_HEADERS(std.h linux/fs.h, FOUND_BSIZE=1)
+test [$FOUND_BSIZE] || AC_MSG_WARN([Using hard-coded default BLOCK_SIZE])
+
+dnl Check for typedefs, structures, and compiler characteristics.
+
+AC_C_CONST
+AC_TYPE_UID_T
+AC_C_INLINE
+AC_CHECK_TYPE(u_int64_t, HAVE_U_INT64_T=1, HAVE_U_INT64_T=0)
+AC_DEFINE_UNQUOTED(HAVE_U_INT64_T, $HAVE_U_INT64_T)
+
+dnl Check for library functions.
+
+AC_FUNC_VPRINTF
+AC_CHECK_FUNCS(strdup strerror strtol)
+test [x$PLATFORM] = [xlinux] &&  AC_DEFINE(HAVE_GNU_GETOPT, 1)
+
+dnl Check the commandline
+
+AC_ARG_WITH(gnu-getopt,  \
+  [--with-gnu-getopt       getopt() is GNU getopt],\
+            test [x$withval] != [xno] || AC_DEFINE(HAVE_GNU_GETOPT, 1))
+
+dnl Create output files
+
+AC_CONFIG_HEADER(src/config.h)
+AC_OUTPUT(local.mk)
+
+
+
+
+
+
+

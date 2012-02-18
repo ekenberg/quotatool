@@ -1,0 +1,49 @@
+#
+# config.mk
+# local site configuration
+#
+# @configure_input@
+
+# what are we making?
+package         :=   @PROGNAME@
+version         :=   @MAJOR_VERSION@.@MINOR_VERSION@.@PATCHLEVEL@
+prog            :=   $(package)
+
+
+build_platform    :=   @PLATFORM@
+
+# programs to use
+SHELL           :=   /bin/sh
+
+CC              :=   @CC@
+CFLAGS          :=   @CFLAGS@
+CPPFLAGS         =   $(inc) @DEFS@
+
+
+INSTALL         :=   @INSTALL@
+INSTALL_DATA    :=   @INSTALL_DATA@
+INSTALL_PROGRAM :=   @INSTALL_PROGRAM@
+
+
+# filesystem locations
+prefix          :=   @prefix@
+exec_prefix     :=   @exec_prefix@
+
+bindir          :=   @bindir@
+sbindir         :=   @sbindir@
+libdir          :=   @libdir@
+libexecdir      :=   @libexecdir@
+
+mandir          :=   @mandir@
+infodir         :=   @infodir@
+
+includedir      :=   @includedir@
+oldincludedir   :=   @oldincludedir@
+sysconfdir      :=   @sysconfdir@
+datadir         :=   @datadir@
+localstatedir   :=   @localstatedir@
+sharedstatedir  :=   @sharedstatedir@
+
+srcdir          :=   @srcdir@
+
+

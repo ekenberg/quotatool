@@ -1,0 +1,101 @@
+===========================
+===========================
+====     quotatool     ====
+===========================
+===========================
+
+Quick Start
+===========
+
+   ./configure
+   make
+   su -c "make install"
+
+
+Usage
+=====
+   quotatool [options ... filesystem
+   quotatool -u | -g  -t time -i | -r filesystem
+
+The actual arguments accepted depends on your system.  Solaris,
+for example, doesn't support group quotas, so the -g option is
+useless.   If your getopt() doesn't support optional arguments,
+then you always need to pass an argument to -u and -g.
+
+
+Options
+=======
+   -b      set block limits
+   -i      set inode limits
+
+   -q n    set soft limit to n blocks/inodes
+   -l n    set hard limit to n blocks/inodes
+
+   quotatool accepts the units Mb, Kb, bytes and blocks
+   to modify limit arguments. See examples below.
+
+   -t      time set global grace period to time.
+           The time parameter consists of an optional
+           '+' or '-' modifier, a  number, and one of: 
+           'sec', 'min', 'hour', 'day', 'week', and 
+           'month'.  If a +/- modifier is present, the
+           current quota will be increased/reduced by
+           the amount specified
+
+   -r      restart grace period for uid or gid
+
+   -h      print a usage message
+
+   -v      verbose mode -- print status messages during execution
+           use this twice for even more information
+
+   -n      do everything except set the quota.  useful with -v
+           to see what is supposed to happen
+
+   -V      show version
+
+
+Examples
+========
+
+Set soft block limit to 15MB, hard block limit to 20MB for user mpg4 on /home:
+
+   quotatool -u mpg4 -bq 15M -l "20 Mb" /home
+
+Set hard inode limit to 2000 for user johan on /var:
+
+   quotatool -u johan -i -l 2000 /var
+
+Set the global block grace period to one week on /home:
+
+   quotatool -u  -b -t "1 week" /home
+   
+Restart inode grace period for user johan on root filesystem:
+
+   quotatool -u johan -i -r /
+
+
+Notes
+=====
+
+Grace periods are set on a "global per quotatype and filesystem" basis only.
+Each quotatype (usrquota / grpquota) on each filesystem has two grace periods
+- one for block limits and one for inode limits.
+It is not possible to set different grace periods for users on the same filesystem.
+
+
+Platforms and Filesystems
+=========================
+
+quotatool currently builds and works well on:
+-- Linux --
+Both old and new quota formats. 
+ext2, ext3, ReiserFS and XFS supported
+
+-- Solaris --
+
+-- AIX --
+
+Missing your favorite *nix OS? Check the ChangeLog for the latest
+additions, or port it yourself and send us a patch!
+

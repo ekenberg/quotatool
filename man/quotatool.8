@@ -1,0 +1,129 @@
+.TH QUOTATOOL 8 "2002 - 2009" "version 1.4.11"
+.SH NAME
+quotatool \- manipulate filesystem quotas
+.SH SYNOPSIS
+.B quotatool
+[-u uid | -g gid] [-b | -i] [-r | -l NUM | -q NUM] [-nvR] [-d]
+.I filesystem
+.br
+.B quotatool
+(-u | -g) (-b | -i) -t TIME [-nv]
+.I filesystem
+.br
+.B quotatool
+[-hV]
+.br
+.SH DESCRIPTION
+.B quotatool
+is a tool for manipulating filesystem quotas.  Depending on the
+commandline options given, it can set hard or soft limits on block and
+inode usage, set and reset grace periods, for both users and (if your
+system supports this) groups.  The filesystem to set the quota on is
+given as the first (and only) non-option element, and it is either the
+block special file (i.e /dev/sda3) or the mount point (i.e. /home) for
+the filesystem.
+.SH OPTIONS
+.TP
+-u [uid]
+Set user quotas
+.TP
+-g [gid]
+Set group quotas
+.LP
+.IR uid
+and
+.IR gid
+are either the numerical ID of the user or group, or its
+name in the 
+.B /etc/passwd
+and
+.B /etc/group
+files.
+.TP
+-b
+Set block quotas [default]
+.TP
+-i
+Set inode quotas
+.LP
+The -b and -i  options are persistent -- they stay in effect until 
+they are overridden.
+.TP
+-R
+Only raise quotas, never lower. Makes sure you don't accidentally lower quotas for a user/group.
+.TP
+-t TIME
+Set the system-wide grace period to TIME.  TIME consists
+of an optional '-' or '+' character, a number, and optionally
+one of the following modifiers: "seconds", "minutes", "hours",
+"days", "weeks", or "months".  Unique abbreviations (e.g. "s",
+"mo") are also accepted. The default is "seconds".
+The argument should be preceded by -u|-g and -b|-i
+.TP
+-r
+Reset the grace period
+.TP 
+-l NUM
+Set hard limit to NUM
+.TP
+-q NUM
+Set soft limit (quota) to NUM
+.LP
+NUM consists of an optional '-' or '+' character, a
+number, and optionally one of the following modifiers:
+"MB", "kB", "bytes", or "blocks".  Unique abbreviations
+are also accepted.  The default is "blocks"
+.PP
+If +/- is supplied, the existing quota is
+increased or reduced by the specified amount.  
+.TP
+.I -d
+Dump quota info for user/group in a machine readable format:
+.IP
+                   |------- BLOCKS --------| |-------- FILES --------|
+.br
+.B uid/gid mountpoint current quota limit grace current quota limit grace
+.IP
+.B grace
+is the number of seconds from now until the grace time ends. May be
+negative = time already passed. When quota is not passed, grace is zero.
+.TP
+-n
+dry-run: show what would have been done but don't change anything.
+Use together with -v
+.TP
+-v
+Verbose output. Use twice or thrice for even more output (debugging)
+.TP
+.I -h
+Print a usage message to stdout and exit successfully
+.TP
+.I -V
+Print version information to stdout and exit successfully
+.SH FILESYSTEMS / FORMATS
+On Linux,
+.B quotatool
+works with both "old" and "new" + "generic" kernel-quota formats and also has
+support for quotas on XFS.
+.SH FILES
+.B quota.user
+, 
+.B quota.group
+(linux)
+.br
+.B quotas
+(solaris, ...) 
+.SH BUGS
+.PP
+Calling 
+.B quotatool
+with more than one -v option will cause a segfault on some systems.
+This will happen if vprintf (3) fails to check for NULL arguments.
+GNU libc doesn't have this problem, solaris libc does.
+.SH SEE ALSO
+.BR quota (1),
+.BR quotactl (2),
+.BR edquota (8),
+.BR quotacheck (8),
+.BR quotaon (8),
+.BR repquota (8)
