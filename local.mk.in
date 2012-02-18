@@ -41,6 +41,7 @@ includedir      :=   @includedir@
 oldincludedir   :=   @oldincludedir@
 sysconfdir      :=   @sysconfdir@
 datadir         :=   @datadir@
+datarootdir	:=   @datarootdir@
 localstatedir   :=   @localstatedir@
 sharedstatedir  :=   @sharedstatedir@
 
