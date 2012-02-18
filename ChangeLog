@@ -1,17 +1,69 @@
-1 Feb 2000
-   - Split to several sourcefiles + quotatool.h <Johan>
-   - Added autoconf etc (KDevelop did this for me...) <Johan>
-   - Changed flags.use_user  -> flags.usrquota <Johan>
-     --::--  flags.use_group -> flags.grpquota <Johan>
-   - Replaced all global variables with struct argdata_t <Johan>
-   - Added check for "usrquota" and "groupquota" in fstab <Mike>
-   - New README  <Mike>
-7 Feb 2000
-   - Additions/changes to README <Johan>
-   - Corrected typo in main.c (incorrect report when setting global
-     block grace period)
-   - A few formatting issues corrected.
-   - Replaced all tabs with spaces (3)
+28 Sep 2009 (1.4.11)
+	- Updated Makefile to honor the DESTDIR variable
+24 Sep 2007 (1.4.10)
+	- Fix for building on 64-bit systems
+	- Bugfix off-by-one-error in parsing loop devices (thanks Bas Zoetekouw)
+	- Bugfix commandline parsing with option -t
+	- Updated manpage and usage info
+20 Feb 2006 (1.4.9)
+	- Fixed a bug when fetching XFS quota for a user/group with no current usage/quota
+	  (thanks Francois Micaux - fmicaux@actilis.net)
+2 Sept 2005 (1.4.8)
+	- Timeparsing now defaults to seconds as the man-page states it should
+13 Jul 2004 (1.4.6)
+	- Bugfix detecting XFS on Linux under certain conditions
+7 Jul 2004 (1.4.5)
+	- Bugfix for solaris 9 and other systems with <sys/mnttab.h>
+2 Feb 2004 (1.4.4)
+	- Support for quota on loop-device (linux)
+30 Oct 2003 (1.4.3)
+	- bugfix (reset-code caused unnecessary quota_set())
+	- Added option "-R" (raise-only) to only raise, never lower quotas for uid/gid
+	- Updated manpage
+14 Oct 2003 (1.4.2)
+	- autoconf check for u_int64_t <Johan>
+	- corrections for solaris quota <Johan>
+7  Oct 2003 (1.4.1)
+	- Added "-d" option to dump quota info in machine readable format <Johan>
+27 Sep 2003 (1.4.0)
+	- Added support for new generic quota format found in later kernels (2.4.22 etc) (Johan)
+23 Apr 2003 (1.3.2)
+	- Extended checks for quotaformat to work with linux kernel >= 2.4.20 <Johan>
+30 Apr 2002 (1.3.0)
+	- support for XFS on Linux <Johan>
+	- try to use uint_64_t wherever appropriate <Johan>
+	- minor bugfixes/adjustments <Johan>
+25 Feb 2002 (1.2.1)
+	- support for old + new linux quota format <Johan>
+	- linux quota format detection at runtime <Johan>
+	- fixed setting global grace times with new linux quota format <Johan>
+	- quit using <linux/quota.h>, shipping our own header file instead <Johan>
+	- removed all memcpy():ing of quota structs, linux + solaris <Johan>
+	- several minor bugfixes <Johan>
+01 Nov 2001 (1.1.3)
+	- added support for linux 2.4 <Johan>
+	- fixed man page installation directory <Johan/Mike>
+29 Jun 2001 (1.1.2)
+	- added support for AIX <cagri coltekin>
+09 Mar 2001 (1.1.1)
+	- fixed segfault on 'quotatool -u' or 'quotatool -g' <Johan>
+	- fixed integer overflow in parse_size <Johan>
+03 Mar 2001 (1.1.0)
+	- fixed check against MAXQUOTAS in linux/quota.c
+03 Mar 2001 (1.1.0)
+	- fixed check against MAXQUOTAS in linux/quota.c
+03 Feb 2001 (1.1.alpha2)
+	- wrote a man page (in man/)
+	- removed usage info from README
+	- moved autoconf tools into tools/
+	- made some changes to the configuration process
+	- forward-ported the linux 2.4 fix from the 1.0 tree
+21 Jan 2001 (1.1.alpha1) [unreleased]
+	- branched from 1.0 code
+	- added support for solaris (UFS) quotas
+	- created src/linux and src/solaris directories
+	- made many small changes to make porting easier
+	- added --with-gnu-getopt option to configure
 15 Jan 2001 (1.0.beta1)
    - reorganized functions amongst files
    - added the '-n' switch
@@ -26,67 +78,17 @@
    - Started holy war: replaced spaces with tabs >:-)
    - lots of other stuff, I'm sure.  pretty much rewrote
      the whole thing from scratch.
-21 Jan 2001 (1.1.alpha1) [unreleased]
-	- branched from 1.0 code
-	- added support for solaris (UFS) quotas
-	- created src/linux and src/solaris directories
-	- made many small changes to make porting easier
-	- added --with-gnu-getopt option to configure
-03 Feb 2001 (1.1.alpha2)
-	- wrote a man page (in man/)
-	- removed usage info from README
-	- moved autoconf tools into tools/
-	- made some changes to the configuration process
-	- forward-ported the linux 2.4 fix from the 1.0 tree
-03 Mar 2001 (1.1.0)
-	- fixed check against MAXQUOTAS in linux/quota.c
-09 Mar 2001 (1.1.1)
-	- fixed segfault on 'quotatool -u' or 'quotatool -g' <Johan>
-	- fixed integer overflow in parse_size <Johan>
-29 Jun 2001 (1.1.2)
-	- added support for AIX <cagri coltekin>
-01 Nov 2001 (1.1.3)
-	- added support for linux 2.4 <Johan>
-	- fixed man page installation directory <Johan/Mike>
-25 Feb 2002 (1.2.1)
-	- support for old + new linux quota format <Johan>
-	- linux quota format detection at runtime <Johan>
-	- fixed setting global grace times with new linux quota format <Johan>
-	- quit using <linux/quota.h>, shipping our own header file instead <Johan>
-	- removed all memcpy():ing of quota structs, linux + solaris <Johan>
-	- several minor bugfixes <Johan>
-30 Apr 2002 (1.3.0)
-	- support for XFS on Linux <Johan>
-	- try to use uint_64_t wherever appropriate <Johan>
-	- minor bugfixes/adjustments <Johan>
-23 Apr 2003 (1.3.2)
-	- Extended checks for quotaformat to work with linux kernel >= 2.4.20 <Johan>
-27 Sep 2003 (1.4.0)
-	- Added support for new generic quota format found in later kernels (2.4.22 etc) (Johan)
-7  Oct 2003 (1.4.1)
-	- Added "-d" option to dump quota info in machine readable format <Johan>
-14 Oct 2003 (1.4.2)
-	- autoconf check for u_int64_t <Johan>
-	- corrections for solaris quota <Johan>
-30 Oct 2003 (1.4.3)
-	- bugfix (reset-code caused unnecessary quota_set())
-	- Added option "-R" (raise-only) to only raise, never lower quotas for uid/gid
-	- Updated manpage
-2 Feb 2004 (1.4.4)
-	- Support for quota on loop-device (linux)
-7 Jul 2004 (1.4.5)
-	- Bugfix for solaris 9 and other systems with <sys/mnttab.h>
-13 Jul 2004 (1.4.6)
-	- Bugfix detecting XFS on Linux under certain conditions
-2 Sept 2005 (1.4.8)
-	- Timeparsing now defaults to seconds as the man-page states it should
-20 Feb 2006 (1.4.9)
-	- Fixed a bug when fetching XFS quota for a user/group with no current usage/quota
-	  (thanks Francois Micaux - fmicaux@actilis.net)
-24 Sep 2007 (1.4.10)
-	- Fix for building on 64-bit systems
-	- Bugfix off-by-one-error in parsing loop devices (thanks Bas Zoetekouw)
-	- Bugfix commandline parsing with option -t
-	- Updated manpage and usage info
-28 Sep 2009 (1.4.11)
-	- Updated Makefile to honor the DESTDIR variable
+7 Feb 2000
+   - Additions/changes to README <Johan>
+   - Corrected typo in main.c (incorrect report when setting global
+     block grace period)
+   - A few formatting issues corrected.
+   - Replaced all tabs with spaces (3)
+1 Feb 2000
+   - Split to several sourcefiles + quotatool.h <Johan>
+   - Added autoconf etc (KDevelop did this for me...) <Johan>
+   - Changed flags.use_user  -> flags.usrquota <Johan>
+     --::--  flags.use_group -> flags.grpquota <Johan>
+   - Replaced all global variables with struct argdata_t <Johan>
+   - Added check for "usrquota" and "groupquota" in fstab <Mike>
+   - New README  <Mike>
