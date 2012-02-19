@@ -19,11 +19,9 @@
 #include "quota.h"
 #include "system.h"
 
-int main (int argc, char **argv) 
-{
+int main (int argc, char **argv) {
   u_int64_t block_sav, inode_sav;
   u_int64_t old_quota;
-  int ok;
   int id;
   time_t old_grace;
   argdata_t *argdata;
@@ -70,10 +68,11 @@ int main (int argc, char **argv)
      output_info ("");
      output_info ("%s Filesystem blocks quota limit grace files quota limit grace",
 		  argdata->id_type == QUOTA_USER ? "uid" : "gid");
-     //    this is confusing:
-     // 1. quota->block_used should really be called space_used or bytes_used
-     // 2. quota_blocks_used is actually kilobytes used
-     // 3. when dividing by 1024, we need to add one if there's a remainder
+
+     /*
+       Except on XFS, quota->block_used is bytes. Divide by 1024 to show kilobytes
+      */
+
      display_blocks_used = quota->block_used / 1024;
      if (quota->block_used % 1024 != 0) display_blocks_used += 1;
      printf("%d %s %llu %llu %llu %d %llu %llu %llu %d\n",
@@ -202,8 +201,7 @@ int main (int argc, char **argv)
 	quota->inode_used = quota->inode_soft - 1;
      }
      if ( ! argdata->noaction ) {
-	ok = quota_set (quota);
-	if ( ! ok ) {
+	if ( ! quota_set (quota) ) {
 	   exit (ERR_SYS);
 	}
      }     
@@ -217,8 +215,7 @@ int main (int argc, char **argv)
    */
   
   if ( ! argdata->noaction ) {
-    ok = quota_set (quota);
-    if ( ! ok ) {
+    if ( ! quota_set (quota) ) {
       exit (ERR_SYS);
     }
   }
