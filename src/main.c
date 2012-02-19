@@ -69,12 +69,9 @@ int main (int argc, char **argv) {
      output_info ("%s Filesystem blocks quota limit grace files quota limit grace",
 		  argdata->id_type == QUOTA_USER ? "uid" : "gid");
 
-     /*
-       Except on XFS, quota->block_used is bytes. Divide by 1024 to show kilobytes
-      */
-
-     display_blocks_used = quota->block_used / 1024;
-     if (quota->block_used % 1024 != 0) display_blocks_used += 1;
+     // quota->diskspace_used is bytes, at least on Linux (Aix?, Solaris?). Divide by 1024 to show kilobytes
+     display_blocks_used = quota->diskspace_used / 1024;
+     if (quota->diskspace_used % 1024 != 0) display_blocks_used += 1;
      printf("%d %s %llu %llu %llu %d %llu %llu %llu %d\n",
 	    id,
 	    argdata->qfile,
@@ -190,11 +187,11 @@ int main (int argc, char **argv) {
 
 
   if ( argdata->block_reset || argdata->inode_reset) {
-     block_sav = quota->block_used;
+     block_sav = quota->diskspace_used;
      inode_sav = quota->inode_used;
      if ( argdata->block_reset && ! argdata->noaction ) {
 	xfs_reset_grace(quota, GRACE_BLOCK);
-	quota->block_used = quota->block_soft - 1;
+	quota->diskspace_used = quota->block_soft - 1;
      }
      if ( argdata->inode_reset && ! argdata->noaction ) {
 	xfs_reset_grace(quota, GRACE_INODE);
@@ -205,7 +202,7 @@ int main (int argc, char **argv) {
 	   exit (ERR_SYS);
 	}
      }     
-     quota->block_used = block_sav;
+     quota->diskspace_used = block_sav;
      quota->inode_used = inode_sav;
   }
 

@@ -95,7 +95,7 @@ int quota_get (quota_t *myquota)
    */
   myquota->block_hard  = sysquota.dqb_bhardlimit;
   myquota->block_soft  = sysquota.dqb_bsoftlimit;
-  myquota->block_used  = sysquota.dqb_curblocks ;
+  myquota->diskspace_used  = sysquota.dqb_curblocks ;
   myquota->inode_hard  = sysquota.dqb_ihardlimit;
   myquota->inode_soft  = sysquota.dqb_isoftlimit;
   myquota->inode_used  = sysquota.dqb_curinodes ;
@@ -118,7 +118,7 @@ int quota_set (quota_t *myquota){
 
   sysquota.dqb_bhardlimit = myquota->block_hard;
   sysquota.dqb_bsoftlimit = myquota->block_soft;
-  sysquota.dqb_curblocks  = myquota->block_used;
+  sysquota.dqb_curblocks  = myquota->diskspace_used;
   sysquota.dqb_ihardlimit = myquota->inode_hard;
   sysquota.dqb_isoftlimit = myquota->inode_soft;
   sysquota.dqb_curinodes  = myquota->inode_used;

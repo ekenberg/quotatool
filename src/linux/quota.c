@@ -174,11 +174,7 @@ static int v1_quota_get (quota_t *myquota) {
   /* copy the linux-formatted quota info into our struct */
   myquota->block_hard  = sysquota.dqb_bhardlimit;
   myquota->block_soft  = sysquota.dqb_bsoftlimit;
-  // I believe this might be wrong:
-  // dqb_curblocks should probably be multiplied by the block size of the filesystem
-  // since myquota->block_used is really a byte-count...
-  // (yeah, must change the field name in the struct)
-  myquota->block_used  = sysquota.dqb_curblocks;
+  myquota->diskspace_used  = sysquota.dqb_curblocks;
   myquota->inode_hard  = sysquota.dqb_ihardlimit;
   myquota->inode_soft  = sysquota.dqb_isoftlimit;
   myquota->inode_used  = sysquota.dqb_curinodes;
@@ -207,7 +203,7 @@ static int v2_quota_get (quota_t *myquota) {
   /* copy the linux-formatted quota info into our struct */
   myquota->block_hard = sysquota.dqb_bhardlimit;
   myquota->block_soft = sysquota.dqb_bsoftlimit;
-  myquota->block_used = sysquota.dqb_curspace;
+  myquota->diskspace_used = sysquota.dqb_curspace;
   myquota->inode_hard = sysquota.dqb_ihardlimit;
   myquota->inode_soft = sysquota.dqb_isoftlimit;
   myquota->inode_used = sysquota.dqb_curinodes;
@@ -239,7 +235,7 @@ static int generic_quota_get (quota_t *myquota) {
   /* copy the linux-formatted quota info into our struct */
   myquota->block_hard = sysquota.dqb_bhardlimit;
   myquota->block_soft = sysquota.dqb_bsoftlimit;
-  myquota->block_used = sysquota.dqb_curspace;
+  myquota->diskspace_used = sysquota.dqb_curspace;
   myquota->inode_hard = sysquota.dqb_ihardlimit;
   myquota->inode_soft = sysquota.dqb_isoftlimit;
   myquota->inode_used = sysquota.dqb_curinodes;
@@ -278,16 +274,16 @@ static int xfs_quota_get(quota_t *myquota) {
       // but at this point of the code, whe know that this XFS has quotas.
       // We make the choice to produce a "0 0 0 0 0 0 0 0" line.
       if ( errno == ENOENT ) {
-         myquota->block_hard	= 0;
-         myquota->block_soft	= 0;
-         myquota->block_used	= 0;
-         myquota->inode_hard    = 0;
-         myquota->inode_soft    = 0;
-         myquota->inode_used    = 0;
-         myquota->block_grace	= 0;
-         myquota->inode_grace	= 0;
-         myquota->block_time	= 0;
-         myquota->inode_time	= 0;
+         myquota->block_hard 	 = 0;
+         myquota->block_soft	 = 0;
+         myquota->diskspace_used = 0;
+         myquota->inode_hard     = 0;
+         myquota->inode_soft     = 0;
+         myquota->inode_used     = 0;
+         myquota->block_grace	 = 0;
+         myquota->inode_grace	 = 0;
+         myquota->block_time	 = 0;
+         myquota->inode_time	 = 0;
          return 1;
       }
       output_error ("Failed fetching quotas: errno=%d, %s", errno, strerror(errno));
@@ -298,16 +294,16 @@ static int xfs_quota_get(quota_t *myquota) {
 		     myquota->_id, (caddr_t) &quotastat);
 
    /* copy the linux-xfs-formatted quota info into our struct */
-   myquota->block_hard	= sysquota.d_blk_hardlimit / block_diff;
-   myquota->block_soft	= sysquota.d_blk_softlimit / block_diff;
-   myquota->block_used	= sysquota.d_bcount / block_diff;
-   myquota->inode_hard  = sysquota.d_ino_hardlimit;
-   myquota->inode_soft  = sysquota.d_ino_softlimit;
-   myquota->inode_used  = sysquota.d_icount;
-   myquota->block_grace	= quotastat.qs_btimelimit;
-   myquota->inode_grace	= quotastat.qs_itimelimit;
-   myquota->block_time	= sysquota.d_btimer;
-   myquota->inode_time	= sysquota.d_itimer;
+   myquota->block_hard	=  sysquota.d_blk_hardlimit / block_diff;
+   myquota->block_soft	=  sysquota.d_blk_softlimit / block_diff;
+   myquota->diskspace_used = sysquota.d_bcount / block_diff * 1024; // XFS really uses blocks, all other formats in this file use bytes
+   myquota->inode_hard  =  sysquota.d_ino_hardlimit;
+   myquota->inode_soft  =  sysquota.d_ino_softlimit;
+   myquota->inode_used  =  sysquota.d_icount;
+   myquota->block_grace	=  quotastat.qs_btimelimit;
+   myquota->inode_grace	=  quotastat.qs_itimelimit;
+   myquota->block_time	=  sysquota.d_btimer;
+   myquota->inode_time	=  sysquota.d_itimer;
 
    return 1;
 }
@@ -358,7 +354,7 @@ static int generic_quota_set(quota_t *myquota) {
    /* copy our data into the linux dqblk */
    sysquota.dqb_bhardlimit = myquota->block_hard;
    sysquota.dqb_bsoftlimit = myquota->block_soft;
-   sysquota.dqb_curspace   = myquota->block_used;
+   sysquota.dqb_curspace   = myquota->diskspace_used;
    sysquota.dqb_ihardlimit = myquota->inode_hard;
    sysquota.dqb_isoftlimit = myquota->inode_soft;
    sysquota.dqb_curinodes  = myquota->inode_used;
@@ -397,7 +393,7 @@ static int v2_quota_set(quota_t *myquota) {
    /* copy our data into the linux dqblk */
    sysquota.dqb_bhardlimit = myquota->block_hard;
    sysquota.dqb_bsoftlimit = myquota->block_soft;
-   sysquota.dqb_curspace   = myquota->block_used;
+   sysquota.dqb_curspace   = myquota->diskspace_used;
    sysquota.dqb_ihardlimit = myquota->inode_hard;
    sysquota.dqb_isoftlimit = myquota->inode_soft;
    sysquota.dqb_curinodes  = myquota->inode_used;
@@ -436,7 +432,7 @@ static int v1_quota_set(quota_t *myquota) {
   /* copy our data into the linux dqblk */
   sysquota.dqb_bhardlimit = myquota->block_hard;
   sysquota.dqb_bsoftlimit = myquota->block_soft;
-  sysquota.dqb_curblocks  = myquota->block_used;
+  sysquota.dqb_curblocks  = myquota->diskspace_used;
   sysquota.dqb_ihardlimit = myquota->inode_hard;
   sysquota.dqb_isoftlimit = myquota->inode_soft;
   sysquota.dqb_curinodes  = myquota->inode_used;
@@ -464,7 +460,7 @@ static int xfs_quota_set(quota_t *myquota) {
    /* copy our data into the linux dqblk */
    sysquota.d_blk_hardlimit = myquota->block_hard * block_diff;
    sysquota.d_blk_softlimit = myquota->block_soft * block_diff;
-   sysquota.d_bcount	    = myquota->block_used * block_diff;
+   sysquota.d_bcount	    = myquota->diskspace_used * block_diff / 1024; // XFS really uses blocks, all other formats in this file use bytes
    sysquota.d_ino_hardlimit = myquota->inode_hard;
    sysquota.d_ino_softlimit = myquota->inode_soft;
    sysquota.d_icount        = myquota->inode_used;
@@ -603,7 +599,7 @@ int xfs_reset_grace(quota_t *myquota, int grace_type) {
 
    if (grace_type == GRACE_BLOCK) {
       output_debug("xfs_reset_grace: BLOCK");
-      temp_quota.block_hard = temp_quota.block_soft = temp_quota.block_used + 1;
+      temp_quota.block_hard = temp_quota.block_soft = temp_quota.diskspace_used + 1;
       if (xfs_quota_set(&temp_quota) && xfs_quota_set(myquota)) {
 	 return 1;
       }

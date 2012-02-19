@@ -53,7 +53,7 @@
 struct _quota_t {
    u_int64_t	block_hard;
    u_int64_t	block_soft;
-   u_int64_t	block_used;
+   u_int64_t	diskspace_used;
    u_int64_t	inode_hard;
    u_int64_t	inode_soft;
    u_int64_t	inode_used;
