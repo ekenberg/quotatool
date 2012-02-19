@@ -192,11 +192,11 @@ int main (int argc, char **argv) {
   if ( argdata->block_reset || argdata->inode_reset) {
      block_sav = quota->block_used;
      inode_sav = quota->inode_used;
-     if ( argdata->block_reset ) {
+     if ( argdata->block_reset && ! argdata->noaction ) {
 	xfs_reset_grace(quota, GRACE_BLOCK);
 	quota->block_used = quota->block_soft - 1;
      }
-     if ( argdata->inode_reset ) {
+     if ( argdata->inode_reset && ! argdata->noaction ) {
 	xfs_reset_grace(quota, GRACE_INODE);
 	quota->inode_used = quota->inode_soft - 1;
      }
@@ -219,7 +219,6 @@ int main (int argc, char **argv) {
       exit (ERR_SYS);
     }
   }
-
 
   quota_delete (quota);
   exit (0);
