@@ -31,6 +31,7 @@ int main (int argc, char **argv) {
   time_t old_grace;
   argdata_t *argdata;
   quota_t *quota;
+  char* tmpstr;
   
 
   
@@ -44,6 +45,11 @@ int main (int argc, char **argv) {
   /* initialize the id to use */
   if ( ! argdata->id ) {
     id = 0;
+  }
+  /* numerical uid starting with ':', don't check uid/gid against system users/groups */
+  else if ( strlen(argdata->id) > 1 && argdata->id[0] == ':' && isdigit(argdata->id[1]) ) {
+    argdata->id++; // skip leading ':'
+    id = strtol(argdata->id, &tmpstr, 10);
   }
   else if ( argdata->id_type == QUOTA_USER ) {
     id = (int) system_getuid (argdata->id);
