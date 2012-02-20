@@ -3668,6 +3668,18 @@ done
 test $FOUND_BSIZE || { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Using hard-coded default BLOCK_SIZE" >&5
 $as_echo "$as_me: WARNING: Using hard-coded default BLOCK_SIZE" >&2;}
 
+for ac_header in inttypes.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "inttypes.h" "ac_cv_header_inttypes_h" "$ac_includes_default"
+if test "x$ac_cv_header_inttypes_h" = x""yes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_INTTYPES_H 1
+_ACEOF
+
+fi
+
+done
+
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for an ANSI C-conforming const" >&5
 $as_echo_n "checking for an ANSI C-conforming const... " >&6; }

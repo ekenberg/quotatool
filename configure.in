@@ -83,6 +83,7 @@ dnl Check for pick-one header files (optional)
 AC_CHECK_HEADERS(std.h linux/fs.h, FOUND_BSIZE=1)
 test [$FOUND_BSIZE] || AC_MSG_WARN([Using hard-coded default BLOCK_SIZE])
 
+AC_CHECK_HEADERS(inttypes.h)
 dnl Check for typedefs, structures, and compiler characteristics.
 
 AC_C_CONST

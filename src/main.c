@@ -12,6 +12,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif
 
 #include "quotatool.h"
 #include "output.h"
@@ -72,17 +77,21 @@ int main (int argc, char **argv) {
      // quota->diskspace_used is bytes, at least on Linux (Aix?, Solaris?). Divide by 1024 to show kilobytes
      display_blocks_used = quota->diskspace_used / 1024;
      if (quota->diskspace_used % 1024 != 0) display_blocks_used += 1;
-     printf("%d %s %llu %llu %llu %d %llu %llu %llu %d\n",
+#ifdef HAVE_INTTYPES_H
+     printf("%d %s %" PRIu64 " %" PRIu64 " %" PRIu64 " %lu %" PRIu64 " %" PRIu64 " %" PRIu64 "%lu\n",
+#else
+     printf("%d %s %llu %llu %llu %d %llu %llu %llu %lu\n",
+#endif
 	    id,
 	    argdata->qfile,
 	    display_blocks_used,
 	    quota->block_soft,
 	    quota->block_hard,
-	    quota->block_time ? quota->block_time - now : 0,
+	    (unsigned long) quota->block_time ? quota->block_time - now : 0,
 	    quota->inode_used,
 	    quota->inode_soft,
 	    quota->inode_hard,
-	    quota->inode_time ? quota->inode_time - now : 0);
+	    (unsigned long) quota->inode_time ? quota->inode_time - now : 0);
      exit(0);
   }
 
