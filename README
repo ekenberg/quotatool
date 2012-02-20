@@ -1,21 +1,22 @@
 ===========================
-===========================
 ====     quotatool     ====
-===========================
 ===========================
 
 Quick Start
 ===========
 
-   ./configure
-   make
-   su -c "make install"
+    ./configure
+    make
+    sudo make install
 
 
 Usage
 =====
-   quotatool [ options ... ] filesystem
-   quotatool -u | -g  -t time -i | -r filesystem
+
+    quotatool { -u uid | -g gid } [ options ... ] filesystem
+    quotatool { -u uid | -g gid } -t time { -i | -b } filesystem
+    quotatool { -u uid | -g gid } -r filesystem
+    quotatool { -u uid | -g gid } -d filesystem
 
 The actual arguments accepted depends on your system.  Solaris,
 for example, doesn't support group quotas, so the -g option is
@@ -23,16 +24,24 @@ useless.   If your getopt() doesn't support optional arguments,
 then you always need to pass an argument to -u and -g.
 
 
-Options
-=======
+Arguments and Options
+=====================
+
+   -u uid  username or uid. See examples below how to handle non-existent uids
+   -g gid  groupname or gid. See examples below how to handle non-existent gids
+
    -b      set block limits
    -i      set inode limits
 
    -q n    set soft limit to n blocks/inodes
    -l n    set hard limit to n blocks/inodes
 
-   quotatool accepts the units Mb, Kb, bytes and blocks
-   to modify limit arguments. See examples below.
+   quotatool accepts the units Kb, Mb, Gb, Tb, bytes and blocks
+   to modify limit arguments. 
+   Use +/- to raise/lower quota by the specified amount.
+   See examples below.
+
+   -R      Raise only - makes sure you don't accidentally lower quotas for a user/group
 
    -t      time set global grace period to time.
            The time parameter consists of an optional
@@ -54,13 +63,18 @@ Options
 
    -V      show version
 
+   filesystem is either device name (eg /dev/sda1) or mountpoint (eg /home)
 
 Examples
 ========
 
-Set soft block limit to 15MB, hard block limit to 20MB for user mpg4 on /home:
+Set soft block limit to 800Mb, hard block limit to 1Gb for user mpg4 on /home:
 
-   quotatool -u mpg4 -bq 15M -l "20 Mb" /home
+   quotatool -u mpg4 -b -q 500M -l 1G /home
+
+Raise soft block limit by 100M for non-existent gid 12345 on /dev/loop3:
+
+   quotatool -g :12345 -b -q +100M /dev/loop3
 
 Set hard inode limit to 2000 for user johan on /var:
 
@@ -78,19 +92,33 @@ Restart inode grace period for user johan on root filesystem:
 Notes
 =====
 
-Grace periods are set on a "global per quotatype and filesystem" basis only.
+* Grace periods are set on a "global per quotatype and filesystem" basis only.
 Each quotatype (usrquota / grpquota) on each filesystem has two grace periods
 - one for block limits and one for inode limits.
 It is not possible to set different grace periods for users on the same filesystem.
 
+* Using non-existent uids/gids like ":12345" can be useful when configuring quotas on
+a mounted filesystem which is a separate system in it self, like when preparing an
+install image or repairing a filesystem from another installation.
+
+* Limit arguments can be specified in several ways, these are all equivalent:
+  1M
+  1m
+  1Mb
+  1 "Mb"
+
+* Use +/- to raise/lower quotas relative to current limits
+
+* Use -v (or -v -v) to see verbose/debug info when running commands
 
 Platforms and Filesystems
 =========================
 
 quotatool currently builds and works well on:
+
 -- Linux --
 Both old and new quota formats. 
-ext2, ext3, ReiserFS and XFS supported
+ext2, ext3, ext4, ReiserFS and XFS supported
 
 -- Solaris --
 

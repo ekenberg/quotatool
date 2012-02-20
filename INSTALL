@@ -1,5 +1,23 @@
+======================================================================
+Please note: quotatool is probably available for installation through
+your distributions package manager. You shouldn't have to build it
+from source.
 
-Please see the README for a quick introduction!
+See http://quotatool.ekenberg.se/index.php?node=download for
+installation instructions for common Linux distributions
+
+======================================================================
+However, if you do need to build it yourself, 
+this should work in 99% of all cases:
+
+   ./configure
+   make
+   (as root) make install
+
+Please see the README for more information.
+
+======================================================================
+These are the generic installation instructions from autoconf:
 
 Basic Installation
 ==================
