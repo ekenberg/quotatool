@@ -24,10 +24,10 @@ block special file (i.e /dev/sda3) or the mount point (i.e. /home) for
 the filesystem.
 .SH OPTIONS
 .TP
--u [uid]
+-u [[:]uid]
 Set user quotas
 .TP
--g [gid]
+-g [[:]gid]
 Set group quotas
 .LP
 .IR uid
@@ -38,7 +38,9 @@ name in the
 .B /etc/passwd
 and
 .B /etc/group
-files.
+files. Prefix
+.IR :
+allows using numerical uid/gid not present in /etc/passwd or /etc/group.
 .TP
 -b
 Set block quotas [default]
@@ -71,7 +73,7 @@ Set soft limit (quota) to NUM
 .LP
 NUM consists of an optional '-' or '+' character, a
 number, and optionally one of the following modifiers:
-"MB", "kB", "bytes", or "blocks".  Unique abbreviations
+"Kb", "Mb", "Gb", "Tb", "bytes", or "blocks".  Unique abbreviations
 are also accepted.  The default is "blocks"
 .PP
 If +/- is supplied, the existing quota is
