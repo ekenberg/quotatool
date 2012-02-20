@@ -65,7 +65,7 @@ $(prog): $(objs)
 men   :=   $(wildcard $(srcdir)/man/*)
 install: $(prog)
 	$(NORMAL_INSTALL)
-	$(INSTALL_PROGRAM) $(srcdir)/$(prog) $(DESTDIR)$(bindir)/$(prog)
+	$(INSTALL_PROGRAM) $(srcdir)/$(prog) $(DESTDIR)$(sbindir)/$(prog)
 	$(foreach man,$(men),$(INSTALL_DATA) $(man) $(DESTDIR)$(mandir)/man$(subst .,,$(suffix $(man)))/$(notdir $(man)))
 
 uninstall:
@@ -78,6 +78,7 @@ distdir    :=   $(package)-$(version)
 dist: distclean
 	mkdir ./.$(distdir)
 	cp -fR $(srcdir)/* ./.$(distdir)
+	rm -f ./.$(distdir)/*johan*
 	mv ./.$(distdir) ./$(distdir)
 	tar -zcvf ./$(distdir).tar.gz $(distdir)
 	rm -rf ./$(distdir)

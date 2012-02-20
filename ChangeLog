@@ -1,10 +1,14 @@
+
+	
+	- Install in sbindir (default = /usr/local/sbin), not bindir
+
 20 Feb 2012 (1.4.12)
 	- Add Gb and Tb multipliers for size-units
 	- Allow non-existent uid/gid by adding prefix ":"
 	- Fix 64-bit compile warnings
 	- Fix Debian bug #627733: 'Inconsistent units in -d output on XFS'
 	- Do not reset grace periods if option -n given
-	- Mov to Github (https://github.com/ekenberg/quotatool)
+	- Move to Github (https://github.com/ekenberg/quotatool)
 	- Better documentation, more examples, cleaned up AUTHORS/ChangeLog
 28 Sep 2009 (1.4.11)
 	- Updated Makefile to honor the DESTDIR variable
