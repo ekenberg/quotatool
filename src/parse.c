@@ -398,10 +398,10 @@ time_t parse_timespan (time_t orig, char *string)
 
 
 #define BYTE  1
-#define KILO  1024
-#define MEGA  1024*KILO
-#define GIGA  1024*MEGA
-#define TERA  1024*GIGA
+#define KILO  1024ul
+#define MEGA  1024ul * KILO
+#define GIGA  1024ul * MEGA
+#define TERA  1024ul * GIGA
 /*
  * parse_size
  * understands Kb, Mb, Gb, Tb, bytes, and disk blocks
@@ -409,8 +409,8 @@ time_t parse_timespan (time_t orig, char *string)
  */
 u_int64_t parse_size (u_int64_t orig, char *string) {
   char *cp;
-  u_int64_t blocks;
-  uint count, unit;
+  u_int64_t blocks, unit;
+  uint count;
   char op;
 
   op = '\0';
