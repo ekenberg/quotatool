@@ -400,9 +400,11 @@ time_t parse_timespan (time_t orig, char *string)
 #define BYTE  1
 #define KILO  1024
 #define MEGA  1024*KILO
+#define GIGA  1024*MEGA
+#define TERA  1024*GIGA
 /*
  * parse_size
- * understands Kb, Mb, bytes, and disk blocks
+ * understands Kb, Mb, Gb, Tb, bytes, and disk blocks
  * returns the number of bytes represented
  */
 u_int64_t parse_size (u_int64_t orig, char *string) {
@@ -439,6 +441,12 @@ u_int64_t parse_size (u_int64_t orig, char *string) {
   }
   else if ( ! strncasecmp(cp, "m", 1) ) {
     unit = MEGA;
+  }
+  else if ( ! strncasecmp(cp, "g", 1) ) {
+    unit = GIGA;
+  }
+  else if ( ! strncasecmp(cp, "t", 1) ) {
+    unit = TERA;
   }
   else {      // default to blocks
     unit = BLOCK_SIZE;
