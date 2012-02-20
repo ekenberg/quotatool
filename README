@@ -27,8 +27,9 @@ then you always need to pass an argument to -u and -g.
 Arguments and Options
 =====================
 
-   -u uid  username or uid. See examples below how to handle non-existent uids
-   -g gid  groupname or gid. See examples below how to handle non-existent gids
+   -u uid  username or uid. 
+   -g gid  groupname or gid. 
+      	   See examples below how to handle non-existent uid/gid
 
    -b      set block limits
    -i      set inode limits
