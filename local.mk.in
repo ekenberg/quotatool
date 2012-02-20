@@ -34,6 +34,7 @@ sbindir         :=   @sbindir@
 libdir          :=   @libdir@
 libexecdir      :=   @libexecdir@
 
+datarootdir	:=   @datarootdir@
 mandir          :=   @mandir@
 infodir         :=   @infodir@
 
@@ -41,7 +42,6 @@ includedir      :=   @includedir@
 oldincludedir   :=   @oldincludedir@
 sysconfdir      :=   @sysconfdir@
 datadir         :=   @datadir@
-datarootdir	:=   @datarootdir@
 localstatedir   :=   @localstatedir@
 sharedstatedir  :=   @sharedstatedir@
 
