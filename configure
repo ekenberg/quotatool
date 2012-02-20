@@ -2183,14 +2183,14 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 
-PATCHLEVEL=11
+PATCHLEVEL=12
 
 cat >>confdefs.h <<_ACEOF
 #define PATCHLEVEL "$PATCHLEVEL"
 _ACEOF
 
 
-COPYRIGHT_NOTICE="Copyright (c) 1999-2009 Mike Glover / Johan Ekenberg"
+COPYRIGHT_NOTICE="Copyright (c) 1999-2012 Mike Glover / Johan Ekenberg"
 cat >>confdefs.h <<_ACEOF
 #define COPYRIGHT_NOTICE "$COPYRIGHT_NOTICE"
 _ACEOF
