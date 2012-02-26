@@ -75,12 +75,13 @@ struct _quota_t {
 
 typedef struct _quota_t quota_t;
 
-quota_t *   quota_new     (int q_type, int id, char *device);
-void        quota_delete  (quota_t *myquota);
+quota_t *   quota_new      (int q_type, int id, char *device);
+void        quota_delete   (quota_t *myquota);
 
-int         quota_get     (quota_t *myquota);
-int         quota_set     (quota_t *myquota);
+int         quota_get      (quota_t *myquota);
+int         quota_set      (quota_t *myquota);
 
+int         xfs_reset_grace(quota_t *myquota, int grace_type);
 
 
 #endif /* INCLUDE_QUOTATOOL_QUOTA */
