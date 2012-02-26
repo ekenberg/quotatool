@@ -45,7 +45,6 @@ static int generic_quota_get(quota_t *);
 static int generic_quota_set(quota_t *);
 static int xfs_quota_get(quota_t *);
 static int xfs_quota_set(quota_t *);
-int xfs_reset_grace(quota_t *, int);
 
 quota_t *quota_new (int q_type, int id, char *fs_spec)
 {

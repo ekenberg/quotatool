@@ -42,9 +42,7 @@ struct mntent {
 
 #include <sys/types.h>
 
-/*
 #include "output.h"
-*/
 #include "quotatool.h"
 #include "system.h"
 

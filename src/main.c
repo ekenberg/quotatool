@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #ifdef HAVE_INTTYPES_H
 #include <inttypes.h>
@@ -138,9 +139,6 @@ int main (int argc, char **argv) {
   if ( argdata->block_hard ) {
     old_quota = quota->block_hard;
     quota->block_hard = parse_size (old_quota, argdata->block_hard);
-    if ( quota->block_hard < 0 ) {
-      exit (ERR_ARG);
-    }
     if ( argdata->raise_only && quota->block_hard <= old_quota) {
        output_info ("New block quota not higher than current, won't change");
        quota->block_hard = old_quota;
@@ -151,9 +149,6 @@ int main (int argc, char **argv) {
   if ( argdata->block_soft ) {
     old_quota = quota->block_soft;
     quota->block_soft= parse_size (old_quota, argdata->block_soft);
-    if ( quota->block_soft < 0 ) {
-      exit (ERR_ARG);
-    }
     if ( argdata->raise_only && quota->block_soft <= old_quota) {
        output_info ("New block soft limit not higher than current, won't change");
        quota->block_soft = old_quota;
@@ -164,9 +159,6 @@ int main (int argc, char **argv) {
   if ( argdata->inode_hard ) {
     old_quota = quota->inode_hard;
     quota->inode_hard = parse_size (old_quota, argdata->inode_hard);
-    if ( quota->inode_hard < 0 ) {
-      exit (ERR_ARG);
-    }
     if ( argdata->raise_only && quota->inode_hard <= old_quota) {
        output_info ("New inode quota not higher than current, won't change");
        quota->inode_hard = old_quota;
@@ -177,9 +169,6 @@ int main (int argc, char **argv) {
   if ( argdata->inode_soft ) {
     old_quota = quota->inode_soft;
     quota->inode_soft = parse_size (old_quota, argdata->inode_soft);
-    if ( quota->inode_soft < 0 ) {
-      exit (ERR_ARG);
-    }
     if ( argdata->raise_only && quota->inode_soft <= old_quota) {
        output_info ("New inode soft limit not higher than current, won't change");
        quota->inode_soft = old_quota;

@@ -21,8 +21,6 @@
 #include "quota.h"
 #include "quotatool.h"
 
-int xfs_reset_grace(quota_t *, int);
-
 quota_t *quota_new (int q_type, int id, char *fs_spec)
 {
   quota_t *myquota;

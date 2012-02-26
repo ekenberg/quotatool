@@ -29,8 +29,6 @@
 
 #define QUOTAFILE "quotas"
 
-int xfs_reset_grace(quota_t *, int);
-
 inline quota_t *quota_new (int q_type, int id, char *fs_spec) {
   quota_t *myquota;
   fs_t *fs;
