@@ -353,7 +353,6 @@ time_t parse_timespan (time_t orig, char *string)
     output_error ("Invalid format: %s", string);
     return -1;
   }
-  exit (ERR_ARG);
   
   /* remove whitespace */
   while ( strchr(WHITESPACE, *cp) ) cp++;
