@@ -85,7 +85,7 @@ int main (int argc, char **argv) {
      display_blocks_used = quota->diskspace_used / 1024;
      if (quota->diskspace_used % 1024 != 0) display_blocks_used += 1;
 #ifdef HAVE_INTTYPES_H
-     printf("%d %s %" PRIu64 " %" PRIu64 " %" PRIu64 " %lu %" PRIu64 " %" PRIu64 " %" PRIu64 "%lu\n",
+     printf("%d %s %" PRIu64 " %" PRIu64 " %" PRIu64 " %lu %" PRIu64 " %" PRIu64 " %" PRIu64 " %lu\n",
 #else
      printf("%d %s %llu %llu %llu %d %llu %llu %llu %lu\n",
 #endif
