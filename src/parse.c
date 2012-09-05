@@ -411,7 +411,7 @@ time_t parse_timespan (time_t orig, char *string)
 u_int64_t parse_size (u_int64_t orig, char *string) {
   char *cp;
   u_int64_t blocks, unit;
-  u_int64_t count;
+  double count;
   char op;
 
   op = '\0';
@@ -421,17 +421,12 @@ u_int64_t parse_size (u_int64_t orig, char *string) {
     string++;
   }
 
-  /* We don't support floating point input (yet) */
-  if (strchr(string, '.') != NULL) {
-     output_error("Floating point input not supported: (%s)", string);
-     exit(ERR_ARG);
-  }
-
   /* get the number */
-  count = strtoll(string, &cp, 10);
-  if (cp == string) {      // No numeric argument
+  count = strtod(string, &cp);
+  if (count == 0 && string == cp) {      // No numeric argument
     return orig;
   }
+
   /* negative sizes make no sense */
   if (count<0)
   {
