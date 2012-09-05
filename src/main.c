@@ -173,7 +173,7 @@ int main (int argc, char **argv) {
        output_info ("New inode soft limit not higher than current, won't change");
        quota->inode_soft = old_quota;
     }
-    output_info ("%-14s %-16llu %-16llu", "inode_soft:", old_quota, quota->inode_soft);
+    output_info ("%-14s %-16llu %-16llu", "inode soft:", old_quota, quota->inode_soft);
   }
 
 
