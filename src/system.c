@@ -48,7 +48,7 @@ struct mntent {
 
 
 
-/* 
+/*
  * system_getfs
  * find and verify the device file for
  * a given filesystem
@@ -72,7 +72,7 @@ fs_t *system_getfs (char *fs_spec) {
 
 
 #if HAVE_SYS_MNTCTL_H /* AIX, we are again in trouble. */
-  /* first mntctl call is only for getting the size of 
+  /* first mntctl call is only for getting the size of
    * vmnt array. is there a better way? */
   vmnt_retval = mntctl (MCTL_QUERY, sizeof(int), (char*)&vmnt_size);
   if (vmnt_retval != -1) {
@@ -102,7 +102,7 @@ fs_t *system_getfs (char *fs_spec) {
 
   /* loop through mtab until we get a match */
   do {
-    
+
     /* read the next entry */
 #if HAVE_SYS_MNTTAB_H
     int retval;
@@ -112,9 +112,9 @@ fs_t *system_getfs (char *fs_spec) {
     current_fs=getmntent(etc_mtab);
     if ( ! current_fs ) {
 #elif HAVE_SYS_MNTCTL_H /* AIX, we are again in trouble. */
-   current_fs->mnt_special = 
+   current_fs->mnt_special =
 	(char*)vmnt + (vmnt->vmt_data[VMT_OBJECT].vmt_off);
-   current_fs->mnt_mountp = 
+   current_fs->mnt_mountp =
 	(char*)vmnt + (vmnt->vmt_data[VMT_STUB].vmt_off);
    current_fs->vmt_flags = vmnt->vmt_flags;
    vmnt = (struct vmount*) ((char*)vmnt + vmnt->vmt_length);
@@ -123,9 +123,15 @@ fs_t *system_getfs (char *fs_spec) {
       output_error ("Filesystem %s does not exist", fs_spec);
       return NULL;
     }
-    
+
     output_debug ("Checking device '%s', mounted at '%s'",
 		  current_fs->mnt_special, current_fs->mnt_mountp);
+
+    /* Ignore 'rootfs' if looking for mountpoint '/' - created and mounted by Linux initramfs */
+    if (strcmp("/", fs_spec) == 0 && strcmp(current_fs->mnt_special, "rootfs") == 0) {
+        output_debug ("Ignoring initramfs 'rootfs'\n");
+        continue;
+    }
 
     /* does the name given match the mount pt or device file ? */
     if ( ! strcmp(current_fs->mnt_special, fs_spec)
@@ -161,7 +167,7 @@ fs_t *system_getfs (char *fs_spec) {
 	}
       }
       else {
-#endif /* HAVE_MNTENT_H */	
+#endif /* HAVE_MNTENT_H */
       strncpy (ent->device, current_fs->mnt_special, PATH_MAX-1);
       strncpy (ent->mount_pt, current_fs->mnt_mountp, PATH_MAX-1);
 #if HAVE_MNTENT_H
@@ -171,7 +177,7 @@ fs_t *system_getfs (char *fs_spec) {
       continue;
     }
 
-  } while ( ! done ) ;  
+  } while ( ! done ) ;
 
 
   /* can we write to the device? */
@@ -181,7 +187,7 @@ fs_t *system_getfs (char *fs_spec) {
     output_error ("Filesystem %s is mounted read-only\n", fs_spec);
     free(current_fs);
     free(vmnt_buffer);
-#else 
+#else
   if ( hasmntopt(current_fs, "ro") ) {
     output_error ("Filesystem %s is mounted read-only\n", fs_spec);
     endmntent (etc_mtab);
@@ -194,7 +200,7 @@ fs_t *system_getfs (char *fs_spec) {
 #if HAVE_SYS_MNTCTL_H
   free(current_fs);
   free(vmnt_buffer);
-#else 
+#else
   endmntent (etc_mtab);
 #endif
   return ent;
@@ -212,12 +218,12 @@ uid_t system_getuid (char *user) {
   char *temp_str;
   /* seach by name first */
    pwent = getpwnam (user);
- 
+
    if ( pwent == NULL ) {
 
      /* maybe we were given a numerical id */
      uid = strtol(user, &temp_str, 10);
-     pwent = getpwuid ((uid_t) uid); 
+     pwent = getpwuid ((uid_t) uid);
      if ( (user == temp_str) || ( pwent == NULL ) ) {
        output_error ("User %s does not exist\n", user);
        return -1;
@@ -233,7 +239,7 @@ gid_t system_getgid (char *group) {
   struct group  *grent;
   int gid;
   char *temp_str;
-  
+
   /* check for group name first */
   grent = getgrnam (group);
   if ( grent == NULL ) {
@@ -245,6 +251,6 @@ gid_t system_getgid (char *group) {
 	return (gid_t) -1;
       }
   }
-  output_info ("group '%s' has gid %d", group, grent->gr_gid);  
+  output_info ("group '%s' has gid %d", group, grent->gr_gid);
   return (grent->gr_gid);
 }
