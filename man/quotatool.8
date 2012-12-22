@@ -1,4 +1,4 @@
-.TH QUOTATOOL 8 "1999 - 2012" "version 1.4.12"
+.TH QUOTATOOL 8 "1999 - 2012" "version 1.4.13"
 .SH NAME
 quotatool \- manipulate filesystem quotas
 .SH SYNOPSIS
@@ -34,7 +34,7 @@ Set group quotas
 and
 .IR gid
 are either the numerical ID of the user or group, or its
-name in the 
+name in the
 .B /etc/passwd
 and
 .B /etc/group
@@ -48,7 +48,7 @@ Set block quotas [default]
 -i
 Set inode quotas
 .LP
-The -b and -i  options are persistent -- they stay in effect until 
+The -b and -i  options are persistent -- they stay in effect until
 they are overridden.
 .TP
 -R
@@ -64,20 +64,20 @@ The argument should be preceded by -u|-g and -b|-i
 .TP
 -r
 Reset the grace period
-.TP 
+.TP
 -l NUM
 Set hard limit to NUM
 .TP
 -q NUM
 Set soft limit (quota) to NUM
 .LP
-NUM consists of an optional '-' or '+' character, a
-number, and optionally one of the following modifiers:
+NUM consists of an optional '-' or '+' character, a number (integer or floating point),
+and optionally one of the following modifiers:
 "Kb", "Mb", "Gb", "Tb", "bytes", or "blocks".  Unique abbreviations
 are also accepted.  The default is "blocks"
 .PP
 If +/- is supplied, the existing quota is
-increased or reduced by the specified amount.  
+increased or reduced by the specified amount.
 .TP
 .I -d
 Dump quota info for user/group in a machine readable format:
@@ -109,15 +109,15 @@ works with both "old" and "new" + "generic" kernel-quota formats and also has
 support for quotas on XFS.
 .SH FILES
 .B quota.user
-, 
+,
 .B quota.group
 (linux)
 .br
 .B quotas
-(solaris, ...) 
+(solaris, ...)
 .SH BUGS
 .PP
-Calling 
+Calling
 .B quotatool
 with more than one -v option will cause a segfault on some systems.
 This will happen if vprintf (3) fails to check for NULL arguments.

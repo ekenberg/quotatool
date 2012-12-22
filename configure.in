@@ -1,3 +1,11 @@
+dnl Main version settings:
+MAJOR_VERSION=1
+MINOR_VERSION=4
+PATCHLEVEL=13
+COPYRIGHT_NOTICE="Copyright (c) 1999-2012 Mike Glover / Johan Ekenberg"
+
+WWW_URL="http://quotatool.ekenberg.se"
+
 dnl Process this file with autoconf to produce a configure script.
 
 AC_INIT(src/main.c)
@@ -7,26 +15,21 @@ AC_CONFIG_AUX_DIR(tools)
 
 dnl Set program, version info
 
-PROGNAME=quotatool   
+PROGNAME=quotatool
 AC_SUBST(PROGNAME)
 AC_DEFINE_UNQUOTED(PROGNAME, "$PROGNAME")
 
-MAJOR_VERSION=1      
 AC_SUBST(MAJOR_VERSION)
 AC_DEFINE_UNQUOTED(MAJOR_VERSION, $MAJOR_VERSION)
 
-MINOR_VERSION=4
 AC_SUBST(MINOR_VERSION)
 AC_DEFINE_UNQUOTED(MINOR_VERSION, $MINOR_VERSION)
 
-PATCHLEVEL=12
 AC_SUBST(PATCHLEVEL)
 AC_DEFINE_UNQUOTED(PATCHLEVEL, "$PATCHLEVEL")
 
-COPYRIGHT_NOTICE="Copyright (c) 1999-2012 Mike Glover / Johan Ekenberg"
 AC_DEFINE_UNQUOTED(COPYRIGHT_NOTICE, "$COPYRIGHT_NOTICE")
 
-WWW_URL="http://quotatool.ekenberg.se"
 AC_DEFINE_UNQUOTED(WWW_URL, "$WWW_URL")
 
 dnl get the system type (for the makefile)

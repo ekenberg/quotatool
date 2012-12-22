@@ -27,8 +27,8 @@ then you always need to pass an argument to -u and -g.
 Arguments and Options
 =====================
 
-   -u uid  username or uid. 
-   -g gid  groupname or gid. 
+   -u uid  username or uid.
+   -g gid  groupname or gid.
       	   See examples below how to handle non-existent uid/gid
 
    -b      set block limits
@@ -38,16 +38,17 @@ Arguments and Options
    -l n    set hard limit to n blocks/inodes
 
    quotatool accepts the units Kb, Mb, Gb, Tb, bytes and blocks
-   to modify limit arguments. 
+   to modify limit arguments.
    Use +/- to raise/lower quota by the specified amount.
+   n can be integer or floating point
    See examples below.
 
    -R      Raise only - makes sure you don't accidentally lower quotas for a user/group
 
    -t      time set global grace period to time.
            The time parameter consists of an optional
-           '+' or '-' modifier, a  number, and one of: 
-           'sec', 'min', 'hour', 'day', 'week', and 
+           '+' or '-' modifier, a  number, and one of:
+           'sec', 'min', 'hour', 'day', 'week', and
            'month'.  If a +/- modifier is present, the
            current quota will be increased/reduced by
            the amount specified
@@ -69,9 +70,9 @@ Arguments and Options
 Examples
 ========
 
-Set soft block limit to 800Mb, hard block limit to 1Gb for user mpg4 on /home:
+Set soft block limit to 800Mb, hard block limit to 1.2 Gb for user mpg4 on /home:
 
-   quotatool -u mpg4 -b -q 500M -l 1G /home
+   quotatool -u mpg4 -b -q 800M -l 1.2G /home
 
 Raise soft block limit by 100M for non-existent gid 12345 on /dev/loop3:
 
@@ -84,7 +85,7 @@ Set hard inode limit to 2000 for user johan on /var:
 Set the global block grace period to one week on /home:
 
    quotatool -u  -b -t "1 week" /home
-   
+
 Restart inode grace period for user johan on root filesystem:
 
    quotatool -u johan -i -r /
@@ -118,7 +119,7 @@ Platforms and Filesystems
 quotatool currently builds and works well on:
 
 -- Linux --
-Both old and new quota formats. 
+Both old and new quota formats.
 ext2, ext3, ext4, ReiserFS and XFS supported
 
 -- Solaris --

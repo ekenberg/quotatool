@@ -1,6 +1,9 @@
-
-	
+22 Dec 2012 (1.4.13)
 	- Install in sbindir (default = /usr/local/sbin), not bindir
+	- Accept floating point input for sizes, eg 1.01Tb
+	- Fix parsing of large integers (very large filesystems)
+	- Fix typo in machine format
+	- Fix some compile warnings
 
 20 Feb 2012 (1.4.12)
 	- Add Gb and Tb multipliers for size-units
@@ -82,7 +85,7 @@
    - rewrote output functions
    - rewrote most of main()
    - moved to a two-pass parse.
-   - it's now possible to use the -t flag without -[ug] 0 
+   - it's now possible to use the -t flag without -[ug] 0
    - Switched from reading /etc/fstab to /etc/mtab
    - removed check for *quota when reading /etc/mtab
    - added a second level of verbosity (-v -v)
