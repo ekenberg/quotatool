@@ -22,7 +22,7 @@ dir        :=   $(srcdir)
 
 # these get built by the included dir.mk's
 dirs       :=   .
-srcs       := 
+srcs       :=
 libs       :=
 inc        :=
 auto       :=   $(wildcard $(dir)/*.in)
@@ -57,7 +57,7 @@ subdirs    :=   src
 
 # compile the program (and the objects)
 all: $(prog)
-$(prog): $(objs) 
+$(prog): $(objs)
 	$(CC) -o $(prog) $(objs) $(libs) $(CFLAGS)
 
 
@@ -77,23 +77,24 @@ uninstall:
 distdir    :=   $(package)-$(version)
 dist: distclean
 	mkdir ./.$(distdir)
-	cp -fR $(srcdir)/* ./.$(distdir)
-	rm -f ./.$(distdir)/*johan*
+	cp -fR $(srcdir)/* ./.$(distdir) || true
+	rm -rf ./.$(distdir)/*johan*
+	rm -rf ./.$(distdir)/FILESYSTEMS
 	mv ./.$(distdir) ./$(distdir)
 	tar -zcvf ./$(distdir).tar.gz $(distdir)
 	rm -rf ./$(distdir)
 
 
 cfixes     :=   ~ .o
-clean: 
+clean:
 	rm -f $(foreach sfix,$(cfixes),$(addsuffix /*$(sfix),$(dirs)))
 	rm -f $(addsuffix /core,$(dirs))
-	rm -f $(prog) 
+	rm -f $(prog)
 	rm -f $(foreach sfix,$(cfixes),$(addsuffix /*$(sfix),$(DESTDIR)$(srcdir)/man))
 	rm -f $(foreach sfix,$(cfixes),$(addsuffix /*$(sfix),$(DESTDIR)$(srcdir)/tools))
 
 
-dcfixes    :=   .d  
+dcfixes    :=   .d
 distclean: clean
 	rm -f $(foreach sfix,$(dcfixes),$(addsuffix /*$(sfix),$(dirs)))
 	rm -f $(filter-out %/configure,$(auto:.in=))
@@ -118,6 +119,6 @@ distclean: clean
 
 
 # create shared library from a collection of object
-%.so: 
+%.so:
 	$(CC) -shared -Xlinker -x -o $@ $^ $(libs)
 

@@ -1,20 +1,20 @@
-dnl Main version settings:
-MAJOR_VERSION=1
-MINOR_VERSION=4
-PATCHLEVEL=13
-COPYRIGHT_NOTICE="Copyright (c) 1999-2012 Mike Glover / Johan Ekenberg"
-
-WWW_URL="http://quotatool.ekenberg.se"
-
 dnl Process this file with autoconf to produce a configure script.
 
 AC_INIT(src/main.c)
 AC_CONFIG_AUX_DIR(tools)
 
 
+dnl Main program/version info settings:
+dnl ---------------------------------------------------------------------------
+MAJOR_VERSION=1
+MINOR_VERSION=4
+PATCHLEVEL=13
+COPYRIGHT_NOTICE="Copyright (c) 1999-2012 Mike Glover / Johan Ekenberg"
+WWW_URL="http://quotatool.ekenberg.se"
+
+dnl ---------------------------------------------------------------------------
 
 dnl Set program, version info
-
 PROGNAME=quotatool
 AC_SUBST(PROGNAME)
 AC_DEFINE_UNQUOTED(PROGNAME, "$PROGNAME")

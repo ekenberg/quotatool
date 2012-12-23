@@ -2186,6 +2186,11 @@ ac_configure="$SHELL $ac_aux_dir/configure"  # Please don't use this var.
 
 
 
+MAJOR_VERSION=1
+MINOR_VERSION=4
+PATCHLEVEL=13
+COPYRIGHT_NOTICE="Copyright (c) 1999-2012 Mike Glover / Johan Ekenberg"
+WWW_URL="http://quotatool.ekenberg.se"
 
 
 PROGNAME=quotatool
@@ -2195,34 +2200,29 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 
-MAJOR_VERSION=1
 
 cat >>confdefs.h <<_ACEOF
 #define MAJOR_VERSION $MAJOR_VERSION
 _ACEOF
 
 
-MINOR_VERSION=4
 
 cat >>confdefs.h <<_ACEOF
 #define MINOR_VERSION $MINOR_VERSION
 _ACEOF
 
 
-PATCHLEVEL=13
 
 cat >>confdefs.h <<_ACEOF
 #define PATCHLEVEL "$PATCHLEVEL"
 _ACEOF
 
 
-COPYRIGHT_NOTICE="Copyright (c) 1999-2012 Mike Glover / Johan Ekenberg"
 cat >>confdefs.h <<_ACEOF
 #define COPYRIGHT_NOTICE "$COPYRIGHT_NOTICE"
 _ACEOF
 
 
-WWW_URL="http://quotatool.ekenberg.se"
 cat >>confdefs.h <<_ACEOF
 #define WWW_URL "$WWW_URL"
 _ACEOF
