@@ -33,9 +33,9 @@ int main (int argc, char **argv) {
   argdata_t *argdata;
   quota_t *quota;
   char* tmpstr;
-  
 
-  
+
+
   /* parse commandline and fill argdata */
   argdata = parse_commandline (argc, argv);
   if ( ! argdata ) {
@@ -61,14 +61,14 @@ int main (int argc, char **argv) {
   if ( id < 0 ) {
     exit (ERR_ARG);
   }
-  
-  
+
+
   /* get the quota info */
   quota = quota_new (argdata->id_type, id, argdata->qfile);
   if ( ! quota ) {
     exit (ERR_SYS);
   }
-  
+
   if ( ! quota_get(quota) ) {
     exit (ERR_SYS);
   }
@@ -129,16 +129,16 @@ int main (int argc, char **argv) {
 
 
 
-  /* 
+  /*
    *  FINISH setting global grace periods
    *  BEGIN  preparing to set quotas
-   */  
+   */
 
 
   /* update quota info from the command line */
   if ( argdata->block_hard ) {
     old_quota = quota->block_hard;
-    quota->block_hard = parse_size (old_quota, argdata->block_hard);
+    quota->block_hard = parse_size (old_quota, argdata->block_hard, PARSE_BLOCKS);
     if ( argdata->raise_only && quota->block_hard <= old_quota) {
        output_info ("New block quota not higher than current, won't change");
        quota->block_hard = old_quota;
@@ -148,7 +148,7 @@ int main (int argc, char **argv) {
 
   if ( argdata->block_soft ) {
     old_quota = quota->block_soft;
-    quota->block_soft= parse_size (old_quota, argdata->block_soft);
+    quota->block_soft= parse_size (old_quota, argdata->block_soft, PARSE_BLOCKS);
     if ( argdata->raise_only && quota->block_soft <= old_quota) {
        output_info ("New block soft limit not higher than current, won't change");
        quota->block_soft = old_quota;
@@ -158,7 +158,7 @@ int main (int argc, char **argv) {
 
   if ( argdata->inode_hard ) {
     old_quota = quota->inode_hard;
-    quota->inode_hard = parse_size (old_quota, argdata->inode_hard);
+    quota->inode_hard = parse_size (old_quota, argdata->inode_hard, PARSE_INODES);
     if ( argdata->raise_only && quota->inode_hard <= old_quota) {
        output_info ("New inode quota not higher than current, won't change");
        quota->inode_hard = old_quota;
@@ -168,7 +168,7 @@ int main (int argc, char **argv) {
 
   if ( argdata->inode_soft ) {
     old_quota = quota->inode_soft;
-    quota->inode_soft = parse_size (old_quota, argdata->inode_soft);
+    quota->inode_soft = parse_size (old_quota, argdata->inode_soft, PARSE_INODES);
     if ( argdata->raise_only && quota->inode_soft <= old_quota) {
        output_info ("New inode soft limit not higher than current, won't change");
        quota->inode_soft = old_quota;
@@ -177,10 +177,10 @@ int main (int argc, char **argv) {
   }
 
 
-  /* 
+  /*
    * FINISH preparing to set quotas
    *  BEGIN  resetting grace periods
-   *   
+   *
    * to "reset" the grace period, we really
    * set the current used {blocks,inodes}
    * to the soft limit - 1, call quota_set,
@@ -205,7 +205,7 @@ int main (int argc, char **argv) {
 	if ( ! quota_set (quota) ) {
 	   exit (ERR_SYS);
 	}
-     }     
+     }
      quota->diskspace_used = block_sav;
      quota->inode_used = inode_sav;
   }
@@ -214,7 +214,7 @@ int main (int argc, char **argv) {
    * FINISH resetting grace periods
    * FINALLY really set new quotas
    */
-  
+
   if ( ! argdata->noaction ) {
     if ( ! quota_set (quota) ) {
       exit (ERR_SYS);

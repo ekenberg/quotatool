@@ -11,6 +11,11 @@
 #ifndef INCLUDE_QUOTATOOL_PARSE
 #define INCLUDE_QUOTATOOL_PARSE 1
 
+enum {
+    PARSE_BLOCKS = 1,
+    PARSE_INODES = 2
+};
+
 #include <config.h>
 
 #include <time.h>
@@ -39,7 +44,7 @@ typedef struct _argdata_t argdata_t;
 
 argdata_t *   parse_commandline   (int argc, char **argv);
 time_t        parse_timespan      (time_t orig, char *string);
-u_int64_t     parse_size          (u_int64_t orig, char *string);
+u_int64_t     parse_size          (u_int64_t orig, char *string, int parse_type);
 
 
 #endif /* INCLUDE_QUOTATOOL_PARSE */

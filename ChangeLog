@@ -1,3 +1,5 @@
+	- Fix inode count modifiers, use base 10 (-i -q 1.2K = 1200 inodes etc)
+
 23 Dec 2012 (1.4.13)
 	- Ignore linux initramfs mount entry for rootfs
 	- Install in sbindir (default = /usr/local/sbin), not bindir

@@ -38,7 +38,8 @@ Arguments and Options
    -l n    set hard limit to n blocks/inodes
 
    quotatool accepts the units Kb, Mb, Gb, Tb, bytes and blocks
-   to modify limit arguments.
+   to modify limit arguments. Units are base 2 for blocks (1k = 1024)
+   and base 10 for inodes (1k = 1000).
    Use +/- to raise/lower quota by the specified amount.
    n can be integer or floating point
    See examples below.
@@ -78,9 +79,9 @@ Raise soft block limit by 100M for non-existent gid 12345 on /dev/loop3:
 
    quotatool -g :12345 -b -q +100M /dev/loop3
 
-Set hard inode limit to 2000 for user johan on /var:
+Set soft inode limit to 1.8k (1800), hard inode limit to 2000 for user johan on /var:
 
-   quotatool -u johan -i -l 2000 /var
+   quotatool -u johan -i -q 1.8K -l 2000 /var
 
 Set the global block grace period to one week on /home:
 

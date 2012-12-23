@@ -74,7 +74,7 @@ Set soft limit (quota) to NUM
 NUM consists of an optional '-' or '+' character, a number (integer or floating point),
 and optionally one of the following modifiers:
 "Kb", "Mb", "Gb", "Tb", "bytes", or "blocks".  Unique abbreviations
-are also accepted.  The default is "blocks"
+are also accepted.  The default is "blocks". Modifiers are base 2 for block quotas (1k = 1024), and base 10 for inode quotas (1k = 1000)
 .PP
 If +/- is supplied, the existing quota is
 increased or reduced by the specified amount.
@@ -107,6 +107,30 @@ On Linux,
 .B quotatool
 works with both "old" and "new" + "generic" kernel-quota formats and also has
 support for quotas on XFS.
+.SH EXAMPLES
+
+Set soft block limit to 800Mb, hard block limit to 1.2 Gb for user mpg4 on /home:
+
+   quotatool -u mpg4 -b -q 800M -l 1.2G /home
+
+Raise soft block limit by 100M for non-existent gid 12345 on /dev/loop3:
+
+   quotatool -g :12345 -b -q +100M /dev/loop3
+
+Set soft inode limit to 1.8k (1800), hard inode limit to 2000 for user johan on /var:
+
+   quotatool -u johan -i -q 1.8K -l 2000 /var
+
+Set the global block grace period to one week on /home:
+
+   quotatool -u  -b -t "1 week" /home
+
+Restart inode grace period for user johan on root filesystem:
+
+   quotatool -u johan -i -r /
+
+
+
 .SH FILES
 .B quota.user
 ,

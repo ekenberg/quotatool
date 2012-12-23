@@ -42,10 +42,10 @@
 #define _PARSE_INODE 0x02
 /*
  * parse_commandline
- * read our args, parse them 
- * and return a struct of the data 
+ * read our args, parse them
+ * and return a struct of the data
  */
-argdata_t *parse_commandline (int argc, char **argv) 
+argdata_t *parse_commandline (int argc, char **argv)
 {
   argdata_t *data;
   extern char *optarg;
@@ -69,10 +69,10 @@ argdata_t *parse_commandline (int argc, char **argv)
   optarg = NULL;
   opterr = 0;
   done = fail = 0;
-  while ( ! done && ! fail ) {    
+  while ( ! done && ! fail ) {
     opt = getopt(argc, argv, OPTSTRING);
-    
-    if (opt > 0) 
+
+    if (opt > 0)
        output_debug ("option: '%c', argument: '%s'", opt, optarg);
 
     switch (opt) {
@@ -84,11 +84,11 @@ argdata_t *parse_commandline (int argc, char **argv)
     case 'h':
       output_help ();
       exit (0);
-      
+
     case 'V':
       output_version();
       exit (0);
-      
+
     case 'v':
       output_level++;
       break;
@@ -113,7 +113,7 @@ argdata_t *parse_commandline (int argc, char **argv)
 	data->id = optarg;
       }
       /* -u [-next-opt] */
-      else if ( ! argv[optind] || argv[optind][0] == '-' ) { 
+      else if ( ! argv[optind] || argv[optind][0] == '-' ) {
 	output_debug ("not mangling: NULL user");
 	data->id = NULL;
       }
@@ -128,7 +128,7 @@ argdata_t *parse_commandline (int argc, char **argv)
 #endif
       output_info ("using uid %s", data->id);
       break;
-      
+
     case 'g':   /* set groupname */
       if ( data->id_type ) {
 	output_error("Only one quota (user or group) can be set");
@@ -157,18 +157,18 @@ argdata_t *parse_commandline (int argc, char **argv)
       output_info ("using gid  %s", data->id);
       break;
 
-      
+
 
     case 'b':   // set max blocks
       output_info ("setting block limit");
       quota_type = _PARSE_BLOCK;
       break;
-      
+
     case 'i':   // set max inodes
       output_info ("setting inode limit");
       quota_type = _PARSE_INODE;
       break;
-      
+
 
 
     case 'q':
@@ -189,7 +189,7 @@ argdata_t *parse_commandline (int argc, char **argv)
       }
       output_info ("setting soft limit to %s", optarg);
       break;
-      
+
 
     case 'l':
       switch ( quota_type ) {
@@ -211,7 +211,7 @@ argdata_t *parse_commandline (int argc, char **argv)
       break;
 
 
-      
+
     case 't':
       data->id = NULL;
       switch ( quota_type ) {
@@ -232,7 +232,7 @@ argdata_t *parse_commandline (int argc, char **argv)
       output_info ("setting grace period to %s", optarg);
       break;
 
-      
+
     case 'r':
       switch ( quota_type ) {
       case _PARSE_UNDEF:
@@ -263,30 +263,30 @@ argdata_t *parse_commandline (int argc, char **argv)
     case ':':
       output_error ("Option '%c' requires an argument", optopt);
       break;
-      
+
     case '?':
       output_error ("Unrecognized option: '%c'", optopt);
-      
+
     default:
       output_help();
       fail = 1;
       break;
-      
-      
+
+
     }
   }
-  
+
 
   if ( fail ) {
     free (data);
     return NULL;
   }
-  
+
   if ( ! data->id_type ) {
     output_error ("Must specify either user or group quota");
     return NULL;
   }
-  
+
   if ( data->dump_info) {
      output_info("Option 'd' => just dumping quota-info for %s", data->id_type == QUOTA_USER ? "user" : "group");
   }
@@ -305,9 +305,9 @@ argdata_t *parse_commandline (int argc, char **argv)
 	return NULL;
      }
   }
-  
+
   output_info ("using filesystem %s", data->qfile);
-  
+
   return data;
 }
 
@@ -318,7 +318,7 @@ argdata_t *parse_commandline (int argc, char **argv)
 #define _PARSE_OP_SUB '-'
 
 
-/* On aix MIN definition conflicts with MIN definition at 
+/* On aix MIN definition conflicts with MIN definition at
  * <include/sys/param.h>
  */
 #undef MIN
@@ -335,14 +335,14 @@ argdata_t *parse_commandline (int argc, char **argv)
  * understands seconds, minutes, hours, days, weeks, months
  * returns the number of seconds represented
  */
-time_t parse_timespan (time_t orig, char *string) 
+time_t parse_timespan (time_t orig, char *string)
 {
   char *cp;
   int count, unit;
   char op;
 
   op = '\0';
-  if ( ( *string == _PARSE_OP_ADD ) 
+  if ( ( *string == _PARSE_OP_ADD )
        || ( *string == _PARSE_OP_SUB ) ) {
     op = *string;
     string++;
@@ -353,10 +353,10 @@ time_t parse_timespan (time_t orig, char *string)
     output_error ("Invalid format: %s", string);
     return -1;
   }
-  
+
   /* remove whitespace */
   while ( strchr(WHITESPACE, *cp) ) cp++;
-  
+
 
   if ( ! strncasecmp(cp, "s", 1) ) {
     unit = SEC;
@@ -395,27 +395,28 @@ time_t parse_timespan (time_t orig, char *string)
 
 }
 
-
-
-
-#define BYTE  1
 #define KILO  1024ul
-#define MEGA  1024ul * KILO
-#define GIGA  1024ul * MEGA
-#define TERA  1024ul * GIGA
+#define MEGA  KILO * KILO
+#define GIGA  KILO * MEGA
+#define TERA  KILO * GIGA
+
+#define KILO_10  1000ul
+#define MEGA_10  KILO_10 * KILO_10
+#define GIGA_10  KILO_10 * MEGA_10
+#define TERA_10  KILO_10 * GIGA_10
 /*
  * parse_size
  * understands Kb, Mb, Gb, Tb, bytes, and disk blocks
  * returns the number of bytes represented
  */
-u_int64_t parse_size (u_int64_t orig, char *string) {
+u_int64_t parse_size (u_int64_t orig, char *string, int parse_type) {
   char *cp;
-  u_int64_t blocks, unit;
+  u_int64_t size, multiplier;
   double count;
   char op;
 
   op = '\0';
-  if ( ( *string == _PARSE_OP_ADD ) 
+  if ( ( *string == _PARSE_OP_ADD )
        || ( *string == _PARSE_OP_SUB ) ) {
     op = *string;
     string++;
@@ -438,25 +439,25 @@ u_int64_t parse_size (u_int64_t orig, char *string) {
 
   /* get the units */
   if ( ! strncasecmp(cp, "by", 2) ) {
-    unit = BYTE;
+    multiplier = 1;
   }
   else if ( ! strncasecmp(cp, "bl", 2) ) {
-    unit = BLOCK_SIZE;
+    multiplier = (parse_type == PARSE_BLOCKS ? BLOCK_SIZE : 1);
   }
   else if ( ! strncasecmp(cp, "k", 1) ) {
-    unit = KILO;
+    multiplier = (parse_type == PARSE_BLOCKS ? KILO : KILO_10);
   }
   else if ( ! strncasecmp(cp, "m", 1) ) {
-    unit = MEGA;
+    multiplier = (parse_type == PARSE_BLOCKS ? MEGA : MEGA_10);
   }
   else if ( ! strncasecmp(cp, "g", 1) ) {
-    unit = GIGA;
+    multiplier = (parse_type == PARSE_BLOCKS ? GIGA : GIGA_10);
   }
   else if ( ! strncasecmp(cp, "t", 1) ) {
-    unit = TERA;
+    multiplier = (parse_type == PARSE_BLOCKS ? TERA : TERA_10);
   }
-  else {      // default to blocks
-    unit = BLOCK_SIZE;
+  else {      // default to blocks or inodes
+    multiplier = (parse_type == PARSE_BLOCKS ? BLOCK_SIZE : 1);
   }
 
   /* avoid a DIV0 */
@@ -464,16 +465,21 @@ u_int64_t parse_size (u_int64_t orig, char *string) {
     return 0;
   }
 
-  /* calculate disk blocks */
-  blocks = (u_int64_t) (((double) count*unit - 1) / BLOCK_SIZE) + 1;
+  /* calculate size (blocks or inodes) */
+  if (parse_type == PARSE_BLOCKS) {
+      size = (u_int64_t) (((double) count * multiplier - 1) / BLOCK_SIZE) + 1;
+  }
+  else { // inodes
+      size = (u_int64_t) (count * multiplier);
+  }
 
   switch (op) {
   case _PARSE_OP_ADD:
-    return  orig + blocks;
+    return  orig + size;
   case _PARSE_OP_SUB:
-    return  orig - blocks;
+    return  orig - size;
   default:
-    return blocks;
+    return size;
   }
 
 }
