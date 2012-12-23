@@ -6,7 +6,7 @@
  * johan@ekenberg.se
  *
  * linux/quota.h
- * 
+ *
  * quota defs for linux
  * We don't use <linux/quota.h>
  */
@@ -88,8 +88,8 @@ struct if_dqblk {
 };
 
 /* version-specific info */
-struct v1_mem_dqinfo {};
-struct v2_mem_dqinfo {
+struct v0_mem_dqinfo {};
+struct old_mem_dqinfo {
   unsigned int dqi_blocks;
   unsigned int dqi_free_blk;
   unsigned int dqi_free_entry;
@@ -128,13 +128,14 @@ long quotactl __P((int, const char *, qid_t, caddr_t));
 #define QF_ERROR -1             /* There was error while detecting format (maybe unknown format...) */
 #define QF_VFSOLD 0             /* Old quota format */
 #define QF_VFSV0 1              /* New quota format - version 0 */
+#define QF_VFSV1 2              /* Newer quota format - version 1 */
 #define QF_XFS 3		/* XFS quota */
 
-#define KERN_KNOWN_QUOTA_VERSION (6*10000 + 5*100 + 0)
+#define KERN_KNOWN_QUOTA_VERSION (6*10000 + 5*100 + 2)
 int kern_quota_format(fs_t *, int);
 
-#include "dqblk_v1.h"
-#include "dqblk_v2.h"
+#include "dqblk_old.h"
+#include "dqblk_v0.h"
 #include "xfs_quota.h"
 
 #endif /* _QUOTA_ */

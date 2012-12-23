@@ -29,7 +29,8 @@
 
 /* Handy macros */
 #define QF_IS_OLD(qf)		(qf & (1 << QF_VFSOLD))
-#define QF_IS_NEW(qf)		(qf & (1 << QF_VFSV0))
+#define QF_IS_V0(qf)		(qf & (1 << QF_VFSV0))
+#define QF_IS_V1(qf)		(qf & (1 << QF_VFSV1))
 #define QF_IS_XFS(qf)		(qf & (1 << QF_XFS))
 #define QF_IS_TOO_NEW(qf)	(qf == QF_TOONEW)
 #define IF_GENERIC		(kernel_iface == IFACE_GENERIC)
@@ -37,10 +38,10 @@
 static int quota_format;
 static int kernel_iface;
 
-static int v1_quota_get(quota_t *);
-static int v1_quota_set(quota_t *);
-static int v2_quota_get(quota_t *);
-static int v2_quota_set(quota_t *);
+static int old_quota_get(quota_t *);
+static int old_quota_set(quota_t *);
+static int v0_quota_get(quota_t *);
+static int v0_quota_set(quota_t *);
 static int generic_quota_get(quota_t *);
 static int generic_quota_set(quota_t *);
 static int xfs_quota_get(quota_t *);
@@ -74,7 +75,7 @@ quota_t *quota_new (int q_type, int id, char *fs_spec)
    */
   output_debug("Detecting quota format");
   if (kern_quota_format(fs, q_type) == QF_ERROR) {
-     output_error("Can't determine quota format!");
+     output_error("Cannot determine quota format!");
      exit (ERR_SYS);
   }
   if (QF_IS_TOO_NEW(quota_format)) {
@@ -84,18 +85,24 @@ quota_t *quota_new (int q_type, int id, char *fs_spec)
   if (QF_IS_XFS(quota_format)) {
      output_debug("Detected quota format: XFS");
   }
-  if (QF_IS_NEW(quota_format)) {
-     output_debug("Detected quota format: NEW");
+  if (QF_IS_V0(quota_format)) {
+     output_debug("Detected quota format: VFSV0");
      if (IF_GENERIC) {
        output_debug("Detected quota interface: GENERIC");
      }
      else {
-       myquota->_v2_quotainfo = (struct v2_kern_dqinfo *) 0;
-       myquota->_v2_quotainfo = (struct v2_kern_dqinfo *) malloc (sizeof(struct v2_kern_dqinfo));
-       if ( ! myquota->_v2_quotainfo ) {
+       myquota->_v0_quotainfo = (struct v0_kern_dqinfo *) 0;
+       myquota->_v0_quotainfo = (struct v0_kern_dqinfo *) malloc (sizeof(struct v0_kern_dqinfo));
+       if ( ! myquota->_v0_quotainfo ) {
 	 output_error ("Insufficient memory");
 	 exit (ERR_MEM);
        }
+     }
+  }
+  if (QF_IS_V1(quota_format)) {
+     output_debug("Detected quota format: VFSV1");
+     if (IF_GENERIC) {
+       output_debug("Detected quota interface: GENERIC");
      }
   }
   else if (QF_IS_OLD(quota_format)) {
@@ -117,7 +124,7 @@ quota_t *quota_new (int q_type, int id, char *fs_spec)
        }
   }
 
-  qfile = strdup (fs->device);  
+  qfile = strdup (fs->device);
 
   myquota->_id = id;
   myquota->_id_type = q_type;
@@ -132,10 +139,10 @@ inline void quota_delete (quota_t *myquota) {
   if (IF_GENERIC) {
     free (myquota->_generic_quotainfo);
   }
-  else if (QF_IS_NEW(quota_format)) {
-     free (myquota->_v2_quotainfo);
+  else if (QF_IS_V0(quota_format)) {
+     free (myquota->_v0_quotainfo);
   }
-  
+
   free (myquota);
 }
 
@@ -150,23 +157,23 @@ int quota_get (quota_t *myquota) {
    else if (IF_GENERIC) {
       retval = generic_quota_get(myquota);
    }
-   else if (QF_IS_NEW(quota_format)) {
-      retval = v2_quota_get(myquota);
+   else if (QF_IS_V0(quota_format)) {
+      retval = v0_quota_get(myquota);
    }
    else {
-      retval = v1_quota_get(myquota);
+      retval = old_quota_get(myquota);
    }
    return retval;
 }
 
-static int v1_quota_get (quota_t *myquota) {
-  struct v1_kern_dqblk sysquota;
+static int old_quota_get (quota_t *myquota) {
+  struct old_kern_dqblk sysquota;
   int retval;
 
-  retval = quotactl(QCMD(Q_V1_GETQUOTA,myquota->_id_type), myquota->_qfile,
+  retval = quotactl(QCMD(Q_OLD_GETQUOTA,myquota->_id_type), myquota->_qfile,
 		    myquota->_id, (caddr_t) &sysquota);
   if ( retval < 0 ) {
-    output_error ("Failed fetching quotas (v1): %s", strerror(errno));
+    output_error ("Failed fetching quotas (old): %s", strerror(errno));
     return 0;
   }
 
@@ -179,8 +186,8 @@ static int v1_quota_get (quota_t *myquota) {
   myquota->inode_used  = sysquota.dqb_curinodes;
   myquota->block_time  = sysquota.dqb_btime;
   myquota->inode_time  = sysquota.dqb_itime;
-  /* yes, something fishy here. quota v1 seems to lack separate fields
-   for user grace times and global grace times. 
+  /* yes, something fishy here. quota old seems to lack separate fields
+   for user grace times and global grace times.
   is it like XFS - root's limits sets global? */
   myquota->block_grace  = sysquota.dqb_btime;
   myquota->inode_grace  = sysquota.dqb_itime;
@@ -188,14 +195,14 @@ static int v1_quota_get (quota_t *myquota) {
   return 1;
 }
 
-static int v2_quota_get (quota_t *myquota) {
-  struct v2_kern_dqblk sysquota;
+static int v0_quota_get (quota_t *myquota) {
+  struct v0_kern_dqblk sysquota;
   int retval;
 
-  retval = quotactl(QCMD(Q_V2_GETQUOTA,myquota->_id_type), myquota->_qfile,
+  retval = quotactl(QCMD(Q_V0_GETQUOTA,myquota->_id_type), myquota->_qfile,
 		    myquota->_id, (caddr_t) &sysquota);
   if ( retval < 0 ) {
-    output_error ("Failed fetching quotas (v2): %s", strerror(errno));
+    output_error ("Failed fetching quotas (vfsv0): %s", strerror(errno));
     return 0;
   }
 
@@ -209,15 +216,15 @@ static int v2_quota_get (quota_t *myquota) {
   myquota->block_time = sysquota.dqb_btime;
   myquota->inode_time = sysquota.dqb_itime;
 
-  retval = quotactl(QCMD(Q_V2_GETINFO,myquota->_id_type), myquota->_qfile,
-		    myquota->_id, (caddr_t) myquota->_v2_quotainfo);
+  retval = quotactl(QCMD(Q_V0_GETINFO,myquota->_id_type), myquota->_qfile,
+		    myquota->_id, (caddr_t) myquota->_v0_quotainfo);
   if ( retval < 0 ) {
     output_error ("Failed fetching quotainfo: %s", strerror(errno));
     return 0;
   }
-  myquota->block_grace = ((struct v2_kern_dqinfo *) myquota->_v2_quotainfo)->dqi_bgrace;
-  myquota->inode_grace = ((struct v2_kern_dqinfo *) myquota->_v2_quotainfo)->dqi_igrace;
-  
+  myquota->block_grace = ((struct v0_kern_dqinfo *) myquota->_v0_quotainfo)->dqi_bgrace;
+  myquota->inode_grace = ((struct v0_kern_dqinfo *) myquota->_v0_quotainfo)->dqi_igrace;
+
   return 1;
 }
 
@@ -249,7 +256,7 @@ static int generic_quota_get (quota_t *myquota) {
   }
   myquota->block_grace = ((struct if_dqinfo *) myquota->_generic_quotainfo)->dqi_bgrace;
   myquota->inode_grace = ((struct if_dqinfo *) myquota->_generic_quotainfo)->dqi_igrace;
-  
+
   return 1;
 }
 
@@ -262,7 +269,7 @@ static int xfs_quota_get(quota_t *myquota) {
    block_diff = BLOCK_SIZE / 512;
    retval = quotactl(QCMD(Q_XGETQUOTA, myquota->_id_type), myquota->_qfile,
 		     myquota->_id, (caddr_t) &sysquota);
-   /* 
+   /*
       ** 2005-04-26  : fmicaux@actilis.net -
                         handling a non-set quota for a user/group
                                              who owns nothing here
@@ -322,11 +329,11 @@ int quota_set (quota_t *myquota){
    else if (IF_GENERIC) {
       retval = generic_quota_set(myquota);
    }
-   else if (QF_IS_NEW(quota_format)) {
-      retval = v2_quota_set(myquota);
+   else if (QF_IS_V0(quota_format)) {
+      retval = v0_quota_set(myquota);
    }
    else {
-      retval = v1_quota_set(myquota);
+      retval = old_quota_set(myquota);
    }
 
    if (! retval)
@@ -336,7 +343,7 @@ int quota_set (quota_t *myquota){
 
    /* sync */
    retval = quotactl (QCMD(IF_GENERIC ? Q_SYNC : Q_6_5_SYNC
-			   ,myquota->_id_type), myquota->_qfile, 
+			   ,myquota->_id_type), myquota->_qfile,
 		      0, NULL);
    if (retval < 0) {
       output_error ("Failed syncing quotas on %s: %s", myquota->_qfile,
@@ -363,14 +370,14 @@ static int generic_quota_set(quota_t *myquota) {
    /* make the syscall */
    retval = quotactl (QCMD(Q_SETQUOTA,myquota->_id_type),myquota->_qfile,
 		      myquota->_id, (caddr_t) &sysquota);
-   if ( retval < 0 ) { 
+   if ( retval < 0 ) {
      output_error ("Failed setting quota (generic): %s", strerror(errno));
      return 0;
    }
    /* update quotainfo (global gracetimes) */
    if (myquota->_do_set_global_block_gracetime || myquota->_do_set_global_inode_gracetime) {
      struct if_dqinfo *foo = ((struct if_dqinfo *) myquota->_generic_quotainfo);
-      if (myquota->_do_set_global_block_gracetime) 
+      if (myquota->_do_set_global_block_gracetime)
 	foo->dqi_bgrace = myquota->block_grace;
       if (myquota->_do_set_global_inode_gracetime)
 	foo->dqi_igrace = myquota->inode_grace;
@@ -385,8 +392,8 @@ static int generic_quota_set(quota_t *myquota) {
    return 1;
 }
 
-static int v2_quota_set(quota_t *myquota) {
-   struct v2_kern_dqblk sysquota;
+static int v0_quota_set(quota_t *myquota) {
+   struct v0_kern_dqblk sysquota;
    int retval;
 
    /* copy our data into the linux dqblk */
@@ -398,23 +405,23 @@ static int v2_quota_set(quota_t *myquota) {
    sysquota.dqb_curinodes  = myquota->inode_used;
 //   sysquota.dqb_btime      = myquota->block_time;
 //   sysquota.dqb_itime      = myquota->inode_time;
-   
+
    /* make the syscall */
-   retval = quotactl (QCMD(Q_V2_SETQUOTA,myquota->_id_type),myquota->_qfile,
+   retval = quotactl (QCMD(Q_V0_SETQUOTA,myquota->_id_type),myquota->_qfile,
 		      myquota->_id, (caddr_t) &sysquota);
    if ( retval < 0 ) {
-      output_error ("Failed setting quota (v2): %s", strerror(errno));
+      output_error ("Failed setting quota (vfsv0): %s", strerror(errno));
       return 0;
    }
-   
+
    /* update quotainfo (global gracetimes) */
    if (myquota->_do_set_global_block_gracetime || myquota->_do_set_global_inode_gracetime) {
-      if (myquota->_do_set_global_block_gracetime) 
-	 ((struct v2_kern_dqinfo *) myquota->_v2_quotainfo)->dqi_bgrace = myquota->block_grace;
+      if (myquota->_do_set_global_block_gracetime)
+	 ((struct v0_kern_dqinfo *) myquota->_v0_quotainfo)->dqi_bgrace = myquota->block_grace;
       if (myquota->_do_set_global_inode_gracetime)
-	 ((struct v2_kern_dqinfo *) myquota->_v2_quotainfo)->dqi_igrace = myquota->inode_grace;
-      retval = quotactl (QCMD(Q_V2_SETGRACE,myquota->_id_type),myquota->_qfile,
-			 myquota->_id, (caddr_t) myquota->_v2_quotainfo);
+	 ((struct v0_kern_dqinfo *) myquota->_v0_quotainfo)->dqi_igrace = myquota->inode_grace;
+      retval = quotactl (QCMD(Q_V0_SETGRACE,myquota->_id_type),myquota->_qfile,
+			 myquota->_id, (caddr_t) myquota->_v0_quotainfo);
       if ( retval < 0 ) {
 	 output_error ("Failed setting gracetime: %s", strerror(errno));
 	 return 0;
@@ -424,8 +431,8 @@ static int v2_quota_set(quota_t *myquota) {
    return 1;
 }
 
-static int v1_quota_set(quota_t *myquota) {
-   struct v1_kern_dqblk sysquota;
+static int old_quota_set(quota_t *myquota) {
+   struct old_kern_dqblk sysquota;
    int retval;
 
   /* copy our data into the linux dqblk */
@@ -435,15 +442,15 @@ static int v1_quota_set(quota_t *myquota) {
   sysquota.dqb_ihardlimit = myquota->inode_hard;
   sysquota.dqb_isoftlimit = myquota->inode_soft;
   sysquota.dqb_curinodes  = myquota->inode_used;
-  /* is v1 like xfs - global grace set by root's limits? */
+  /* is old like xfs - global grace set by root's limits? */
   sysquota.dqb_btime      = myquota->block_grace;
   sysquota.dqb_itime      = myquota->inode_grace;
 
   /* make the syscall */
-  retval = quotactl (QCMD(Q_V1_SETQUOTA,myquota->_id_type),myquota->_qfile,
+  retval = quotactl (QCMD(Q_OLD_SETQUOTA,myquota->_id_type),myquota->_qfile,
 		     myquota->_id, (caddr_t) &sysquota);
   if ( retval < 0 ) {
-    output_error ("Failed setting quota (v1): %s", strerror(errno));
+    output_error ("Failed setting quota (old): %s", strerror(errno));
     return 0;
   }
   /* success */
@@ -488,7 +495,7 @@ static int xfs_quota_set(quota_t *myquota) {
 
 int kern_quota_format(fs_t *fs, int q_type) {
    u_int32_t version;
-   struct v2_dqstats v2_stats;
+   struct v0_dqstats v0_stats;
    FILE *f;
    int ret = 0;
    struct stat st;
@@ -512,7 +519,7 @@ int kern_quota_format(fs_t *fs, int q_type) {
       fclose(f);
    }
    else if (stat("/proc/sys/fs/quota", &st) == 0) {
-      /* Either QF_VFSOLD or QF_VFSV0 */
+      /* Either QF_VFSOLD or QF_VFSV0 or QF_VFSV1 */
       int actfmt, retval;
       kernel_iface = IFACE_GENERIC;
       retval = quotactl(QCMD(Q_GETFMT, q_type), fs->device, 0, (void *) &actfmt);
@@ -527,30 +534,34 @@ int kern_quota_format(fs_t *fs, int q_type) {
 	    quota_format |= (1 << QF_VFSOLD);
 	 else if (actfmt == 2)  /* Q_GETFMT retval for QF_VFSV0 */
 	    quota_format |= (1 << QF_VFSV0);
-	 else
+	 else if (actfmt == 4)  /* Q_GETFMT retval for QF_VFSV1 */
+	    quota_format |= (1 << QF_VFSV1);
+	 else {
+            output_debug("Unknown Q_GETFMT: %d\n", actfmt);
 	    return QF_ERROR;
+         }
       }
       return ret;
    }
-   else if (quotactl(QCMD(Q_V2_GETSTATS, 0), NULL, 0, (void *) &v2_stats) >= 0) {
-      version = v2_stats.version;	/* Copy the version */
+   else if (quotactl(QCMD(Q_V0_GETSTATS, 0), NULL, 0, (void *) &v0_stats) >= 0) {
+      version = v0_stats.version;	/* Copy the version */
    }
    else {
       if (errno == ENOSYS || errno == ENOTSUP)	/* Quota not compiled? */
 	 return QF_ERROR;
       if (errno == EINVAL || errno == EFAULT || errno == EPERM) {	/* Old quota compiled? */
-	 /* RedHat 7.1 (2.4.2-2) newquota check 
-	  * Q_V2_GETSTATS in it's old place, Q_GETQUOTA in the new place
+	 /* RedHat 7.1 (2.4.2-2) newquota check
+	  * Q_V0_GETSTATS in it's old place, Q_GETQUOTA in the new place
 	  * (they haven't moved Q_GETSTATS to its new value) */
 	 int err_stat = 0;
 	 int err_quota = 0;
 	 char tmp[1024];         /* Just temporary buffer */
-	 
-	 if (quotactl(QCMD(Q_V1_GETSTATS, 0), NULL, 0, tmp))
+
+	 if (quotactl(QCMD(Q_OLD_GETSTATS, 0), NULL, 0, tmp))
 	    err_stat = errno;
-	 if (quotactl(QCMD(Q_V1_GETQUOTA, 0), "/dev/null", 0, tmp))
+	 if (quotactl(QCMD(Q_OLD_GETQUOTA, 0), "/dev/null", 0, tmp))
 	    err_quota = errno;
-	 
+
 	 /* On a RedHat 2.4.2-2 	we expect 0, EINVAL
 	  * On a 2.4.x 		we expect 0, ENOENT
 	  * On a 2.4.x-ac	we wont get here */
@@ -583,7 +594,7 @@ int kern_quota_format(fs_t *fs, int q_type) {
 int xfs_reset_grace(quota_t *myquota, int grace_type) {
    /*
      This is a hack for XFS which doesn't allow setting
-     the current inode|block usage. 
+     the current inode|block usage.
      Instead we temporarily raise the quota limits to
      current usage + 1, and then restore the previous limits.
      Either let it remain here, or rewrite the entire

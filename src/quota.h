@@ -20,7 +20,7 @@
 #  if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
 #    define BLOCK_SIZE 1024
 #  else
-#    include <linux/fs.h>		
+#    include <linux/fs.h>
 #  endif
 #elif HAVE_STD_H
 #  include <std.h>
@@ -66,7 +66,7 @@ struct _quota_t {
    char *  _qfile;
    int     _do_set_global_block_gracetime;
    int     _do_set_global_inode_gracetime;
-   void *  _v2_quotainfo;
+   void *  _v0_quotainfo;
    void *  _generic_quotainfo;
 };
 

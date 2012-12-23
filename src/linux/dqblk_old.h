@@ -5,15 +5,15 @@
  * Johan Ekenberg
  * johan@ekenberg.se
  *
- * dqblk_v1.h
+ * dqblk_old.h
  * Headerfile for old quotafile format
  */
 
-#ifndef _DQBLK_V1_H
-#define _DQBLK_V1_H
+#ifndef _DQBLK_OLD_H
+#define _DQBLK_OLD_H
 
 /* Structure of quota for communication with kernel */
-struct v1_kern_dqblk {
+struct old_kern_dqblk {
    u_int32_t dqb_bhardlimit;       /* absolute limit on disk blks alloc */
    u_int32_t dqb_bsoftlimit;       /* preferred limit on disk blks */
    u_int32_t dqb_curblocks;        /* current block count */
@@ -25,9 +25,9 @@ struct v1_kern_dqblk {
 };
 
 /* Values of quota calls */
-#define Q_V1_RSQUASH	0x1000
-#define Q_V1_GETQUOTA	0x300
-#define Q_V1_SETQUOTA	0x400
-#define Q_V1_GETSTATS	0x800
+#define Q_OLD_RSQUASH	0x1000
+#define Q_OLD_GETQUOTA	0x300
+#define Q_OLD_SETQUOTA	0x400
+#define Q_OLD_GETSTATS	0x800
 
 #endif
