@@ -1,9 +1,10 @@
-22 Dec 2012 (1.4.13)
+23 Dec 2012 (1.4.13)
+	- Ignore linux initramfs mount entry for rootfs
 	- Install in sbindir (default = /usr/local/sbin), not bindir
 	- Accept floating point input for sizes, eg 1.01Tb
 	- Fix parsing of large integers (very large filesystems)
 	- Fix typo in machine format
-	- Fix some compile warnings
+	- Fix several compile warnings
 
 20 Feb 2012 (1.4.12)
 	- Add Gb and Tb multipliers for size-units
