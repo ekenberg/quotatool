@@ -129,7 +129,25 @@ Restart inode grace period for user johan on root filesystem:
 
    quotatool -u johan -i -r /
 
+.SH NOTES
+Grace periods are set on a "global per quotatype and filesystem" basis only.
+Each quotatype (usrquota / grpquota) on each filesystem has two grace periods
+- one for block limits and one for inode limits.
+It is not possible to set different grace periods for users on the same filesystem.
 
+Using non-existent uids/gids like ":12345" can be useful when configuring quotas on
+a mounted filesystem which is a separate system in it self, like when preparing an
+install image or repairing a filesystem from another installation.
+
+Limit arguments can be specified in several ways, these are all equivalent:
+  1M
+  1m
+  1Mb
+  1 "Mb"
+
+Use +/- to raise/lower quotas relative to current limits
+
+Use -v (or -v -v) to see verbose/debug info when running commands
 
 .SH FILES
 .B quota.user
