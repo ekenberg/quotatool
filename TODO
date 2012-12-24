@@ -1,13 +1,2 @@
-
-1.2.x
-
- - do something about all of the system-dependencies that are
-   starting to show up.
- - Mb, Kb etc options multiply inode limits as well - that's
-   very confusing, especially since the system block limit is
-   involved in the calculations...
-
-sometime
-
  - Show-option, to be able to get time_t exactly _when_ a grace
    period  is set to timeout.
