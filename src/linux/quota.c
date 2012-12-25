@@ -99,7 +99,7 @@ quota_t *quota_new (int q_type, int id, char *fs_spec)
        }
      }
   }
-  if (QF_IS_V1(quota_format)) {
+  else if (QF_IS_V1(quota_format)) {
      output_debug("Detected quota format: VFSV1");
      if (IF_GENERIC) {
        output_debug("Detected quota interface: GENERIC");
