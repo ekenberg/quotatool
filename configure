@@ -3911,6 +3911,19 @@ done
 test x$PLATFORM = xlinux &&  $as_echo "#define HAVE_GNU_GETOPT 1" >>confdefs.h
 
 
+for ac_func in strlcpy strlcat
+do :
+  as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
+ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"
+if eval test \"x\$"$as_ac_var"\" = x"yes"; then :
+  cat >>confdefs.h <<_ACEOF
+#define `$as_echo "HAVE_$ac_func" | $as_tr_cpp` 1
+_ACEOF
+
+fi
+done
+
+
 
 
 # Check whether --with-gnu-getopt was given.

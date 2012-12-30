@@ -50,9 +50,18 @@ quota_t *quota_new (int q_type, int id, char *fs_spec)
   }
 
   qfile = malloc (strlen(fs->mount_pt) + 13);
+#if HAVE_STRLCPY
+  strlcpy(qfile, fs->mount_pt, strlen(fs->mount_pt) + 13);
+#else
   strcpy (qfile, fs->mount_pt);
+#endif /* HAVE_STRLCPY */
+
   // Yes, this is ok, it does work to set group quotas as well, seems the entry is ignored by quotactl() with Q_SETQUOTA / Q_GETQUOTA
+#if HAVE_STRLCAT
+  strlcat(qfile, "/quota.user", strlen("/quota.user"));
+#else
   strcat (qfile, "/quota.user");
+#endif /* HAVE_STRLCAT */
   output_debug ("qfile is \"%s\"\n", qfile);
 
   myquota->_id = id;

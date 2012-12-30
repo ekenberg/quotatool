@@ -60,6 +60,12 @@
 /* define if we have the <inttypes.h> header file */
 #define HAVE_INTTYPES_H 0
 
+/* define if we have the function strlcat */
+#define HAVE_STRLCAT 0
+
+/* define if we have the function strlcpy */
+#define HAVE_STRLCPY 0
+
 /*****************************************************************
  * That's it!  Stop reading! There's nothing else to see!
  *****************************************************************/

@@ -105,6 +105,9 @@ AC_FUNC_VPRINTF
 AC_CHECK_FUNCS(strdup strerror strtol strtod strchr)
 test [x$PLATFORM] = [xlinux] &&  AC_DEFINE(HAVE_GNU_GETOPT, 1)
 
+dnl check for strlcpy and strlcat (mostly BSD)
+AC_CHECK_FUNCS(strlcpy strlcat)
+
 dnl Check the commandline
 
 AC_ARG_WITH(gnu-getopt,  \
