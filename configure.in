@@ -7,10 +7,10 @@ AC_CONFIG_AUX_DIR(tools)
 dnl Main program/version info settings:
 dnl ---------------------------------------------------------------------------
 MAJOR_VERSION=1
-MINOR_VERSION=5
-PATCHLEVEL=1
-COPYRIGHT_NOTICE="Copyright (c) 1999-2012 Mike Glover / Johan Ekenberg"
-WWW_URL="http://quotatool.ekenberg.se"
+MINOR_VERSION=6
+PATCHLEVEL=0
+COPYRIGHT_NOTICE="Copyright (c) 1999-2013 Mike Glover / Johan Ekenberg"
+WWW_URL="https://github.com/ekenberg/quotatool | http://quotatool.ekenberg.se"
 
 dnl ---------------------------------------------------------------------------
 
@@ -48,6 +48,10 @@ case [$host] in
 	PLATFORM=aix
 	AC_DEFINE(PLATFORM_AIX, 1)
 	;;
+  *freebsd*|*openbsd*)
+	PLATFORM=freebsd
+	AC_DEFINE(PLATFORM_FREEBSD, 1)
+	;;
   *)
 	PLATFORM=unknown
 	AC_DEFINE(PLATFORM_UNKNOWN, 1)
@@ -69,15 +73,15 @@ AC_CHECK_HEADERS(unistd.h fcntl.h limits.h, ,\
 
 dnl Check for pick-one header files (required)
 
-AC_CHECK_HEADERS(mntent.h sys/mnttab.h sys/mntctl.h, FOUND_MNT=1;break)
-test [$FOUND_MNT] || AC_MSG_ERROR([Can't find getmntent()])
+AC_CHECK_HEADERS(mntent.h sys/mnttab.h sys/mntctl.h fstab.h, FOUND_MNT=1;break)
+test [$FOUND_MNT] || AC_MSG_ERROR([Can't find getmntent() or getfsent()])
 
 AC_CHECK_HEADERS(linux/types.h sys/types.h, FOUND_TYPES=1;break)
 test [$FOUND_TYPES] || AC_MSG_ERROR([Can't find system types])
 
 dnl Check for quota header files except for linux (we ship our own)
 if test "$PLATFORM" != "linux"; then
-  AC_CHECK_HEADERS(sys/fs/ufs_quota.h jfs/quota.h, FOUND_QUOTA=1;break)
+  AC_CHECK_HEADERS(sys/fs/ufs_quota.h jfs/quota.h ufs/ufs/quota.h, FOUND_QUOTA=1;break)
   test [$FOUND_QUOTA] || AC_MSG_ERROR([Can't find quota defs])
 fi
 
@@ -111,10 +115,3 @@ dnl Create output files
 
 AC_CONFIG_HEADER(src/config.h)
 AC_OUTPUT(local.mk)
-
-
-
-
-
-
-

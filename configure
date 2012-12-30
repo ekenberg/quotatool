@@ -2187,10 +2187,10 @@ ac_configure="$SHELL $ac_aux_dir/configure"  # Please don't use this var.
 
 
 MAJOR_VERSION=1
-MINOR_VERSION=5
+MINOR_VERSION=6
 PATCHLEVEL=0
-COPYRIGHT_NOTICE="Copyright (c) 1999-2012 Mike Glover / Johan Ekenberg"
-WWW_URL="http://quotatool.ekenberg.se"
+COPYRIGHT_NOTICE="Copyright (c) 1999-2013 Mike Glover / Johan Ekenberg"
+WWW_URL="https://github.com/ekenberg/quotatool | http://quotatool.ekenberg.se"
 
 
 PROGNAME=quotatool
@@ -2314,6 +2314,11 @@ case $host in
   *aix*)
 	PLATFORM=aix
 	$as_echo "#define PLATFORM_AIX 1" >>confdefs.h
+
+	;;
+  *freebsd*|*openbsd*)
+	PLATFORM=freebsd
+	$as_echo "#define PLATFORM_FREEBSD 1" >>confdefs.h
 
 	;;
   *)
@@ -3629,7 +3634,7 @@ done
 
 
 
-for ac_header in mntent.h sys/mnttab.h sys/mntctl.h
+for ac_header in mntent.h sys/mnttab.h sys/mntctl.h fstab.h
 do :
   as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
 ac_fn_c_check_header_mongrel "$LINENO" "$ac_header" "$as_ac_Header" "$ac_includes_default"
@@ -3642,7 +3647,7 @@ fi
 
 done
 
-test $FOUND_MNT || as_fn_error $? "Can't find getmntent()" "$LINENO" 5
+test $FOUND_MNT || as_fn_error $? "Can't find getmntent() or getfsent()" "$LINENO" 5
 
 for ac_header in linux/types.h sys/types.h
 do :
@@ -3660,7 +3665,7 @@ done
 test $FOUND_TYPES || as_fn_error $? "Can't find system types" "$LINENO" 5
 
 if test "$PLATFORM" != "linux"; then
-  for ac_header in sys/fs/ufs_quota.h jfs/quota.h
+  for ac_header in sys/fs/ufs_quota.h jfs/quota.h ufs/ufs/quota.h
 do :
   as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
 ac_fn_c_check_header_mongrel "$LINENO" "$ac_header" "$as_ac_Header" "$ac_includes_default"
@@ -5198,11 +5203,4 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unrecognized options: $ac_unrecognized_opts" >&5
 $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
-
-
-
-
-
-
-
 

@@ -302,7 +302,8 @@ static int xfs_quota_get(quota_t *myquota) {
    /* copy the linux-xfs-formatted quota info into our struct */
    myquota->block_hard	=  sysquota.d_blk_hardlimit / block_diff;
    myquota->block_soft	=  sysquota.d_blk_softlimit / block_diff;
-   myquota->diskspace_used = sysquota.d_bcount / block_diff * 1024; // XFS really uses blocks, all other formats in this file use bytes
+ // XFS really uses blocks, all other formats in this file use bytes
+   myquota->diskspace_used = (sysquota.d_bcount * 1024) / block_diff;
    myquota->inode_hard  =  sysquota.d_ino_hardlimit;
    myquota->inode_soft  =  sysquota.d_ino_softlimit;
    myquota->inode_used  =  sysquota.d_icount;
@@ -466,7 +467,8 @@ static int xfs_quota_set(quota_t *myquota) {
    /* copy our data into the linux dqblk */
    sysquota.d_blk_hardlimit = myquota->block_hard * block_diff;
    sysquota.d_blk_softlimit = myquota->block_soft * block_diff;
-   sysquota.d_bcount	    = myquota->diskspace_used * block_diff / 1024; // XFS really uses blocks, all other formats in this file use bytes
+ // XFS really uses blocks, all other formats in this file use bytes
+   sysquota.d_bcount	    = DIV_UP(myquota->diskspace_used * block_diff, 1024);
    sysquota.d_ino_hardlimit = myquota->inode_hard;
    sysquota.d_ino_softlimit = myquota->inode_soft;
    sysquota.d_icount        = myquota->inode_used;

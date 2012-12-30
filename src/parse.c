@@ -293,9 +293,15 @@ argdata_t *parse_commandline (int argc, char **argv)
 
   /* the remaining arg is the filesystem */
   data->qfile = argv[optind];
-  if ( ! data->qfile ) {
+  if ( ! data->qfile || strlen(data->qfile) == 0) {
     output_error ("No filesystem specified");
     return NULL;
+  }
+
+  /* remove trailing slash(es) except for / filesystem */
+  while (strlen(data->qfile) > 1) {
+    if (data->qfile[strlen(data->qfile) - 1] != '/') break;
+    data->qfile[strlen(data->qfile) - 1] = '\0';
   }
 
   /* check for mixing -t with other options in the wrong way */
@@ -310,9 +316,6 @@ argdata_t *parse_commandline (int argc, char **argv)
 
   return data;
 }
-
-
-
 
 #define _PARSE_OP_ADD '+'
 #define _PARSE_OP_SUB '-'

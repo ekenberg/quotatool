@@ -35,7 +35,7 @@ void output_version () {
    fprintf (stderr, "  %s version %d.%d.%s\n", PROGNAME, MAJOR_VERSION,
       MINOR_VERSION, PATCHLEVEL);
    fprintf (stderr, "  %s\n", COPYRIGHT_NOTICE);
-   fprintf (stderr, "  Distributed under the GNU General Public License\n");
+   fprintf (stderr, "  Distributed under the GNU General Public License\n\n");
    fprintf (stderr, "  %s\n", WWW_URL);
 }
 
@@ -107,5 +107,3 @@ void output_debug (const char *format, ...) {
   _output (OUTPUT_DEBUG, format, arglist);
   va_end (arglist);
 }
-
-

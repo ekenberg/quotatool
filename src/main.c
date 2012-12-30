@@ -81,9 +81,9 @@ int main (int argc, char **argv) {
      output_info ("%s Filesystem blocks quota limit grace files quota limit grace",
 		  argdata->id_type == QUOTA_USER ? "uid" : "gid");
 
-     // quota->diskspace_used is bytes, at least on Linux (Aix?, Solaris?). Divide by 1024 to show kilobytes
-     display_blocks_used = quota->diskspace_used / 1024;
-     if (quota->diskspace_used % 1024 != 0) display_blocks_used += 1;
+     // quota->diskspace_used is bytes. Display in Kb
+     display_blocks_used = DIV_UP(quota->diskspace_used, 1024);
+
 #ifdef HAVE_INTTYPES_H
      printf("%d %s %" PRIu64 " %" PRIu64 " %" PRIu64 " %lu %" PRIu64 " %" PRIu64 " %" PRIu64 " %lu\n",
 #else
@@ -92,13 +92,31 @@ int main (int argc, char **argv) {
 	    id,
 	    argdata->qfile,
 	    display_blocks_used,
-	    quota->block_soft,
-	    quota->block_hard,
+	    BLOCKS_TO_KB(quota->block_soft),
+	    BLOCKS_TO_KB(quota->block_hard),
+#if ANY_BSD
+	    (unsigned long)
+	    (
+	       (quota->block_soft && (BYTES_TO_BLOCKS(quota->diskspace_used) >= quota->block_soft))
+	    ||
+	       (quota->block_hard && (BYTES_TO_BLOCKS(quota->diskspace_used) >= quota->block_hard))
+	     ) ? quota->block_time - now : 0,
+#else
 	    (unsigned long) quota->block_time ? quota->block_time - now : 0,
+#endif /* ANY_BSD */
 	    quota->inode_used,
 	    quota->inode_soft,
 	    quota->inode_hard,
+#if ANY_BSD
+	    (unsigned long)
+	    (
+	      (quota->inode_soft && (quota->inode_used >= quota->inode_soft))
+	    ||
+	      (quota->inode_hard && (quota->inode_used >= quota->inode_hard))
+	     ) ? quota->inode_time - now : 0);
+#else
 	    (unsigned long) quota->inode_time ? quota->inode_time - now : 0);
+#endif /* ANY_BSD */
      exit(0);
   }
 
@@ -106,8 +124,6 @@ int main (int argc, char **argv) {
   output_info ("");
   output_info ("%-14s %-16s %-16s", "Limit", "Old", "New");
   output_info ("%-14s %-16s %-16s", "-----", "---", "---");
-
-
 
   /*
    *  BEGIN  setting global grace periods
@@ -143,7 +159,8 @@ int main (int argc, char **argv) {
        output_info ("New block quota not higher than current, won't change");
        quota->block_hard = old_quota;
     }
-    output_info ("%-14s %-16llu %llu", "block hard:", old_quota, quota->block_hard);
+    output_info ("%-14s %-16llu %llu", "block hard:",
+		 BLOCKS_TO_KB(old_quota), BLOCKS_TO_KB(quota->block_hard));
   }
 
   if ( argdata->block_soft ) {
@@ -153,7 +170,8 @@ int main (int argc, char **argv) {
        output_info ("New block soft limit not higher than current, won't change");
        quota->block_soft = old_quota;
     }
-    output_info ("%-14s %-16llu %-16llu", "block soft:", old_quota, quota->block_soft);
+    output_info ("%-14s %-16llu %-16llu", "block soft:",
+		 BLOCKS_TO_KB(old_quota), BLOCKS_TO_KB(quota->block_soft));
   }
 
   if ( argdata->inode_hard ) {

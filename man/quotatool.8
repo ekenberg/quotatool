@@ -1,4 +1,4 @@
-.TH QUOTATOOL 8 "1999 - 2012" "version 1.5.1"
+.TH QUOTATOOL 8 "1999 - 2013" "version 1.6.0"
 .SH NAME
 quotatool \- manipulate filesystem quotas
 .SH SYNOPSIS
@@ -105,7 +105,7 @@ Print version information to stdout and exit successfully
 .SH FILESYSTEMS / FORMATS
 On Linux,
 .B quotatool
-works with both "old" and "new" + "generic" kernel-quota formats and also has
+works with both "old", "vfsv0" and "vfsv1" + "generic" kernel-quota formats and also has
 support for quotas on XFS.
 .SH EXAMPLES
 
@@ -153,11 +153,12 @@ Use -v (or -v -v) to see verbose/debug info when running commands
 .B quota.user
 ,
 .B quota.group
-(linux)
+(linux, *BSD, aix)
 .br
 .B quotas
 (solaris, ...)
 .SH BUGS
+Please check https://github.com/ekenberg/quotatool for any open issues. Feel free to add a new issue if you find an unresolved bug!
 .PP
 Calling
 .B quotatool

@@ -18,6 +18,7 @@ enum {
 
 #include <config.h>
 
+#include <sys/types.h> /* *BSD */
 #include <time.h>
 
 struct _argdata_t {

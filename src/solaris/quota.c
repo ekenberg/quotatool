@@ -99,7 +99,7 @@ int quota_get (quota_t *myquota)
   /* copy the system-formatted quota info into our struct */
   myquota->block_hard  = sysquota.dqb_bhardlimit;
   myquota->block_soft  = sysquota.dqb_bsoftlimit;
-  myquota->diskspace_used  = sysquota.dqb_curblocks;
+  myquota->diskspace_used  = sysquota.dqb_curblocks; // FIXME: Convert from block-size blocks to bytes
   myquota->inode_hard  = sysquota.dqb_fhardlimit;
   myquota->inode_soft  = sysquota.dqb_fsoftlimit;
   myquota->inode_used  = sysquota.dqb_curfiles;
@@ -127,7 +127,7 @@ int quota_set (quota_t *myquota)
   /* copy our data into the system dqblk */
   sysquota.dqb_bhardlimit = myquota->block_hard;
   sysquota.dqb_bsoftlimit = myquota->block_soft;
-  sysquota.dqb_curblocks  = myquota->diskspace_used;
+  sysquota.dqb_curblocks  = myquota->diskspace_used; // FIXME: Convert back from bytes to blocks
   sysquota.dqb_fhardlimit = myquota->inode_hard;
   sysquota.dqb_fsoftlimit = myquota->inode_soft;
   sysquota.dqb_curfiles   = myquota->inode_used;

@@ -11,7 +11,7 @@ inc        +=   -I$(dir)
 auto       +=   $(wildcard $(dir)/*.in)
 libs       +=   
 
-subdirs    :=   linux solaris aix
+subdirs    :=   linux solaris aix freebsd
 
 ifneq ($(strip $(subdirs)),)
 -include $(foreach sdir,$(subdirs),$(dir)/$(sdir)/dir.mk)

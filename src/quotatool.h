@@ -18,5 +18,8 @@
 typedef unsigned long long int u_int64_t;
 #endif
 
+/* check for BSD variants */
+#define ANY_BSD (__FreeBSD__ || __FreeBSD_kernel__ || __OpenBSD__)
+
 #endif /* INCLUDE_QUOTATOOL */
 
