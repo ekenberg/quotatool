@@ -5,9 +5,6 @@
  * Johan Ekenberg
  * johan@ekenberg.se
  *
- * Mats Erik Andersson
- * debian@gisladisker.se
- *
  * quota.c
  * middle layer to talk to quotactl
  */
