@@ -104,6 +104,10 @@ quota_t *quota_new (int q_type, int id, char *fs_spec)
      if (IF_GENERIC) {
        output_debug("Detected quota interface: GENERIC");
      }
+     else {
+       output_error("Unsupported quota format: VFSV1 but not GENERIC, please report Issue on github: https://github.com/ekenberg/quotatool");
+       exit(ERR_SYS);
+     }
   }
   else if (QF_IS_OLD(quota_format)) {
      output_debug("Detected quota format: OLD");
