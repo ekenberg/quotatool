@@ -26,20 +26,28 @@
 
 int xfs_reset_grace(quota_t *, int);
 
+#define Q_USER_FILENAME  "/quota.user"
+#define Q_GROUP_FILENAME "/quota.group"
+
 quota_t *quota_new (int q_type, int id, char *fs_spec)
 {
   quota_t *myquota;
   fs_t *fs;
   char *qfile;
+  char *q_filename;
 
-  --q_type;                    /* see defs in quota.h */
-  if ( q_type >= MAXQUOTAS ) {
+  if (q_type > MAXQUOTAS) {
     output_error ("Unknown quota type: %d", q_type);
     return 0;
   }
 
+  if (q_type == QUOTA_USER) q_filename = Q_USER_FILENAME;
+  else q_filename = Q_GROUP_FILENAME;
+
+  --q_type;                    /* see defs in quota.h */
+
   myquota = (quota_t *) malloc (sizeof(quota_t));
-  if ( ! myquota ) {
+  if (! myquota) {
     output_error ("Insufficient memory");
     exit (ERR_MEM);
   }
@@ -49,19 +57,28 @@ quota_t *quota_new (int q_type, int id, char *fs_spec)
     return NULL;
   }
 
-  qfile = malloc (strlen(fs->mount_pt) + 13);
+  qfile = malloc (strlen(fs->mount_pt) + strlen(q_filename) + 1);
+  if (! qfile) {
+    output_error ("Insufficient memory");
+    exit (ERR_MEM);
+  }
+
 #if HAVE_STRLCPY
-  strlcpy(qfile, fs->mount_pt, strlen(fs->mount_pt) + 13);
+  strlcpy(qfile, fs->mount_pt, strlen(fs->mount_pt) + 1);
 #else
   strcpy (qfile, fs->mount_pt);
 #endif /* HAVE_STRLCPY */
 
   // Yes, this is ok, it does work to set group quotas as well, seems the entry is ignored by quotactl() with Q_SETQUOTA / Q_GETQUOTA
 #if HAVE_STRLCAT
-  strlcat(qfile, "/quota.user", strlen("/quota.user"));
+  strlcat(qfile, q_filename, strlen(qfile) + strlen(q_filename) + 1);
 #else
-  strcat (qfile, "/quota.user");
+  strcat (qfile, q_filename);
 #endif /* HAVE_STRLCAT */
+
+  // skip duplicated / at start of qfile
+  while (strlen(qfile) > 1 && qfile[0] == '/' && qfile[1] == '/') qfile++;
+
   output_debug ("qfile is \"%s\"\n", qfile);
 
   myquota->_id = id;
