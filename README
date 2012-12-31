@@ -14,7 +14,7 @@ Usage
 =====
 
     quotatool { -u uid | -g gid } [ options ... ] filesystem
-    quotatool { -u uid | -g gid } -t time { -i | -b } filesystem
+    quotatool { -u | -g } { -i | -b } -t time filesystem
     quotatool { -u uid | -g gid } -r filesystem
     quotatool { -u uid | -g gid } -d filesystem
 
@@ -85,7 +85,7 @@ Set soft inode limit to 1.8k (1800), hard inode limit to 2000 for user johan on 
 
 Set the global block grace period to one week on /home:
 
-   quotatool -u  -b -t "1 week" /home
+   quotatool -u -b -t "1 week" /home
 
 Restart inode grace period for user johan on root filesystem:
 
