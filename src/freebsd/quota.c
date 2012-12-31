@@ -69,7 +69,6 @@ quota_t *quota_new (int q_type, int id, char *fs_spec)
   strcpy (qfile, fs->mount_pt);
 #endif /* HAVE_STRLCPY */
 
-  // Yes, this is ok, it does work to set group quotas as well, seems the entry is ignored by quotactl() with Q_SETQUOTA / Q_GETQUOTA
 #if HAVE_STRLCAT
   strlcat(qfile, q_filename, strlen(qfile) + strlen(q_filename) + 1);
 #else
