@@ -87,7 +87,7 @@ int main (int argc, char **argv) {
 #ifdef HAVE_INTTYPES_H
      printf("%d %s %" PRIu64 " %" PRIu64 " %" PRIu64 " %lu %" PRIu64 " %" PRIu64 " %" PRIu64 " %lu\n",
 #else
-     printf("%d %s %llu %llu %llu %d %llu %llu %llu %lu\n",
+     printf("%d %s %llu %llu %llu %lu %llu %llu %llu %lu\n",
 #endif
 	    id,
 	    argdata->qfile,
@@ -96,11 +96,12 @@ int main (int argc, char **argv) {
 	    BLOCKS_TO_KB(quota->block_hard),
 #if ANY_BSD
 	    (unsigned long)
-	    (
+	    ((
 	       (quota->block_soft && (BYTES_TO_BLOCKS(quota->diskspace_used) >= quota->block_soft))
 	    ||
 	       (quota->block_hard && (BYTES_TO_BLOCKS(quota->diskspace_used) >= quota->block_hard))
-	     ) ? quota->block_time - now : 0,
+            ) ? quota->block_time - now : 0),
+
 #else
 	    (unsigned long) quota->block_time ? quota->block_time - now : 0,
 #endif /* ANY_BSD */
@@ -109,11 +110,12 @@ int main (int argc, char **argv) {
 	    quota->inode_hard,
 #if ANY_BSD
 	    (unsigned long)
-	    (
+	    ((
 	      (quota->inode_soft && (quota->inode_used >= quota->inode_soft))
 	    ||
 	      (quota->inode_hard && (quota->inode_used >= quota->inode_hard))
-	     ) ? quota->inode_time - now : 0);
+            ) ? quota->inode_time - now : 0));
+
 #else
 	    (unsigned long) quota->inode_time ? quota->inode_time - now : 0);
 #endif /* ANY_BSD */
