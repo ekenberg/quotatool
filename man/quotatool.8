@@ -135,6 +135,10 @@ Each quotatype (usrquota / grpquota) on each filesystem has two grace periods
 - one for block limits and one for inode limits.
 It is not possible to set different grace periods for users on the same filesystem.
 
+According to 'man quotactl', global grace periods should be supported on BSD. quotatool on
+BSD does the right thing which can be confirmed with 'edquota -t'. However, the value
+doesn't seem to be used by the system when usage passes a soft limit.
+
 Using non-existent uids/gids like ":12345" can be useful when configuring quotas on
 a mounted filesystem which is a separate system in it self, like when preparing an
 install image or repairing a filesystem from another installation.
