@@ -49,7 +49,7 @@ quota_t *quota_new (int q_type, int id, char *fs_spec)
    * quotactl(). "quota.user" should be a good choice. maybe we should
    * also check for "quota.group".
    */
-  qfile = malloc (strlen(fs->mount_pt)+13);  
+  qfile = malloc (strlen(fs->mount_pt)+13);
   strcpy(qfile,fs->mount_pt);
   strcat(qfile,"/quota.user");
 output_debug("qfile is, %s\n", qfile);
@@ -81,25 +81,25 @@ int quota_get (quota_t *myquota)
 
   output_debug ("fetching quotas: device='%s',id='%d'", myquota->_qfile,
 		myquota->_id);
-  retval = quotactl(myquota->_qfile,QCMD(Q_GETQUOTA,myquota->_id_type), 
+  retval = quotactl(myquota->_qfile,QCMD(Q_GETQUOTA,myquota->_id_type),
 		    myquota->_id, (caddr_t) &sysquota);
   if ( retval < 0 ) {
     output_error ("Failed fetching quotas: %s", strerror(errno));
     return 0;
   }
- 
-  /* here, linux.c does a memcpy(), it should also work for aix, 
-   * but it's better to be on the safe side 
+
+  /* here, linux.c does a memcpy(), it should also work for aix,
+   * but it's better to be on the safe side
    */
   myquota->block_hard  = sysquota.dqb_bhardlimit;
   myquota->block_soft  = sysquota.dqb_bsoftlimit;
-  myquota->diskspace_used  = sysquota.dqb_curblocks ; // FIXME: This is probably blocks on AIX, multiply by block-size to get bytes
+  myquota->diskspace_used  = sysquota.dqb_curblocks * BLOCK_SIZE;
   myquota->inode_hard  = sysquota.dqb_ihardlimit;
   myquota->inode_soft  = sysquota.dqb_isoftlimit;
   myquota->inode_used  = sysquota.dqb_curinodes ;
   myquota->block_grace = sysquota.dqb_btime     ;
   myquota->inode_grace = sysquota.dqb_itime     ;
-  
+
   return 1;
 }
 
@@ -116,7 +116,7 @@ int quota_set (quota_t *myquota){
 
   sysquota.dqb_bhardlimit = myquota->block_hard;
   sysquota.dqb_bsoftlimit = myquota->block_soft;
-  sysquota.dqb_curblocks  = myquota->diskspace_used; // FIXME: Convert back to blocks from bytes
+  sysquota.dqb_curblocks  = BYTES_TO_BLOCKS(myquota->diskspace_used);
   sysquota.dqb_ihardlimit = myquota->inode_hard;
   sysquota.dqb_isoftlimit = myquota->inode_soft;
   sysquota.dqb_curinodes  = myquota->inode_used;
@@ -132,7 +132,7 @@ int quota_set (quota_t *myquota){
     return 0;
   }
 
-  retval = quotactl (myquota->_qfile, QCMD(Q_SYNC,myquota->_id_type), 
+  retval = quotactl (myquota->_qfile, QCMD(Q_SYNC,myquota->_id_type),
 	0, NULL);
   if ( retval < 0 ) {
     output_error ("Failed syncing quotas on %s: %s", myquota->_qfile,
@@ -143,15 +143,19 @@ int quota_set (quota_t *myquota){
   return 1;
 }
 
-int xfs_reset_grace(quota_t *myquota, int grace_type) {
-  /* NOOP. Placeholder. Sorry.
-       // Johan 
-  */
-  return 1;
+int quota_reset_grace(quota_t *myquota, int grace_type) {
+   quota_t temp_quota;
+
+   memcpy(&temp_quota, myquota, sizeof(quota_t));
+
+   if (grace_type == GRACE_BLOCK)
+       temp_quota.block_hard = temp_quota.block_soft = BYTES_TO_BLOCKS(temp_quota.diskspace_used) + 1;
+   else
+       temp_quota.inode_hard = temp_quota.inode_soft = temp_quota.inode_used + 1;
+
+   if (quota_set(&temp_quota) && quota_set(myquota))
+       return 1;
+
+   output_error("Cannot reset grace period!");
+   return 0; // error, on success we return above
 }
-
-/* int quota_on (int q_type, char *device);
- * int quota_off (int q_type, char *device);
- */
-
-

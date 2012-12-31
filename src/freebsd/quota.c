@@ -24,8 +24,6 @@
 #include "quota.h"
 #include "quotatool.h"
 
-int xfs_reset_grace(quota_t *, int);
-
 #define Q_USER_FILENAME  "/quota.user"
 #define Q_GROUP_FILENAME "/quota.group"
 
@@ -160,13 +158,19 @@ int quota_set (quota_t *myquota){
   return 1;
 }
 
-int xfs_reset_grace (quota_t *myquota, int grace_type) {
-  /* NOOP. Placeholder. Sorry.
-       // Johan
-  */
-  return 1;
-}
+int quota_reset_grace(quota_t *myquota, int grace_type) {
+   quota_t temp_quota;
 
-/* int quota_on (int q_type, char *device);
- * int quota_off (int q_type, char *device);
- */
+   memcpy(&temp_quota, myquota, sizeof(quota_t));
+
+   if (grace_type == GRACE_BLOCK)
+       temp_quota.block_hard = temp_quota.block_soft = BYTES_TO_BLOCKS(temp_quota.diskspace_used) + 1;
+   else
+       temp_quota.inode_hard = temp_quota.inode_soft = temp_quota.inode_used + 1;
+
+   if (quota_set(&temp_quota) && quota_set(myquota))
+       return 1;
+
+   output_error("Cannot reset grace period!");
+   return 0; // error, on success we return above
+}

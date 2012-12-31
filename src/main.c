@@ -26,7 +26,6 @@
 #include "system.h"
 
 int main (int argc, char **argv) {
-  u_int64_t block_sav, inode_sav;
   u_int64_t old_quota;
   int id;
   time_t old_grace;
@@ -197,49 +196,25 @@ int main (int argc, char **argv) {
   }
 
 
-  /*
-   * FINISH preparing to set quotas
-   *  BEGIN  resetting grace periods
-   *
-   * to "reset" the grace period, we really
-   * set the current used {blocks,inodes}
-   * to the soft limit - 1, call quota_set,
-   * then reinstate the original usage.
-   *
-   * NB: This doesn't work with XFS. Hence the (ugly ?) hack below. /Johan
-   */
+  /* Reset grace-time? */
+  if (argdata->block_reset || argdata->inode_reset) {
+      output_info("Resetting %s grace-time for %s %d\n",
+                  (argdata->block_reset ? "block" : "inode"),
+                  (argdata->id_type == QUOTA_USER ? "uid" : "gid"),
+                  id);
 
+      if (! argdata->noaction)
+          if (! quota_reset_grace(quota, (argdata->block_reset ? GRACE_BLOCK : GRACE_INODE)))
+              exit(ERR_SYS);
 
-  if ( argdata->block_reset || argdata->inode_reset) {
-     block_sav = quota->diskspace_used;
-     inode_sav = quota->inode_used;
-     if ( argdata->block_reset && ! argdata->noaction ) {
-	xfs_reset_grace(quota, GRACE_BLOCK);
-	quota->diskspace_used = quota->block_soft - 1;
-     }
-     if ( argdata->inode_reset && ! argdata->noaction ) {
-	xfs_reset_grace(quota, GRACE_INODE);
-	quota->inode_used = quota->inode_soft - 1;
-     }
-     if ( ! argdata->noaction ) {
-	if ( ! quota_set (quota) ) {
-	   exit (ERR_SYS);
-	}
-     }
-     quota->diskspace_used = block_sav;
-     quota->inode_used = inode_sav;
+      quota_delete(quota);
+      exit(0);
   }
 
-  /*
-   * FINISH resetting grace periods
-   * FINALLY really set new quotas
-   */
-
-  if ( ! argdata->noaction ) {
-    if ( ! quota_set (quota) ) {
-      exit (ERR_SYS);
-    }
-  }
+  /* Set new quota? */
+  if (! argdata->noaction)
+      if (! quota_set (quota))
+          exit(ERR_SYS);
 
   quota_delete (quota);
   exit (0);
