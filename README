@@ -8,7 +8,7 @@ Quick Start
     ./configure
     make
     sudo make install
-
+    (use gmake on *BSD)
 
 Usage
 =====
