@@ -124,7 +124,15 @@ argdata_t *parse_commandline (int argc, char **argv)
 	optind++;
       }
 #else
-      data->id = optarg;
+      if (optarg && ((data->block_grace || data->inode_grace) || (optarg[0] == '-'))) {
+          /* -u [-next-opt] */
+          optind--;
+          data->id = NULL;
+      }
+      else {
+          /* -u user */
+          data->id = optarg;
+      }
 #endif
       output_info ("using uid %s", data->id);
       break;
@@ -157,24 +165,20 @@ argdata_t *parse_commandline (int argc, char **argv)
       output_info ("using gid  %s", data->id);
       break;
 
-
-
-    case 'b':   // set max blocks
-      output_info ("setting block limit");
+    case 'b':   // Work with block limits
+      output_info ("working with block limits");
       quota_type = _PARSE_BLOCK;
       break;
 
-    case 'i':   // set max inodes
-      output_info ("setting inode limit");
+    case 'i':   // Work with inode limits
+      output_info ("working with inode limits");
       quota_type = _PARSE_INODE;
       break;
 
-
-
-    case 'q':
+    case 'q': // soft limit
       switch ( quota_type ) {
       case _PARSE_UNDEF:
-	output_error ("must specify either block or inode");
+	output_error ("Must specify either block (-b) or inode (-i) before -q");
 	fail = 1;
 	break;
       case _PARSE_BLOCK:
@@ -191,10 +195,10 @@ argdata_t *parse_commandline (int argc, char **argv)
       break;
 
 
-    case 'l':
+    case 'l': // hard limit
       switch ( quota_type ) {
       case _PARSE_UNDEF:
-	output_error ("must specify either block or inode");
+	output_error ("Must specify either block (-b) or inode (-i) before -l");
 	fail = 1;
 	break;
       case _PARSE_BLOCK:
@@ -212,11 +216,11 @@ argdata_t *parse_commandline (int argc, char **argv)
 
 
 
-    case 't':
+    case 't': // set grace period
       data->id = NULL;
       switch ( quota_type ) {
       case _PARSE_UNDEF:
-	output_error ("must specify either block or inode");
+	output_error ("Must specify either block (-b) or inode (-i) before -t");
 	fail = 1;
 	break;
       case _PARSE_BLOCK:
@@ -229,14 +233,13 @@ argdata_t *parse_commandline (int argc, char **argv)
 	output_error ("Impossible error #42t: evacuate the building!");
 	break;
       }
-      output_info ("setting grace period to %s", optarg);
       break;
 
 
-    case 'r':
+    case 'r': // reset grace time
       switch ( quota_type ) {
       case _PARSE_UNDEF:
-	output_error ("must specify either block or inode");
+	output_error ("Must specify either block (-b) or inode (-i) before -r");
 	fail = 1;
 	break;
       case _PARSE_BLOCK:
@@ -249,7 +252,6 @@ argdata_t *parse_commandline (int argc, char **argv)
 	output_error ("Impossible error #42r: evacuate the building!");
 	break;
       }
-      output_info ("resetting grace period");
       break;
 
     case 'd':
@@ -271,11 +273,8 @@ argdata_t *parse_commandline (int argc, char **argv)
       output_help();
       fail = 1;
       break;
-
-
     }
   }
-
 
   if ( fail ) {
     free (data);
@@ -293,9 +292,15 @@ argdata_t *parse_commandline (int argc, char **argv)
 
   /* the remaining arg is the filesystem */
   data->qfile = argv[optind];
-  if ( ! data->qfile ) {
+  if ( ! data->qfile || strlen(data->qfile) == 0) {
     output_error ("No filesystem specified");
     return NULL;
+  }
+
+  /* remove trailing slash(es) except for / filesystem */
+  while (strlen(data->qfile) > 1) {
+    if (data->qfile[strlen(data->qfile) - 1] != '/') break;
+    data->qfile[strlen(data->qfile) - 1] = '\0';
   }
 
   /* check for mixing -t with other options in the wrong way */
@@ -306,13 +311,18 @@ argdata_t *parse_commandline (int argc, char **argv)
      }
   }
 
+  /* check for mixing -r with other options in the wrong way */
+  if (data->block_reset || data->inode_reset) {
+      if (data->block_hard || data->block_soft || data->inode_hard || data->inode_soft) {
+          output_error("Wrong options for -r, please see manpage for usage instructions!");
+          return NULL;
+      }
+  }
+
   output_info ("using filesystem %s", data->qfile);
 
   return data;
 }
-
-
-
 
 #define _PARSE_OP_ADD '+'
 #define _PARSE_OP_SUB '-'

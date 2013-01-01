@@ -29,8 +29,14 @@
 #  define mntent mnttab
 #  define setmntent(file,mode) fopen((file),(mode))
 #  define endmntent(file)      fclose((file))
+#elif HAVE_FSTAB_H /* *BSD && ! GNU/kFreeBSD */
+#  include <fstab.h>
+#  define MOUNTFILE _PATH_FSTAB
 #elif HAVE_SYS_MNTCTL_H /* AIX :( */
 #  include <sys/mntctl.h>
+#endif
+
+#if HAVE_SYS_MNTCTL_H || HAVE_FSTAB_H /* AIX || *BSD */
 struct mntent {
   char *mnt_fsname;
   char *mnt_dir;
@@ -38,7 +44,7 @@ struct mntent {
   char *mnt_mountp;
   int  vmt_flags;
 };
-#endif
+#endif /* AIX || *BSD */
 
 #include <sys/types.h>
 
@@ -62,6 +68,8 @@ fs_t *system_getfs (char *fs_spec) {
   char *vmnt_buffer;
   struct vmount   *vmnt;
   int vmnt_retval, vmnt_size, vmnt_nent;
+#elif HAVE_FSTAB_H /* *BSD */
+  struct fstab *entry;
 #endif
 
   ent = (fs_t *) malloc (sizeof(fs_t));
@@ -76,7 +84,7 @@ fs_t *system_getfs (char *fs_spec) {
    * vmnt array. is there a better way? */
   vmnt_retval = mntctl (MCTL_QUERY, sizeof(int), (char*)&vmnt_size);
   if (vmnt_retval != -1) {
-    vmnt_buffer=(char*)malloc(vmnt_size);
+    vmnt_buffer = (char*) malloc(vmnt_size);
     vmnt_retval = mntctl (MCTL_QUERY, vmnt_size, vmnt_buffer);
   }
   if ( vmnt_retval == -1 ) {
@@ -85,12 +93,22 @@ fs_t *system_getfs (char *fs_spec) {
   }
   vmnt_nent = vmnt_retval; /* number of entries */
   vmnt = (struct vmount*) vmnt_buffer;
-  current_fs=(struct mntent*)malloc(sizeof(struct mntent));
+  current_fs = (struct mntent*) malloc(sizeof(struct mntent));
+#elif HAVE_FSTAB_H /* *BSD */
+  if (! setfsent()) {
+    output_error("Failed opening fstab: %s", strerror(errno));
+    return NULL;
+  }
+  current_fs = (struct mntent*) malloc(sizeof(struct mntent));
+  if (! current_fs) {
+    output_error("Out of memory");
+    exit (ERR_MEM);
+  }
 #else
   etc_mtab = setmntent (MOUNTFILE, "r");
   if ( ! etc_mtab ) {
     output_error ("Failed opening %s for reading: %s", MOUNTFILE,
-				  strerror(errno));
+		  strerror(errno));
     return NULL;
   }
 #endif
@@ -119,7 +137,19 @@ fs_t *system_getfs (char *fs_spec) {
    current_fs->vmt_flags = vmnt->vmt_flags;
    vmnt = (struct vmount*) ((char*)vmnt + vmnt->vmt_length);
    if ( --vmnt_nent < 0 ) {
-#endif
+#elif HAVE_FSTAB_H /* *BSD */
+   if ( ((entry = getfsfile(fs_spec)) != NULL)
+	||
+	((entry = getfsspec(fs_spec)) != NULL))
+   {
+     current_fs->mnt_special = strdup(entry->fs_spec);
+     current_fs->mnt_mountp  = strdup(entry->fs_file);
+     done = 1;
+   }
+   else
+   {
+     free(current_fs);
+#endif /* HAVE_SYS_MNTTAB_H */
       output_error ("Filesystem %s does not exist", fs_spec);
       return NULL;
     }
@@ -187,6 +217,14 @@ fs_t *system_getfs (char *fs_spec) {
     output_error ("Filesystem %s is mounted read-only\n", fs_spec);
     free(current_fs);
     free(vmnt_buffer);
+#elif HAVE_FSTAB_H /* *BSD */
+    // BSD: fs_type can be 'ro', 'rw', 'sw' (swap) or 'xx' (ignore) - we want 'rw'
+  if (! strstr(entry->fs_type, "rw")) {
+    output_error ("Filesystem %s is mounted read-only\n", fs_spec);
+    if (current_fs->mnt_special) free(current_fs->mnt_special);
+    if (current_fs->mnt_mountp)  free(current_fs->mnt_mountp);
+    free(current_fs);
+    endfsent();
 #else
   if ( hasmntopt(current_fs, "ro") ) {
     output_error ("Filesystem %s is mounted read-only\n", fs_spec);
@@ -200,6 +238,11 @@ fs_t *system_getfs (char *fs_spec) {
 #if HAVE_SYS_MNTCTL_H
   free(current_fs);
   free(vmnt_buffer);
+#elif HAVE_FSTAB_H /* *BSD */
+  if (current_fs->mnt_special) free(current_fs->mnt_special);
+  if (current_fs->mnt_mountp)  free(current_fs->mnt_mountp);
+  free(current_fs);
+  endfsent();
 #else
   endmntent (etc_mtab);
 #endif

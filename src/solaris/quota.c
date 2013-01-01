@@ -99,13 +99,13 @@ int quota_get (quota_t *myquota)
   /* copy the system-formatted quota info into our struct */
   myquota->block_hard  = sysquota.dqb_bhardlimit;
   myquota->block_soft  = sysquota.dqb_bsoftlimit;
-  myquota->diskspace_used  = sysquota.dqb_curblocks;
+  myquota->diskspace_used  = sysquota.dqb_curblocks * BLOCK_SIZE;
   myquota->inode_hard  = sysquota.dqb_fhardlimit;
   myquota->inode_soft  = sysquota.dqb_fsoftlimit;
   myquota->inode_used  = sysquota.dqb_curfiles;
   myquota->block_grace = sysquota.dqb_btimelimit;
   myquota->inode_grace = sysquota.dqb_ftimelimit;
-  
+
   /* it worked! */
   return 1;
 }
@@ -127,7 +127,7 @@ int quota_set (quota_t *myquota)
   /* copy our data into the system dqblk */
   sysquota.dqb_bhardlimit = myquota->block_hard;
   sysquota.dqb_bsoftlimit = myquota->block_soft;
-  sysquota.dqb_curblocks  = myquota->diskspace_used;
+  sysquota.dqb_curblocks  = BYTES_TO_BLOCKS(myquota->diskspace_used);
   sysquota.dqb_fhardlimit = myquota->inode_hard;
   sysquota.dqb_fsoftlimit = myquota->inode_soft;
   sysquota.dqb_curfiles   = myquota->inode_used;
@@ -164,9 +164,19 @@ int quota_set (quota_t *myquota)
   return 1;
 }
 
-int xfs_reset_grace(quota_t *myquota, int grace_type) {
-  /* NOOP. Placeholder. Sorry.
-       // Johan 
-  */
-  return 1;
+int quota_reset_grace(quota_t *myquota, int grace_type) {
+   quota_t temp_quota;
+
+   memcpy(&temp_quota, myquota, sizeof(quota_t));
+
+   if (grace_type == GRACE_BLOCK)
+       temp_quota.block_hard = temp_quota.block_soft = BYTES_TO_BLOCKS(temp_quota.diskspace_used) + 1;
+   else
+       temp_quota.inode_hard = temp_quota.inode_soft = temp_quota.inode_used + 1;
+
+   if (quota_set(&temp_quota) && quota_set(myquota))
+       return 1;
+
+   output_error("Cannot reset grace period!");
+   return 0; // error, on success we return above
 }

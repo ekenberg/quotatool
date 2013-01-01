@@ -1,4 +1,4 @@
-.TH QUOTATOOL 8 "1999 - 2012" "version 1.5.1"
+.TH QUOTATOOL 8 "1999 - 2013" "version 1.6.0"
 .SH NAME
 quotatool \- manipulate filesystem quotas
 .SH SYNOPSIS
@@ -105,8 +105,10 @@ Print version information to stdout and exit successfully
 .SH FILESYSTEMS / FORMATS
 On Linux,
 .B quotatool
-works with both "old" and "new" + "generic" kernel-quota formats and also has
-support for quotas on XFS.
+works with both "old", "vfsv0" and "vfsv1" + "generic" kernel-quota formats.
+Supported filesystems: ext2, ext3, ext4, ReiserFS and XFS.
+
+FreeBSD / OpenBSD: filesystems ufs and ffs
 .SH EXAMPLES
 
 Set soft block limit to 800Mb, hard block limit to 1.2 Gb for user mpg4 on /home:
@@ -135,6 +137,10 @@ Each quotatype (usrquota / grpquota) on each filesystem has two grace periods
 - one for block limits and one for inode limits.
 It is not possible to set different grace periods for users on the same filesystem.
 
+According to 'man quotactl', global grace periods should be supported on BSD. quotatool on
+BSD does the right thing, which can be confirmed with 'edquota -t'. However, the value
+doesn't seem to be used by the system when usage passes a soft limit.
+
 Using non-existent uids/gids like ":12345" can be useful when configuring quotas on
 a mounted filesystem which is a separate system in it self, like when preparing an
 install image or repairing a filesystem from another installation.
@@ -153,11 +159,12 @@ Use -v (or -v -v) to see verbose/debug info when running commands
 .B quota.user
 ,
 .B quota.group
-(linux)
+(linux, *BSD, aix)
 .br
 .B quotas
 (solaris, ...)
 .SH BUGS
+Please check https://github.com/ekenberg/quotatool for any open issues. Feel free to add a new issue if you find an unresolved bug!
 .PP
 Calling
 .B quotatool

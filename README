@@ -8,13 +8,13 @@ Quick Start
     ./configure
     make
     sudo make install
-
+    (use gmake on *BSD)
 
 Usage
 =====
 
     quotatool { -u uid | -g gid } [ options ... ] filesystem
-    quotatool { -u uid | -g gid } -t time { -i | -b } filesystem
+    quotatool { -u | -g } { -i | -b } -t time filesystem
     quotatool { -u uid | -g gid } -r filesystem
     quotatool { -u uid | -g gid } -d filesystem
 
@@ -85,7 +85,7 @@ Set soft inode limit to 1.8k (1800), hard inode limit to 2000 for user johan on 
 
 Set the global block grace period to one week on /home:
 
-   quotatool -u  -b -t "1 week" /home
+   quotatool -u -b -t "1 week" /home
 
 Restart inode grace period for user johan on root filesystem:
 
@@ -99,6 +99,10 @@ Notes
 Each quotatype (usrquota / grpquota) on each filesystem has two grace periods
 - one for block limits and one for inode limits.
 It is not possible to set different grace periods for users on the same filesystem.
+
+BSD-note: According to 'man quotactl', global grace periods should be supported on BSD.
+quotatool on BSD does the right thing, which can be confirmed with 'edquota -t'.
+However, the value doesn't seem to be used by the system when usage passes a soft limit.
 
 * Using non-existent uids/gids like ":12345" can be useful when configuring quotas on
 a mounted filesystem which is a separate system in it self, like when preparing an
@@ -120,13 +124,16 @@ Platforms and Filesystems
 quotatool currently builds and works well on:
 
 -- Linux --
-Both old and new quota formats.
-ext2, ext3, ext4, ReiserFS and XFS supported
+Quota formats: old, vfsv0, vfsv1 and "generic"
+Filesystems: ext2, ext3, ext4, ReiserFS and XFS
+
+-- BSD --
+FreeBSD, OpenBSD (ufs, ffs)
 
 -- Solaris --
 
 -- AIX --
 
-Missing your favorite *nix OS? Check the ChangeLog for the latest
-additions, or port it yourself and send us a patch!
+Missing your favorite *nix OS? Missing a feature, or found a bug?
+Feel free to add an Issue on https://github.com/ekenberg/quotatool
 

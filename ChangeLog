@@ -1,4 +1,9 @@
+1 Jan 2013 (1.6.0)
 	- Exit gracefully on Linux VFSV1 && ! GENERIC
+	- Improve / robustify argument parsing
+	- Rewrite algorithms for grace time reset
+	- Use strlcat/strlcpy if available
+	- BSD support (FreeBSD, OpenBSD)
 
 25 Dec 2012 (1.5.1)
 	- Fix bug in Linux format parsing

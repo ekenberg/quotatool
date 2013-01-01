@@ -14,7 +14,7 @@
 #include "quotatool.h"
 #include <config.h>
 
-/* FIXME: this is getting to be a mess */
+/* Find out the system BLOCK_SIZE */
 #if HAVE_LINUX_FS_H
 #  include <linux/version.h>
 #  if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
@@ -25,12 +25,14 @@
 #elif HAVE_STD_H
 #  include <std.h>
 #  define BLOCK_SIZE MULBSIZE
+#elif HAVE_UFS_UFS_QUOTA_H /* *BSD */
+#  define BLOCK_SIZE 512
 #else
-/*#  warn "making up a block size" */
-/* FIXME: "warn" directive does not work with gcc 2.8.1 on aix -cagri*/
+/* WARNING: Making up a block-size */
 #  define BLOCK_SIZE 1024
 #endif
 
+/* Include system quota headers */
 #if PLATFORM_LINUX
 #  include <linux/types.h>
 #  include "linux/linux_quota.h"
@@ -46,9 +48,24 @@
 #  include <jfs/quota.h>
 #  define QUOTA_USER  USRQUOTA + 1
 #  define QUOTA_GROUP GRPQUOTA + 1
+#elif HAVE_UFS_UFS_QUOTA_H /* *BSD */
+#  include <sys/types.h>
+#  include <ufs/ufs/quota.h>
+#  define QUOTA_USER  USRQUOTA + 1
+#  define QUOTA_GROUP GRPQUOTA + 1
 #else
 #  error "no quota headers found"
 #endif
+
+
+// Upwards integer division, always make room for remainder
+#define DIV_UP(a, b) ( (a) % (b) == 0 ? (a) / (b) : ((a) / (b) + 1))
+
+// Convert bytes to system blocks
+#define BYTES_TO_BLOCKS(bytes) DIV_UP(bytes, BLOCK_SIZE)
+
+// Convert from system block-size to Kb. The constant 8 allows for BLOCK_SIZE >= 1024 / 8 (= 128 bytes)
+#define BLOCKS_TO_KB(num_blocks) DIV_UP((num_blocks) * ((BLOCK_SIZE * 8) / 1024), 8)
 
 struct _quota_t {
    u_int64_t	block_hard;

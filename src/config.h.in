@@ -12,6 +12,7 @@
 #define PLATFORM_LINUX 0
 #define PLATFORM_SOLARIS 0
 #define PLATFORM_AIX 0
+#define PLATFORM_FREEBSD 0
 #define PLATFORM_UNKNOWN 0
 
 /* define if setmntent() is defined in <mntent.h> */
@@ -20,8 +21,17 @@
 /* define if setmntent() is defined in <sys/mnttab.h> */
 #define HAVE_SYS_MNTTAB_H 0
 
+/* define if setmntent() is defined in <sys/mntctl.h> */
+#define HAVE_SYS_MNTCTL_H 0
+
+/* define if setfsent() is defined in <fstab.h> */
+#define HAVE_FSTAB_H 0
+
 /* define if the quotactl ioctl() is defined in <sys/fs/ufs_quota.h> */
 #define  HAVE_SYS_FS_UFS_QUOTA_H 0
+
+/* define if the quotactl ioctl() is defined in <ufs/ufs/quota.h> */
+#define  HAVE_UFS_UFS_QUOTA_H 0
 
 /* define if PATH_MAX is defined in <linux/limits.h> */
 #define HAVE_LINUX_LIMITS_H 0
@@ -49,6 +59,12 @@
 
 /* define if we have the <inttypes.h> header file */
 #define HAVE_INTTYPES_H 0
+
+/* define if we have the function strlcat */
+#define HAVE_STRLCAT 0
+
+/* define if we have the function strlcpy */
+#define HAVE_STRLCPY 0
 
 /*****************************************************************
  * That's it!  Stop reading! There's nothing else to see!

@@ -306,7 +306,8 @@ static int xfs_quota_get(quota_t *myquota) {
    /* copy the linux-xfs-formatted quota info into our struct */
    myquota->block_hard	=  sysquota.d_blk_hardlimit / block_diff;
    myquota->block_soft	=  sysquota.d_blk_softlimit / block_diff;
-   myquota->diskspace_used = sysquota.d_bcount / block_diff * 1024; // XFS really uses blocks, all other formats in this file use bytes
+ // XFS really uses blocks, all other formats in this file use bytes
+   myquota->diskspace_used = (sysquota.d_bcount * 1024) / block_diff;
    myquota->inode_hard  =  sysquota.d_ino_hardlimit;
    myquota->inode_soft  =  sysquota.d_ino_softlimit;
    myquota->inode_used  =  sysquota.d_icount;
@@ -470,7 +471,8 @@ static int xfs_quota_set(quota_t *myquota) {
    /* copy our data into the linux dqblk */
    sysquota.d_blk_hardlimit = myquota->block_hard * block_diff;
    sysquota.d_blk_softlimit = myquota->block_soft * block_diff;
-   sysquota.d_bcount	    = myquota->diskspace_used * block_diff / 1024; // XFS really uses blocks, all other formats in this file use bytes
+ // XFS really uses blocks, all other formats in this file use bytes
+   sysquota.d_bcount	    = DIV_UP(myquota->diskspace_used * block_diff, 1024);
    sysquota.d_ino_hardlimit = myquota->inode_hard;
    sysquota.d_ino_softlimit = myquota->inode_soft;
    sysquota.d_icount        = myquota->inode_used;
@@ -595,46 +597,25 @@ int kern_quota_format(fs_t *fs, int q_type) {
    return ret;
 }
 
-int xfs_reset_grace(quota_t *myquota, int grace_type) {
-   /*
-     This is a hack for XFS which doesn't allow setting
-     the current inode|block usage.
-     Instead we temporarily raise the quota limits to
-     current usage + 1, and then restore the previous limits.
-     Either let it remain here, or rewrite the entire
-     handling of resetting grace times.
-   */
-
+int quota_reset_grace(quota_t *myquota, int grace_type) {
    quota_t temp_quota;
-
-   if (! QF_IS_XFS(quota_format)) return 1;
 
    memcpy(&temp_quota, myquota, sizeof(quota_t));
 
-   if (grace_type == GRACE_BLOCK) {
-      output_debug("xfs_reset_grace: BLOCK");
-      temp_quota.block_hard = temp_quota.block_soft = temp_quota.diskspace_used + 1;
-      if (xfs_quota_set(&temp_quota) && xfs_quota_set(myquota)) {
-	 return 1;
-      }
-   }
-   else if (grace_type == GRACE_INODE) {
-      output_debug("xfs_reset_grace: INODE");
-      temp_quota.inode_hard = temp_quota.inode_soft = temp_quota.inode_used + 1;
-      if (xfs_quota_set(&temp_quota) && xfs_quota_set(myquota)) {
-	 return 1;
-      }
+   if (grace_type == GRACE_BLOCK)
+       temp_quota.block_hard = temp_quota.block_soft = BYTES_TO_BLOCKS(temp_quota.diskspace_used) + 1;
+   else
+       temp_quota.inode_hard = temp_quota.inode_soft = temp_quota.inode_used + 1;
+
+   if (QF_IS_XFS(quota_format)) {
+       if (xfs_quota_set(&temp_quota) && xfs_quota_set(myquota))
+           return 1;
    }
    else {
-      // We shouldn't get here
-      output_error("xfs_reset_grace(): wrong parameter for grace_type");
-      return 0;
+       if (quota_set(&temp_quota) && quota_set(myquota))
+           return 1;
    }
+
+   output_error("Cannot reset grace period!");
    return 0; // error, on success we return above
 }
-
-/* int quota_on (int q_type, char *device);
- * int quota_off (int q_type, char *device);
- */
-
-
