@@ -2,6 +2,8 @@
 ====     quotatool     ====
 ===========================
 
+Command-line utility for filesystem quotas on Linux, FreeBSD/OpenBSD, Solaris and AIX
+
 Quick Start
 ===========
 
