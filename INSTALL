@@ -1,18 +1,18 @@
 ======================================================================
 Please note: quotatool is probably available for installation through
-your distributions package manager. You shouldn't have to build it
-from source.
+your distribution's package manager. You shouldn't have to build it
+from source unless you need a more recent version.
 
 See http://quotatool.ekenberg.se/index.php?node=download for
-installation instructions for common Linux distributions
+installation instructions for common Linux distributions.
 
 ======================================================================
-However, if you do need to build it yourself, 
+However, if you do need to build it yourself,
 this should work in 99% of all cases:
 
    ./configure
-   make
-   (as root) make install
+   make (or gmake if on *BSD)
+   (as root) make install (or 'gmake install' if on *BSD)
 
 Please see the README for more information.
 
@@ -61,7 +61,7 @@ The simplest way to compile this package is:
      documentation.
 
   4. You can remove the program binaries and object files from the
-     source code directory by typing `make clean'.  
+     source code directory by typing `make clean'.
 
 Compilers and Options
 =====================

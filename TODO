@@ -1,4 +1,6 @@
  - BSD: quota on file-backed disk (http://www.freebsd.org/doc/en/books/handbook/disks-virtual.html), like loop-devices on linux
 
+ - BSD: ports / pkg_add distribution
+
  - Show-option, to be able to get time_t exactly _when_ a grace
    period  is set to timeout.
