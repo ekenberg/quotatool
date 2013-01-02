@@ -48,7 +48,7 @@ case [$host] in
 	PLATFORM=aix
 	AC_DEFINE(PLATFORM_AIX, 1)
 	;;
-  *freebsd*|*openbsd*)
+  *freebsd*|*openbsd*|*netbsd*)
 	PLATFORM=freebsd
 	AC_DEFINE(PLATFORM_FREEBSD, 1)
 	;;
@@ -81,7 +81,7 @@ test [$FOUND_TYPES] || AC_MSG_ERROR([Can't find system types])
 
 dnl Check for quota header files except for linux (we ship our own)
 if test "$PLATFORM" != "linux"; then
-  AC_CHECK_HEADERS(sys/fs/ufs_quota.h jfs/quota.h ufs/ufs/quota.h, FOUND_QUOTA=1;break)
+  AC_CHECK_HEADERS(sys/fs/ufs_quota.h jfs/quota.h ufs/ufs/quota1.h ufs/ufs/quota.h, FOUND_QUOTA=1;break)
   test [$FOUND_QUOTA] || AC_MSG_ERROR([Can't find quota defs])
 fi
 

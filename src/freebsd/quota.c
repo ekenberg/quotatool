@@ -108,6 +108,11 @@ int quota_get (quota_t *myquota)
    */
   myquota->block_hard  = sysquota.dqb_bhardlimit;
   myquota->block_soft  = sysquota.dqb_bsoftlimit;
+#if __NetBSD__
+  /* Seems a bug in NetBSD 6.0, quotas are returned one block less than previously set */
+  myquota->block_hard++;
+  myquota->block_soft++;
+#endif
   myquota->diskspace_used  = sysquota.dqb_curblocks * BLOCK_SIZE;
   myquota->inode_hard  = sysquota.dqb_ihardlimit;
   myquota->inode_soft  = sysquota.dqb_isoftlimit;
@@ -161,7 +166,7 @@ int quota_reset_grace(quota_t *myquota, int grace_type) {
    memcpy(&temp_quota, myquota, sizeof(quota_t));
 
    if (grace_type == GRACE_BLOCK)
-       temp_quota.block_hard = temp_quota.block_soft = BYTES_TO_BLOCKS(temp_quota.diskspace_used) + 1;
+       temp_quota.block_hard = temp_quota.block_soft = BYTES_TO_BLOCKS(temp_quota.diskspace_used) + 2; // 2 needed because of bug in NetBSD
    else
        temp_quota.inode_hard = temp_quota.inode_soft = temp_quota.inode_used + 1;
 

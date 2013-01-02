@@ -33,6 +33,9 @@
 /* define if the quotactl ioctl() is defined in <ufs/ufs/quota.h> */
 #define  HAVE_UFS_UFS_QUOTA_H 0
 
+/* define if the quotactl ioctl() is defined in <ufs/ufs/quota1.h> */
+#define  HAVE_UFS_UFS_QUOTA1_H 0
+
 /* define if PATH_MAX is defined in <linux/limits.h> */
 #define HAVE_LINUX_LIMITS_H 0
 
