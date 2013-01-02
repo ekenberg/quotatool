@@ -2188,7 +2188,7 @@ ac_configure="$SHELL $ac_aux_dir/configure"  # Please don't use this var.
 
 MAJOR_VERSION=1
 MINOR_VERSION=6
-PATCHLEVEL=0
+PATCHLEVEL=1
 COPYRIGHT_NOTICE="Copyright (c) 1999-2013 Mike Glover / Johan Ekenberg"
 WWW_URL="https://github.com/ekenberg/quotatool | http://quotatool.ekenberg.se"
 
