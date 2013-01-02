@@ -1,3 +1,6 @@
+2 Jan 2013
+	- Support for NetBSD (compatibility mode for UFS/FFS-quota)
+
 1 Jan 2013 (1.6.0)
 	- Exit gracefully on Linux VFSV1 && ! GENERIC
 	- Improve / robustify argument parsing

@@ -5,19 +5,16 @@
 svdir      :=   $(dir)
 dir        :=   $(dir)/src
 
-dirs       +=   $(dir) 
+dirs       +=   $(dir)
 srcs       +=   $(wildcard $(dir)/*.c)
 inc        +=   -I$(dir)
 auto       +=   $(wildcard $(dir)/*.in)
-libs       +=   
+libs       +=
 
-subdirs    :=   linux solaris aix freebsd
+subdirs    :=   linux solaris aix bsd
 
 ifneq ($(strip $(subdirs)),)
 -include $(foreach sdir,$(subdirs),$(dir)/$(sdir)/dir.mk)
 endif
 
 dir        :=   $(svdir)
-
-
-

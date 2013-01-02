@@ -1,11 +1,11 @@
 #
-# Makefile fragment for src/freebsd
+# Makefile fragment for src/bsd
 #
 
-thisdir    :=   freebsd
+thisdir    :=   bsd
 
 svdir      :=   $(dir)
-dir        :=   $(dir)/freebsd
+dir        :=   $(dir)/bsd
 
 dirs       +=   $(dir)
 auto       +=   $(wildcard $(dir)/*.in)

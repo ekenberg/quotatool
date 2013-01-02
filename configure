@@ -2317,8 +2317,8 @@ case $host in
 
 	;;
   *freebsd*|*openbsd*|*netbsd*)
-	PLATFORM=freebsd
-	$as_echo "#define PLATFORM_FREEBSD 1" >>confdefs.h
+	PLATFORM=bsd
+	$as_echo "#define PLATFORM_BSD 1" >>confdefs.h
 
 	;;
   *)
