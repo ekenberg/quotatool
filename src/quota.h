@@ -25,7 +25,7 @@
 #elif HAVE_STD_H
 #  include <std.h>
 #  define BLOCK_SIZE MULBSIZE
-#elif HAVE_UFS_UFS_QUOTA_H /* *BSD */
+#elif HAVE_UFS_UFS_QUOTA_H || HAVE_UFS_UFS_QUOTA1_H
 #  define BLOCK_SIZE 512
 #else
 /* WARNING: Making up a block-size */
@@ -48,9 +48,14 @@
 #  include <jfs/quota.h>
 #  define QUOTA_USER  USRQUOTA + 1
 #  define QUOTA_GROUP GRPQUOTA + 1
-#elif HAVE_UFS_UFS_QUOTA_H /* *BSD */
+#elif HAVE_UFS_UFS_QUOTA_H /* FreeBSD || OpenBSD */
 #  include <sys/types.h>
 #  include <ufs/ufs/quota.h>
+#  define QUOTA_USER  USRQUOTA + 1
+#  define QUOTA_GROUP GRPQUOTA + 1
+#elif HAVE_UFS_UFS_QUOTA1_H /* NetBSD */
+#  include <sys/types.h>
+#  include <ufs/ufs/quota1.h>
 #  define QUOTA_USER  USRQUOTA + 1
 #  define QUOTA_GROUP GRPQUOTA + 1
 #else
@@ -102,5 +107,3 @@ int         xfs_reset_grace(quota_t *myquota, int grace_type);
 
 
 #endif /* INCLUDE_QUOTATOOL_QUOTA */
-
-
