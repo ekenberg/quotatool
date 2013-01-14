@@ -72,6 +72,11 @@ int main (int argc, char **argv) {
     exit (ERR_SYS);
   }
 
+// FIXME: remote debug
+//output_info("BLOCKS_TO_KB(quota->block_soft): %llu\n", BLOCKS_TO_KB(quota->block_soft));
+//output_info("DIV_UP(quota->block_soft, 1024): %llu\n", DIV_UP(quota->block_soft, 1024));
+//output_info("DEBUG: quota->block_soft: %llu\n", quota->block_soft);
+
   if (argdata->dump_info) {
      time_t now = time(NULL);
      u_int64_t display_blocks_used = 0;
@@ -93,21 +98,20 @@ int main (int argc, char **argv) {
 	    display_blocks_used,
 	    BLOCKS_TO_KB(quota->block_soft),
 	    BLOCKS_TO_KB(quota->block_hard),
-#if ANY_BSD
+#if ANY_BSD || PLATFORM_DARWIN
 	    (unsigned long)
 	    ((
 	       (quota->block_soft && (BYTES_TO_BLOCKS(quota->diskspace_used) >= quota->block_soft))
 	    ||
 	       (quota->block_hard && (BYTES_TO_BLOCKS(quota->diskspace_used) >= quota->block_hard))
             ) ? quota->block_time - now : 0),
-
 #else
 	    (unsigned long) quota->block_time ? quota->block_time - now : 0,
 #endif /* ANY_BSD */
 	    quota->inode_used,
 	    quota->inode_soft,
 	    quota->inode_hard,
-#if ANY_BSD
+#if ANY_BSD || PLATFORM_DARWIN
 	    (unsigned long)
 	    ((
 	      (quota->inode_soft && (quota->inode_used >= quota->inode_soft))

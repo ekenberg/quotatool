@@ -8,7 +8,7 @@ dnl Main program/version info settings:
 dnl ---------------------------------------------------------------------------
 MAJOR_VERSION=1
 MINOR_VERSION=6
-PATCHLEVEL=1
+PATCHLEVEL=2
 COPYRIGHT_NOTICE="Copyright (c) 1999-2013 Mike Glover / Johan Ekenberg"
 WWW_URL="https://github.com/ekenberg/quotatool | http://quotatool.ekenberg.se"
 
@@ -52,6 +52,10 @@ case [$host] in
 	PLATFORM=bsd
 	AC_DEFINE(PLATFORM_BSD, 1)
 	;;
+  *apple-darwin*)
+        PLATFORM=darwin
+        AC_DEFINE(PLATFORM_DARWIN, 1)
+        ;;
   *)
 	PLATFORM=unknown
 	AC_DEFINE(PLATFORM_UNKNOWN, 1)
@@ -81,8 +85,13 @@ test [$FOUND_TYPES] || AC_MSG_ERROR([Can't find system types])
 
 dnl Check for quota header files except for linux (we ship our own)
 if test "$PLATFORM" != "linux"; then
-  AC_CHECK_HEADERS(sys/fs/ufs_quota.h jfs/quota.h ufs/ufs/quota1.h ufs/ufs/quota.h, FOUND_QUOTA=1;break)
-  test [$FOUND_QUOTA] || AC_MSG_ERROR([Can't find quota defs])
+  if test "$PLATFORM" == "darwin"; then
+    AC_CHECK_HEADERS(sys/quota.h, FOUND_QUOTA=1;break)
+    test [$FOUND_QUOTA] || AC_MSG_ERROR([Can't find quota defs])
+  else
+    AC_CHECK_HEADERS(sys/fs/ufs_quota.h jfs/quota.h ufs/ufs/quota1.h ufs/ufs/quota.h, FOUND_QUOTA=1;break)
+    test [$FOUND_QUOTA] || AC_MSG_ERROR([Can't find quota defs])
+  fi
 fi
 
 dnl Check for pick-one header files (optional)

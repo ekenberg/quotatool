@@ -2,7 +2,7 @@
 ====     quotatool     ====
 ===========================
 
-Command-line utility for filesystem quotas on Linux, FreeBSD/OpenBSD/NetBSD, Solaris and AIX
+Command-line utility for filesystem quotas on Linux, Mac OS X, FreeBSD, OpenBSD, NetBSD, Solaris and AIX
 
 Quick Start
 ===========
@@ -128,6 +128,8 @@ quotatool currently builds and works well on:
 -- Linux --
 Quota formats: old, vfsv0, vfsv1 and "generic"
 Filesystems: ext2, ext3, ext4, ReiserFS and XFS
+
+-- Mac OS X --
 
 -- BSD --
 FreeBSD, OpenBSD, NetBSD (ufs, ffs)

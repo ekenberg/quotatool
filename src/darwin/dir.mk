@@ -1,20 +1,26 @@
 #
-# Makefile fragment for src
+# Makefile fragment for src/darwin
 #
 
+thisdir    :=   darwin
+
 svdir      :=   $(dir)
-dir        :=   $(dir)/src
+dir        :=   $(dir)/darwin
 
 dirs       +=   $(dir)
+auto       +=   $(wildcard $(dir)/*.in)
+
+ifeq "$(build_platform)" "$(thisdir)"
+
 srcs       +=   $(wildcard $(dir)/*.c)
 inc        +=   -I$(dir)
-auto       +=   $(wildcard $(dir)/*.in)
 libs       +=
-
-subdirs    :=   linux solaris aix bsd darwin
+subdirs    :=
 
 ifneq ($(strip $(subdirs)),)
 -include $(foreach sdir,$(subdirs),$(dir)/$(sdir)/dir.mk)
+endif
+
 endif
 
 dir        :=   $(svdir)

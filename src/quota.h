@@ -22,6 +22,8 @@
 #  else
 #    include <linux/fs.h>
 #  endif
+#elif PLATFORM_DARWIN /* Macos does the right thing - count bytes instead of silly blocks! */
+#  define BLOCK_SIZE 1
 #elif HAVE_STD_H
 #  include <std.h>
 #  define BLOCK_SIZE MULBSIZE
@@ -36,6 +38,11 @@
 #if PLATFORM_LINUX
 #  include <linux/types.h>
 #  include "linux/linux_quota.h"
+#  define QUOTA_USER  USRQUOTA + 1
+#  define QUOTA_GROUP GRPQUOTA + 1
+#elif PLATFORM_DARWIN
+#  include <sys/types.h>
+#  include <sys/quota.h>
 #  define QUOTA_USER  USRQUOTA + 1
 #  define QUOTA_GROUP GRPQUOTA + 1
 #elif HAVE_SYS_FS_UFS_QUOTA_H
@@ -70,7 +77,7 @@
 #define BYTES_TO_BLOCKS(bytes) DIV_UP(bytes, BLOCK_SIZE)
 
 // Convert from system block-size to Kb. The constant 8 allows for BLOCK_SIZE >= 1024 / 8 (= 128 bytes)
-#define BLOCKS_TO_KB(num_blocks) DIV_UP((num_blocks) * ((BLOCK_SIZE * 8) / 1024), 8)
+#define BLOCKS_TO_KB(num_blocks) ((BLOCK_SIZE == 1) ? DIV_UP(num_blocks, 1024) : DIV_UP((num_blocks) * ((BLOCK_SIZE * 8) / 1024), 8))
 
 struct _quota_t {
    u_int64_t	block_hard;

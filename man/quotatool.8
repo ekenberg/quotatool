@@ -1,4 +1,4 @@
-.TH QUOTATOOL 8 "1999 - 2013" "version 1.6.1"
+.TH QUOTATOOL 8 "1999 - 2013" "version 1.6.2"
 .SH NAME
 quotatool \- manipulate filesystem quotas
 .SH SYNOPSIS
@@ -108,6 +108,8 @@ On Linux,
 works with both "old", "vfsv0" and "vfsv1" + "generic" kernel-quota formats.
 Supported filesystems: ext2, ext3, ext4, ReiserFS and XFS.
 
+Mac OS X: hfs
+
 FreeBSD / OpenBSD / NetBSD: filesystems ufs and ffs
 .SH EXAMPLES
 
@@ -141,6 +143,8 @@ According to 'man quotactl', global grace periods should be supported on BSD. qu
 BSD does the right thing, which can be confirmed with 'edquota -t'. However, the value
 doesn't seem to be used by the system when usage passes a soft limit.
 
+So far, I haven't been able to make global grace periods work on Mac OS X, either with 'edquota -t' or quotatool.
+
 Using non-existent uids/gids like ":12345" can be useful when configuring quotas on
 a mounted filesystem which is a separate system in it self, like when preparing an
 install image or repairing a filesystem from another installation.
@@ -160,6 +164,11 @@ Use -v (or -v -v) to see verbose/debug info when running commands
 ,
 .B quota.group
 (linux, *BSD, aix)
+.br
+.B .quota.user
+,
+.B .quota.group
+(Mac OS X)
 .br
 .B quotas
 (solaris, ...)

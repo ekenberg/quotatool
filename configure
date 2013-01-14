@@ -2188,7 +2188,7 @@ ac_configure="$SHELL $ac_aux_dir/configure"  # Please don't use this var.
 
 MAJOR_VERSION=1
 MINOR_VERSION=6
-PATCHLEVEL=1
+PATCHLEVEL=2
 COPYRIGHT_NOTICE="Copyright (c) 1999-2013 Mike Glover / Johan Ekenberg"
 WWW_URL="https://github.com/ekenberg/quotatool | http://quotatool.ekenberg.se"
 
@@ -2321,6 +2321,11 @@ case $host in
 	$as_echo "#define PLATFORM_BSD 1" >>confdefs.h
 
 	;;
+  *apple-darwin*)
+        PLATFORM=darwin
+        $as_echo "#define PLATFORM_DARWIN 1" >>confdefs.h
+
+        ;;
   *)
 	PLATFORM=unknown
 	$as_echo "#define PLATFORM_UNKNOWN 1" >>confdefs.h
@@ -3665,7 +3670,22 @@ done
 test $FOUND_TYPES || as_fn_error $? "Can't find system types" "$LINENO" 5
 
 if test "$PLATFORM" != "linux"; then
-  for ac_header in sys/fs/ufs_quota.h jfs/quota.h ufs/ufs/quota1.h ufs/ufs/quota.h
+  if test "$PLATFORM" == "darwin"; then
+    for ac_header in sys/quota.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "sys/quota.h" "ac_cv_header_sys_quota_h" "$ac_includes_default"
+if test "x$ac_cv_header_sys_quota_h" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_SYS_QUOTA_H 1
+_ACEOF
+ FOUND_QUOTA=1;break
+fi
+
+done
+
+    test $FOUND_QUOTA || as_fn_error $? "Can't find quota defs" "$LINENO" 5
+  else
+    for ac_header in sys/fs/ufs_quota.h jfs/quota.h ufs/ufs/quota1.h ufs/ufs/quota.h
 do :
   as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
 ac_fn_c_check_header_mongrel "$LINENO" "$ac_header" "$as_ac_Header" "$ac_includes_default"
@@ -3678,7 +3698,8 @@ fi
 
 done
 
-  test $FOUND_QUOTA || as_fn_error $? "Can't find quota defs" "$LINENO" 5
+    test $FOUND_QUOTA || as_fn_error $? "Can't find quota defs" "$LINENO" 5
+  fi
 fi
 
 

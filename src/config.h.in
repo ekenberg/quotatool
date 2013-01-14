@@ -13,6 +13,7 @@
 #define PLATFORM_SOLARIS 0
 #define PLATFORM_AIX 0
 #define PLATFORM_BSD 0
+#define PLATFORM_DARWIN 0
 #define PLATFORM_UNKNOWN 0
 
 /* define if setmntent() is defined in <mntent.h> */
