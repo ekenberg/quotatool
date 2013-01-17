@@ -1,0 +1,11 @@
+*~
+*.d
+*.o
+
+/config.cache
+/config.log
+/config.status
+
+/local.mk
+/quotatool
+/src/config.h
