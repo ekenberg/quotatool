@@ -58,7 +58,7 @@ subdirs    :=   src
 # compile the program (and the objects)
 all: $(prog)
 $(prog): $(objs)
-	$(CC) -o $(prog) $(objs) $(libs) $(CFLAGS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $(prog) $(objs) $(libs)
 
 
 

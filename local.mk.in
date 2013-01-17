@@ -17,7 +17,8 @@ SHELL           :=   /bin/sh
 
 CC              :=   @CC@
 CFLAGS          :=   @CFLAGS@
-CPPFLAGS         =   $(inc) @DEFS@
+LDFLAGS         :=   @LDFLAGS@
+CPPFLAGS         =   @CPPFLAGS@ $(inc) @DEFS@
 
 
 INSTALL         :=   @INSTALL@
