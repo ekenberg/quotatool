@@ -65,8 +65,8 @@ $(prog): $(objs)
 men   :=   $(wildcard $(srcdir)/man/*)
 install: $(prog)
 	$(NORMAL_INSTALL)
-	$(INSTALL_PROGRAM) $(srcdir)/$(prog) $(DESTDIR)$(sbindir)/$(prog)
-	$(foreach man,$(men),$(INSTALL_DATA) $(man) $(DESTDIR)$(mandir)/man$(subst .,,$(suffix $(man)))/$(notdir $(man)))
+	$(INSTALL_PROGRAM) -D $(srcdir)/$(prog) $(DESTDIR)$(sbindir)/$(prog)
+	$(foreach man,$(men),$(INSTALL_DATA) -D $(man) $(DESTDIR)$(mandir)/man$(subst .,,$(suffix $(man)))/$(notdir $(man)))
 
 uninstall:
 	$(NORMAL_UNINSTALL)
