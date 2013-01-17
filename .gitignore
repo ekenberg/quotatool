@@ -9,3 +9,8 @@
 /local.mk
 /quotatool
 /src/config.h
+
+/*.tar.gz
+/autom4te.cache
+/FILESYSTEMS
+/johan*
