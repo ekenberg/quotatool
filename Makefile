@@ -58,15 +58,15 @@ subdirs    :=   src
 # compile the program (and the objects)
 all: $(prog)
 $(prog): $(objs)
-	$(CC) -o $(prog) $(objs) $(libs) $(CFLAGS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $(prog) $(objs) $(libs)
 
 
 
 men   :=   $(wildcard $(srcdir)/man/*)
 install: $(prog)
 	$(NORMAL_INSTALL)
-	$(INSTALL_PROGRAM) $(srcdir)/$(prog) $(DESTDIR)$(sbindir)/$(prog)
-	$(foreach man,$(men),$(INSTALL_DATA) $(man) $(DESTDIR)$(mandir)/man$(subst .,,$(suffix $(man)))/$(notdir $(man)))
+	$(INSTALL_PROGRAM) -D $(srcdir)/$(prog) $(DESTDIR)$(sbindir)/$(prog)
+	$(foreach man,$(men),$(INSTALL_DATA) -D $(man) $(DESTDIR)$(mandir)/man$(subst .,,$(suffix $(man)))/$(notdir $(man)))
 
 uninstall:
 	$(NORMAL_UNINSTALL)
