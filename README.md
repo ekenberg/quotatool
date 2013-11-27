@@ -1,7 +1,13 @@
 quotatool
 =========
 
-Command-line utility for filesystem quotas on Linux, Mac OS X, FreeBSD, OpenBSD, NetBSD, Solaris and AIX
+![Quotatool](http://quotatool.ekenberg.se/diskusage.gif) Commandline utility for filesystem quotas on Linux, Mac OS X, FreeBSD, OpenBSD, NetBSD, Solaris and AIX
+
+*Allow user johan 50Gb soft and hard diskusage on /home*
+
+    quotatool -u johan -b -q 50G -l 50G /home
+
+*See more examples below*
 
 ## Installation
 
@@ -10,30 +16,19 @@ Command-line utility for filesystem quotas on Linux, Mac OS X, FreeBSD, OpenBSD,
 *quotatool is already in your package manager:*
 
 * Ubuntu, Mint, Debian:
-
-    sudo apt-get install quotatool
-
+    `sudo apt-get install quotatool`
 * Fedora, RedHat, CentOS
-
-    yum install quotatool
-
+    `yum install quotatool`
 * Gentoo Linux
-
-    emerge quotatool
-
-* openSUSE
-
-    see instructions here: <http://quotatool.ekenberg.se/index.php?node=download>
+    `emerge quotatool`
+* openSUSE: See instructions here: <http://quotatool.ekenberg.se/index.php?node=download>
 
 ### Mac OS X
 
 * MacPorts
-
-    sudo port sync; sudo port install quotatool
-
+    `sudo port sync; sudo port install quotatool`
 * Homebrew
-
-    brew update; brew install quotatool
+    `brew update; brew install quotatool`
 
 ### Install from source code
 
