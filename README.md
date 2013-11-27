@@ -10,18 +10,29 @@ Command-line utility for filesystem quotas on Linux, Mac OS X, FreeBSD, OpenBSD,
 *quotatool is already in your package manager:*
 
 * Ubuntu, Mint, Debian:
+
     sudo apt-get install quotatool
+
 * Fedora, RedHat, CentOS
+
     yum install quotatool
+
 * Gentoo Linux
+
     emerge quotatool
+
 * openSUSE
-    see instructions here: http://quotatool.ekenberg.se/index.php?node=download
+
+    see instructions here: <http://quotatool.ekenberg.se/index.php?node=download>
 
 ### Mac OS X
+
 * MacPorts
+
     sudo port sync; sudo port install quotatool
+
 * Homebrew
+
     brew update; brew install quotatool
 
 ### Install from source code
@@ -46,6 +57,7 @@ then you always need to pass an argument to -u and -g.
 
 ### Arguments and Options
 
+```
    -u uid  username or uid.
    -g gid  groupname or gid.
       	   See examples below how to handle non-existent uid/gid
@@ -86,28 +98,29 @@ then you always need to pass an argument to -u and -g.
    -V      show version
 
    filesystem is either device name (eg /dev/sda1) or mountpoint (eg /home)
+```
 
 ## Examples
 
 Set soft block limit to 800Mb, hard block limit to 1.2 Gb for user mpg4 on /home:
 
-   quotatool -u mpg4 -b -q 800M -l 1.2G /home
+    quotatool -u mpg4 -b -q 800M -l 1.2G /home
 
 Raise soft block limit by 100M for non-existent gid 12345 on /dev/loop3:
 
-   quotatool -g :12345 -b -q +100M /dev/loop3
+    quotatool -g :12345 -b -q +100M /dev/loop3
 
 Set soft inode limit to 1.8k (1800), hard inode limit to 2000 for user johan on /var:
 
-   quotatool -u johan -i -q 1.8K -l 2000 /var
+    quotatool -u johan -i -q 1.8K -l 2000 /var
 
 Set the global block grace period to one week on /home:
 
-   quotatool -u -b -t "1 week" /home
+    quotatool -u -b -t "1 week" /home
 
 Restart inode grace period for user johan on root filesystem:
 
-   quotatool -u johan -i -r /
+    quotatool -u johan -i -r /
 
 
 ## Notes
