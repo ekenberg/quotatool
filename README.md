@@ -3,7 +3,7 @@ quotatool
 
 ![Quotatool](http://quotatool.ekenberg.se/diskusage.gif) Commandline utility for filesystem quotas on Linux, Mac OS X, FreeBSD, OpenBSD, NetBSD, Solaris and AIX
 
-*Allow user johan 50Gb soft and hard diskusage on /home*
+*Set 50Gb soft and hard diskusage limits for user johan on filesystem /home*
 
     quotatool -u johan -b -q 50G -l 50G /home
 
