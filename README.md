@@ -1,19 +1,37 @@
-===========================
-====     quotatool     ====
-===========================
+quotatool
+=========
 
 Command-line utility for filesystem quotas on Linux, Mac OS X, FreeBSD, OpenBSD, NetBSD, Solaris and AIX
 
-Quick Start
-===========
+## Installation
+
+### Linux
+
+*quotatool is already in your package manager:*
+
+* Ubuntu, Mint, Debian:
+    sudo apt-get install quotatool
+* Fedora, RedHat, CentOS
+    yum install quotatool
+* Gentoo Linux
+    emerge quotatool
+* openSUSE
+    see instructions here: http://quotatool.ekenberg.se/index.php?node=download
+
+### Mac OS X
+* MacPorts
+    sudo port sync; sudo port install quotatool
+* Homebrew
+    brew update; brew install quotatool
+
+### Install from source code
 
     ./configure
     make
     sudo make install
     (use gmake on *BSD)
 
-Usage
-=====
+## Usage
 
     quotatool { -u uid | -g gid } [ options ... ] filesystem
     quotatool { -u | -g } { -i | -b } -t time filesystem
@@ -26,8 +44,7 @@ useless.   If your getopt() doesn't support optional arguments,
 then you always need to pass an argument to -u and -g.
 
 
-Arguments and Options
-=====================
+### Arguments and Options
 
    -u uid  username or uid.
    -g gid  groupname or gid.
@@ -70,8 +87,7 @@ Arguments and Options
 
    filesystem is either device name (eg /dev/sda1) or mountpoint (eg /home)
 
-Examples
-========
+## Examples
 
 Set soft block limit to 800Mb, hard block limit to 1.2 Gb for user mpg4 on /home:
 
@@ -94,8 +110,7 @@ Restart inode grace period for user johan on root filesystem:
    quotatool -u johan -i -r /
 
 
-Notes
-=====
+## Notes
 
 * Grace periods are set on a "global per quotatype and filesystem" basis only.
 Each quotatype (usrquota / grpquota) on each filesystem has two grace periods
@@ -120,8 +135,7 @@ install image or repairing a filesystem from another installation.
 
 * Use -v (or -v -v) to see verbose/debug info when running commands
 
-Platforms and Filesystems
-=========================
+## Platforms and Filesystems
 
 quotatool currently builds and works well on:
 
