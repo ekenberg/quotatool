@@ -268,6 +268,7 @@ argdata_t *parse_commandline (int argc, char **argv)
 
     case '?':
       output_error ("Unrecognized option: '%c'", optopt);
+      __attribute__ ((fallthrough));
 
     default:
       output_help();
