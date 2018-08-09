@@ -17,8 +17,8 @@
 
 extern int output_level;
 
-inline void   output_version (void);
-inline void   output_help (void);
+void   output_version (void);
+void   output_help (void);
 
 void   output_debug (const char *format, ...);
 void   output_info (const char *format, ...);
