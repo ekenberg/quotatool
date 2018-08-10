@@ -531,7 +531,13 @@ int kern_quota_format(fs_t *fs, int q_type) {
       retval = quotactl(QCMD(Q_GETFMT, q_type), fs->device, 0, (void *) &actfmt);
       if (retval < 0) {
 	 if (! QF_IS_XFS(quota_format)) {
-	    output_error("Error while detecting kernel quota version: %s\n", strerror(errno));
+	    if (errno == 3) {
+	       output_error("Quotatool cannot function while quotas are disabled. "
+	                    "Please enable quotas by running `quotaon -a`.\n");
+	    }
+	    else {
+	       output_error("Error while detecting kernel quota version: %i, %s\n", errno, strerror(errno));
+	    }
 	    exit(ERR_SYS);
 	 }
       }
