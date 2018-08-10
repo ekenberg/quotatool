@@ -13,7 +13,7 @@
 
 
 # local configuration options
-include ./local.mk
+-include ./local.mk
 
 
 # keep track of our current location
