@@ -122,7 +122,7 @@ dnl Check the commandline
 
 AC_ARG_WITH(gnu-getopt,  \
   [--with-gnu-getopt       getopt() is GNU getopt],\
-            test [x$withval] != [xno] || AC_DEFINE(HAVE_GNU_GETOPT, 1), [Can we use GNU getopt?])
+            test [x$withval] != [xno] || AC_DEFINE(HAVE_GNU_GETOPT, 1, [Can we use GNU getopt?]))
 
 dnl Create output files
 
