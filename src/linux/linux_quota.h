@@ -117,7 +117,7 @@ struct if_dqinfo {
 	#endif
 #endif
 
-long quotactl __P((int, const char *, qid_t, caddr_t));
+long quotactl (int, const char *, qid_t, caddr_t);
 
 /*
  * runtime detection of quota format
@@ -139,16 +139,3 @@ int kern_quota_format(fs_t *, int);
 #include "xfs_quota.h"
 
 #endif /* _QUOTA_ */
-
-
-
-
-
-
-
-
-
-
-
-
-
