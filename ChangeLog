@@ -1,3 +1,8 @@
+2 Oct 2023
+	- Fix compiler warnings
+	- Improve documentation
+	- Other minor bugfixes
+
 14 Jan 2013 (1.6.2)
 	- Support for Mac OS X (Darwin)
 
