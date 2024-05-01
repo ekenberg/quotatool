@@ -72,7 +72,6 @@ AC_PROG_INSTALL
 
 dnl Check for absolutely required header files.
 
-AC_HEADER_STDC
 AC_CHECK_HEADERS(unistd.h fcntl.h limits.h, ,\
                  AC_MSG_ERROR([Missing required headers]))
 
@@ -126,6 +125,6 @@ AC_ARG_WITH(gnu-getopt,  \
 
 dnl Create output files
 
-AC_CONFIG_HEADER(src/config.h)
+AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_FILES([local.mk])
 AC_OUTPUT
