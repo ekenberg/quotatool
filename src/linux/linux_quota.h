@@ -95,6 +95,25 @@ struct old_mem_dqinfo {
   unsigned int dqi_free_entry;
 };
 
+/* According to 'man quotactl' these are defined in sys/quota.h
+   but that seems to not always be the case */
+#ifndef IIF_BGRACE
+#define IIF_BGRACE  1
+#endif
+
+#ifndef IIF_IGRACE
+#define IIF_IGRACE  2
+#endif
+
+#ifndef IIF_FLAGS
+#define IIF_FLAGS   4
+#endif
+
+#ifndef IIF_ALL
+#define IIF_ALL     (IIF_BGRACE | IIF_IGRACE | IIF_FLAGS)
+#endif
+
+
 /* The generic diskinfo-struct: */
 struct if_dqinfo {
   u_int64_t dqi_bgrace;

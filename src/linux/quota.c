@@ -382,14 +382,21 @@ static int generic_quota_set(quota_t *myquota) {
     /* update quotainfo (global gracetimes) */
     if (myquota->_do_set_global_block_gracetime || myquota->_do_set_global_inode_gracetime) {
 	struct if_dqinfo *foo = ((struct if_dqinfo *) myquota->_generic_quotainfo);
+	u_int32_t old_dqi_valid = foo->dqi_valid; // Save now, restore later
+
 	if (myquota->_do_set_global_block_gracetime) {
+	    output_debug(">> set global block gracetime");
 	    foo->dqi_bgrace = myquota->block_grace;
+	    foo->dqi_valid  = IIF_BGRACE;
 	}
 	if (myquota->_do_set_global_inode_gracetime) {
+	    output_debug(">> set global inode gracetime");
 	    foo->dqi_igrace = myquota->inode_grace;
+	    foo->dqi_valid  = IIF_IGRACE;
 	}
 	retval = quotactl(QCMD(Q_SETINFO, myquota->_id_type), myquota->_qfile,
 			  myquota->_id, (caddr_t) myquota->_generic_quotainfo);
+	foo->dqi_valid = old_dqi_valid; // restore
 	if (retval < 0) {
 	    output_error("Failed setting gracetime (generic): %s", strerror(errno));
 	    return 0;
