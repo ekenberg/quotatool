@@ -1,3 +1,7 @@
+24 July 2024 (1.6.5)
+	- Fix issue #28: 'fix missing __P definition for musl compile'
+	- Add license info to README
+
 1 May 2024 (1.6.4)
 	- Fix issue #27: 'Failed setting gracetime (generic): Invalid argument'
 	- Update to autoconf 2.71

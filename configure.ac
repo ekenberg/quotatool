@@ -9,7 +9,7 @@ dnl Main program/version info settings:
 dnl ---------------------------------------------------------------------------
 MAJOR_VERSION=1
 MINOR_VERSION=6
-PATCHLEVEL=4
+PATCHLEVEL=5
 COPYRIGHT_NOTICE="Copyright (c) 1999-2024 Mike Glover / Johan Ekenberg"
 WWW_URL="https://github.com/ekenberg/quotatool | http://quotatool.ekenberg.se"
 
