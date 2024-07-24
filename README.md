@@ -154,7 +154,7 @@ Filesystems: ext2, ext3, ext4, ReiserFS and XFS
 -- Mac OS X --
 
 -- BSD --
-FreeBSD, OpenBSD, NetBSD (ufs, ffs)
+FreeBSD, OpenBSD, NetBSD (ufs, ffs**
 
 -- Solaris --
 
@@ -162,3 +162,6 @@ FreeBSD, OpenBSD, NetBSD (ufs, ffs)
 
 Missing your favorite *nix OS? Missing a feature, or found a bug?
 Feel free to add an Issue on https://github.com/ekenberg/quotatool
+
+## License
+This software is available under the terms of the GNU Public License (GPL) 2.0 or any later version.
