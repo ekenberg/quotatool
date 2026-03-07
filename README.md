@@ -17,11 +17,14 @@ quotatool
 
 * Ubuntu, Mint, Debian:
     `sudo apt-get install quotatool`
-* Fedora, RedHat, CentOS
+* Fedora, Red Hat, CentOS, AlmaLinux, Rocky Linux:
+    `dnf install quotatool`
     `yum install quotatool`
-* Gentoo Linux
+    (on RHEL-derivatives, quotatool is in the [EPEL](https://docs.fedoraproject.org/en-US/epel/) repository)
+* openSUSE:
+    `zypper install quotatool`
+* Gentoo Linux:
     `emerge quotatool`
-* openSUSE: See instructions here: <http://quotatool.ekenberg.se/index.php?node=download>
 
 ### Mac OS X
 
@@ -154,7 +157,7 @@ Filesystems: ext2, ext3, ext4, ReiserFS and XFS
 -- Mac OS X --
 
 -- BSD --
-FreeBSD, OpenBSD, NetBSD (ufs, ffs**
+FreeBSD, OpenBSD, NetBSD (ufs, ffs)
 
 -- Solaris --
 
@@ -164,4 +167,4 @@ Missing your favorite *nix OS? Missing a feature, or found a bug?
 Feel free to add an Issue on https://github.com/ekenberg/quotatool
 
 ## License
-This software is available under the terms of the GNU Public License (GPL) 2.0 or any later version.
+This software is available under the terms of the GNU General Public License (GPL) 2.0 or any later version.
