@@ -49,16 +49,16 @@ Each task has an org-mode TODO keyword:
 Update status in this file at every checkpoint. This file is the
 single source of truth for M1 progress.
 
-* Phase 1: Foundation [0/4]
+* Phase 1: Foundation [3/5]
 
 Minimal working loop: boot ONE kernel, run ONE test, get a result.
 Everything else builds on this.
 
-** TODO 1.1 Create workspace and directory structure
+** DONE 1.1 Create workspace and directory structure
 Set up =test/= directory tree as shown above. Skeleton files only.
 /Verification/: =ls -R test/= shows expected layout.
 
-** TODO 1.2 Build the kernel boot layer (=test/lib/boot.sh=)
+** DONE 1.2 Build the kernel boot layer (=test/lib/boot.sh=)
 A function that takes a kernel path and a test script, boots QEMU,
 runs the script inside the VM, returns exit code + stdout.
 
@@ -80,7 +80,7 @@ prints the kernel version and exits 0.
 
 /Dependencies/: 1.1
 
-** TODO 1.3 Build filesystem setup/teardown (=test/lib/fs-setup.sh=)
+** DONE 1.3 Build filesystem setup/teardown (=test/lib/fs-setup.sh=)
 Functions to create loopback ext4/XFS images with quotas enabled.
 Runs *inside* the VM.
 
@@ -95,14 +95,33 @@ a working quota-enabled filesystem. =repquota /mnt/test= succeeds.
 
 /Dependencies/: none (runs inside VM, no boot layer needed to write)
 
-** TODO 1.4 First end-to-end test
+** TODO 1.4 Dependency check script (=test/check-deps.sh=)
+A script that verifies all required tools are present and working.
+Serves two purposes: (1) verify our dev environment before testing,
+(2) help anyone cloning the repo to set up for running tests.
+
+Replaces the static =test/DEPENDENCIES.md= with an executable check.
+
+/Subtasks/:
+- [ ] Check for: qemu-system-x86_64, virtme-ng/vng, /dev/kvm access
+- [ ] Check for: mkfs.ext4, mkfs.xfs, quota tools (quotaon, repquota)
+- [ ] Check for: losetup, mount (with loop support)
+- [ ] Print clear pass/fail per dependency with install hints
+- [ ] Exit 0 only if all required deps are present
+
+/Verification/: =./test/check-deps.sh= passes on a correctly set up host,
+fails with helpful messages on a bare system.
+
+/Dependencies/: 1.1
+
+** TODO 1.5 First end-to-end test
 Combine 1.2 + 1.3: boot host kernel, create ext4 loopback inside VM,
 run =quotatool -u nobody -b -l 100M /mnt/test=, verify with =repquota=.
 
 /Verification/: =./test/run-tests.sh= boots VM, runs one test, reports
 PASS or FAIL, exits with correct code.
 
-/Dependencies/: 1.2, 1.3
+/Dependencies/: 1.2, 1.3, 1.4
 
 * Phase 2: Test Suite [0/5]
 
@@ -178,7 +197,7 @@ All tests must pass before moving to multi-kernel.
 
 /Verification/: =./test/run-tests.sh= reports all tests passing.
 
-/Dependencies/: 2.3, 2.4, 1.4
+/Dependencies/: 2.3, 2.4, 1.5
 
 * Phase 3: Kernel Collection [0/5]
 
@@ -366,8 +385,9 @@ Document the tested kernel matrix.
 
 #+begin_example
 Phase 1 (Foundation):
-  1.1 ──→ 1.2 ──→ 1.4
+  1.1 ──→ 1.2 ──→ 1.5
            1.3 ──↗
+  1.1 ──→ 1.4 ──↗
 
 Phase 2 (Tests):
   2.1 ──→ 2.3 ──→ 2.4 ──→ 2.5

@@ -1,19 +1,17 @@
 # CLAUDE.md — quotatool project instructions
 
-## *** HOST CHECK — DO THIS FIRST ***
+## *** KVM CAPABILITY CHECK — DO THIS FIRST ***
 
-This project MUST run on hostname `piano` (Johan's desktop). At the
-start of EVERY session, run `hostname` and verify. If not on `piano`:
+M1 testing requires KVM virtualization. At the start of EVERY session,
+check that `/dev/kvm` exists and is accessible. If not:
 
 ```
 ╔══════════════════════════════════════════════════════════════╗
-║  WARNING: WRONG HOST!  This project requires hostname       ║
-║  "piano" for M1 testing (QEMU/KVM/virtme-ng).               ║
+║  WARNING: NO KVM!  M1 testing requires /dev/kvm for         ║
+║  QEMU/virtme-ng VM-based kernel testing.                     ║
 ║                                                              ║
-║  You are on: <actual hostname>                               ║
-║                                                              ║
-║  Simple edits (README, docs) are fine, but anything          ║
-║  involving build, test, or VM work WILL NOT WORK here.       ║
+║  Simple edits (README, docs, planning) are fine, but         ║
+║  anything involving build, test, or VM work needs KVM.       ║
 ╚══════════════════════════════════════════════════════════════╝
 ```
 
