@@ -1,6 +1,6 @@
 #!/bin/bash
 # run-tests.sh — entry point for quotatool test framework
-# Usage: ./test/run-tests.sh
+# Usage: ./test/run-tests.sh [KERNEL_PATH]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -11,6 +11,5 @@ KERNEL="${1:-/boot/vmlinuz-$(uname -r)}"
 
 echo "=== quotatool test framework ==="
 echo "Kernel: $KERNEL"
-echo ""
 
-boot_kernel "$KERNEL" "$SCRIPT_DIR/tests/t-basic-block-limit.sh"
+boot_kernel "$KERNEL" "$SCRIPT_DIR/guest-run-all.sh"
