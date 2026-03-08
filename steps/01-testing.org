@@ -464,6 +464,30 @@ to kernels.conf).
 
 /Affects/: 3.1
 
+** TODO Q5: XFS grace period display/behavior
+Grace period test (=t-grace-period.sh=) is skipped on XFS.
+After setting global grace with =-t "1 day"= and exceeding the soft
+limit, =quotatool -d= reports =block_grace=0= on XFS (works on ext4).
+
+Investigation needed:
+- XFS sets global grace via root's limits with =FS_DQ_TIMER_MASK=
+  (=src/linux/quota.c= lines 489-494). Code exists and looks correct.
+- =d_btimer= is populated from XFS quota structures (line 315).
+- Dump code in =main.c:109=:
+  =(unsigned long) quota->block_time ? quota->block_time - now : 0=
+  — possible C operator precedence issue?
+- Issue #27 (fixed in 1.6.4) was about grace on ext4 generic path
+  (missing =IIF_BGRACE= defines). XFS path was not affected by that
+  fix — may have its own separate bug.
+- Default XFS grace is 7 days (=DQ_BTIMELIMIT= in =xfs_quota.h=).
+- Separate code paths: =quota_reset_grace()= vs old =xfs_reset_grace()=.
+
+May be a display bug (grace is working but not reported), or the
+=-t= command doesn't reach XFS properly. Test with =xfs_quota= tool
+inside VM to compare.
+
+/Affects/: test suite (=t-grace-period.sh= XFS skip)
+
 ** TODO Q4: virtme-ng --force-9p on 4.x kernels
 =--force-9p= tells virtme-ng to use the 9p filesystem protocol
 (available since kernel 2.6.14) instead of virtiofs (requires 5.4+)
