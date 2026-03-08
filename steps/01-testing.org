@@ -1,0 +1,461 @@
+#+TITLE: M1: Multi-Kernel Test Framework — Step Plan
+#+DATE: 2026-03-08
+
+* Overview
+
+Build a local-first, CI-agnostic test framework that tests quotatool
+across 15-20+ Linux kernel versions (including vendor-patched kernels)
+and two filesystem types (ext4, XFS).
+
+Architecture:
+#+begin_example
+test/                          ← workspace (all test framework code)
+  run-tests.sh                 ← entry point: "run one command, get results"
+  lib/
+    boot.sh                    ← kernel boot layer (virtme-ng / raw QEMU)
+    fs-setup.sh                ← loopback filesystem create/mount/teardown
+    tap.sh                     ← TAP output helpers
+  tests/
+    t-block-limits.sh          ← individual test scripts
+    t-inode-limits.sh
+    t-grace-period.sh
+    ...
+  kernels/
+    kernels.conf               ← matrix definition (name, vmlinuz path, boot method)
+    download.sh                ← fetch + extract vendor kernels
+    initramfs/                 ← custom initramfs for legacy kernels
+  results/                     ← output (gitignored)
+
+.github/workflows/test.yml    ← thin CI wrapper (calls run-tests.sh)
+.cirrus.yml                   ← FreeBSD testing
+#+end_example
+
+Background: =research/testing-infrastructure.org=,
+            =research/multi-kernel-testing.org=,
+            =research/quotatool-build-analysis.org=
+
+Key finding: quotatool ships its own quota struct definitions
+(=src/linux/linux_quota.h=, =xfs_quota.h=, =dqblk_old.h=, =dqblk_v0.h=)
+and does runtime detection of the kernel's quota interface in
+=src/linux/quota.c:kern_quota_format()=. *One binary works across all
+kernel versions.* Build once, test everywhere. But the runtime detection
+code is the critical fragile point — it was last updated around the 4.x
+kernel era and likely needs fixes for modern kernels.
+
+* Progress tracking
+
+Each task has an org-mode TODO keyword:
+=TODO=, =DOING=, =WAITING=, =DONE=, =CANCELLED=.
+Update status in this file at every checkpoint. This file is the
+single source of truth for M1 progress.
+
+* Phase 1: Foundation [0/4]
+
+Minimal working loop: boot ONE kernel, run ONE test, get a result.
+Everything else builds on this.
+
+** TODO 1.1 Create workspace and directory structure
+Set up =test/= directory tree as shown above. Skeleton files only.
+/Verification/: =ls -R test/= shows expected layout.
+
+** TODO 1.2 Build the kernel boot layer (=test/lib/boot.sh=)
+A function that takes a kernel path and a test script, boots QEMU,
+runs the script inside the VM, returns exit code + stdout.
+
+Two code paths:
+- *Modern (≥5.4)*: virtme-ng with =--force-9p= or virtiofs
+- *Legacy (<5.4)*: raw QEMU with =-kernel=, custom initramfs,
+  9p filesystem sharing
+
+/Subtasks/:
+- [ ] Detect virtme-ng availability, fall back to raw QEMU
+- [ ] Modern path: =vng -r <vmlinuz> --disk <test-disk> -- <script>=
+- [ ] Legacy path: QEMU with 9p share + =-kernel= + initramfs
+- [ ] Exit code propagation from guest to host
+- [ ] Timeout handling (kill hung VMs)
+- [ ] Verify on host kernel first (=vng -- <script>=)
+
+/Verification/: =boot.sh /boot/vmlinuz-$(uname -r) "uname -r"=
+prints the kernel version and exits 0.
+
+/Dependencies/: 1.1
+
+** TODO 1.3 Build filesystem setup/teardown (=test/lib/fs-setup.sh=)
+Functions to create loopback ext4/XFS images with quotas enabled.
+Runs *inside* the VM.
+
+/Subtasks/:
+- [ ] =fs_create_ext4 <path> <size>= → loopback + mkfs + mount + quotaon
+- [ ] =fs_create_xfs <path> <size>= → loopback + mkfs + mount (no quotacheck)
+- [ ] =fs_teardown <path>= → quotaoff + umount + cleanup
+- [ ] Error handling: clean teardown on failure
+
+/Verification/: Inside a VM, =fs_create_ext4 /mnt/test 100M= creates
+a working quota-enabled filesystem. =repquota /mnt/test= succeeds.
+
+/Dependencies/: none (runs inside VM, no boot layer needed to write)
+
+** TODO 1.4 First end-to-end test
+Combine 1.2 + 1.3: boot host kernel, create ext4 loopback inside VM,
+run =quotatool -u nobody -b -l 100M /mnt/test=, verify with =repquota=.
+
+/Verification/: =./test/run-tests.sh= boots VM, runs one test, reports
+PASS or FAIL, exits with correct code.
+
+/Dependencies/: 1.2, 1.3
+
+* Phase 2: Test Suite [0/5]
+
+Write the actual test cases. Each test is a self-contained function
+that assumes a quota-enabled filesystem is mounted.
+
+** TODO 2.1 Define test case list
+Based on quotatool's features. Reference =research/PLAN.org= test
+case table. Each test must be independently runnable.
+
+Minimum set:
+| ID   | Test                            | FS        | Category |
+|------+---------------------------------+-----------+----------|
+| B01  | Set user block soft limit       | ext4, XFS | basic    |
+| B02  | Set user block hard limit       | ext4, XFS | basic    |
+| B03  | Set group block soft/hard limit | ext4, XFS | basic    |
+| I01  | Set user inode soft limit       | ext4, XFS | basic    |
+| I02  | Set user inode hard limit       | ext4, XFS | basic    |
+| U01  | Human-readable units (K,M,G,T)  | ext4      | parse    |
+| U02  | Relative adjustment (+100M)     | ext4      | parse    |
+| F01  | Raise-only flag (-R)            | ext4      | feature  |
+| F02  | Grace period set (-t)           | ext4      | feature  |
+| F03  | Grace period restart (-r)       | ext4      | feature  |
+| F04  | Numeric UID (:12345)            | ext4      | feature  |
+| O01  | Verbose output (-v)             | ext4      | output   |
+| O02  | Dump/machine-readable (-d)      | ext4      | output   |
+| E01  | No root → graceful failure      | ext4      | error    |
+| E02  | Invalid arguments               | ext4      | error    |
+| E03  | Non-existent mount point        | ext4      | error    |
+| D01  | Format detection succeeds       | ext4      | detect   |
+| D02  | Format detection succeeds       | XFS       | detect   |
+| D03  | Get+set round-trip (set, get back, compare) | ext4, XFS | detect |
+
+*Category "detect"*: These test =kern_quota_format()= — the runtime
+format detection in =src/linux/quota.c=. This is the most fragile code
+path and the primary reason for multi-kernel testing. It probes
+=/proc/fs/quota=, =/proc/sys/fs/quota=, and falls back through
+=Q_V0_GETSTATS= → =Q_OLD_GETSTATS= → =Q_OLD_GETQUOTA=. It contains
+vendor-specific workarounds (e.g., RedHat 2.4.2-2) and has not been
+updated since ~kernel 4.x. *Any kernel where detection fails = test
+failure = investigation needed.* These tests are the early warning
+system for the entire project.
+
+/Verification/: test list reviewed, each test has clear pass criteria.
+
+** TODO 2.2 Write TAP output layer (=test/lib/tap.sh=)
+TAP (Test Anything Protocol) for machine-parseable output.
+Simple: =ok 1 - description= / =not ok 2 - description=.
+
+/Verification/: output parseable by standard TAP consumers.
+
+** TODO 2.3 Write test implementations
+Implement each test from 2.1 as a shell function. Each test:
+1. Calls quotatool with specific args
+2. Checks exit code
+3. Verifies result via =repquota= or =quota=
+4. Emits TAP line
+
+/Parallelizable/: tests can be written by multiple agents, each
+handling a category (basic, parse, feature, output, error).
+
+/Dependencies/: 2.1, 2.2
+
+** TODO 2.4 Filesystem parameterization
+Each test runs against both ext4 and XFS (where applicable).
+The test runner creates both filesystem types and loops tests.
+
+/Dependencies/: 2.3, 1.3
+
+** TODO 2.5 Validate test suite on host kernel
+Run full suite inside a single VM with the host's own kernel.
+All tests must pass before moving to multi-kernel.
+
+/Verification/: =./test/run-tests.sh= reports all tests passing.
+
+/Dependencies/: 2.3, 2.4, 1.4
+
+* Phase 3: Kernel Collection [0/5]
+
+Download, extract, and prepare vendor-patched kernels for the
+test matrix. *Highly parallelizable* — each kernel is independent.
+
+** TODO 3.1 Define kernel matrix (=test/kernels/kernels.conf=)
+Format: =name|version|source_url|boot_method|notes=
+
+Two tiers:
+- Legacy (<5.4, boot_method=qemu): raw QEMU + initramfs
+- Modern (≥5.4, boot_method=virtme): virtme-ng
+
+/Candidate list/ (refine during implementation):
+
+Legacy tier:
+| Name          | Kernel | Source                  |
+|---------------+--------+-------------------------|
+| centos7       | 3.10   | vault.centos.org        |
+| debian-jessie | 3.16   | snapshot.debian.org     |
+| ubuntu-1604   | 4.4    | archive.ubuntu.com     |
+| debian-stretch| 4.9    | snapshot.debian.org     |
+| ubuntu-1804   | 4.15   | archive.ubuntu.com     |
+| rhel8         | 4.18   | vault.centos.org        |
+
+Modern tier:
+| Name            | Kernel | Source                  |
+|-----------------+--------+-------------------------|
+| ubuntu-2004     | 5.4    | archive.ubuntu.com     |
+| debian-bullseye | 5.10   | snapshot.debian.org     |
+| rhel9           | 5.14   | vault.centos.org        |
+| ubuntu-2204     | 5.15   | archive.ubuntu.com     |
+| debian-bookworm | 6.1    | snapshot.debian.org     |
+| ubuntu-2404     | 6.8    | archive.ubuntu.com     |
+| fedora-40       | 6.8    | koji.fedoraproject.org  |
+| fedora-41       | 6.12   | koji.fedoraproject.org  |
+| mainline-5.14   | 5.14   | kernel.ubuntu.com PPA  |
+| mainline-6.6    | 6.6    | kernel.ubuntu.com PPA  |
+
+/Verification/: kernels.conf is parseable, all URLs resolve.
+
+** TODO 3.2 Write kernel download/extract scripts
+=test/kernels/download.sh= — downloads .deb/.rpm, extracts
+vmlinuz + modules. Idempotent (skip already-downloaded).
+
+/Subtasks/:
+- [ ] Debian/Ubuntu path: =dpkg-deb -x= extraction
+- [ ] RHEL/Fedora/CentOS path: =rpm2cpio | cpio= extraction
+- [ ] Mainline PPA path: direct download
+- [ ] Output structure: =test/kernels/<name>/boot/vmlinuz-*=,
+      =test/kernels/<name>/lib/modules/*/=
+- [ ] Checksum verification where available
+
+/Dependencies/: 3.1
+
+** TODO 3.3 Download all kernels + matching quota-tools
+Run download.sh for each kernel in kernels.conf.
+Also extract matching =repquota= binary from the same distro repo
+(needed for test verification inside VMs — see Q2).
+
+*Agent-parallelizable*: assign groups of kernels to separate agents:
+- Agent A: all Debian/Ubuntu kernels + quota packages (dpkg path)
+- Agent B: all RHEL/CentOS/Fedora kernels + quota packages (rpm path)
+- Agent C: mainline PPA kernels (use host repquota)
+Each agent runs independently, no shared state.
+
+/Verification/: every kernel in kernels.conf has a vmlinuz on disk,
+and legacy kernels have a matching repquota binary.
+
+/Dependencies/: 3.2
+
+** TODO 3.4 Build legacy initramfs (may be eliminated by Q4)
+*Gate*: resolve Q4 first. If =vng --force-9p= works on 4.x and 3.x
+kernels, this task is unnecessary — virtme-ng handles everything.
+
+quotatool itself needs only ONE build for all kernels (see
+=research/quotatool-build-analysis.org=): it ships its own quota
+structs and does runtime format detection. A normally-linked quotatool
+binary built on the host works inside any VM via filesystem sharing.
+*No static/musl build needed for quotatool itself.*
+
+If Q4 fails (virtme-ng can't boot old kernels), build a minimal
+initramfs containing:
+- busybox (statically linked)
+- quotatool binary (normal build, shared via 9p or baked in)
+- repquota (from matching distro package, see Q2)
+- e2fsprogs, xfsprogs, util-linux (mount, losetup)
+- test scripts
+
+/Subtasks/ (only if Q4 fails):
+- [ ] Gather repquota + deps from distro packages (done in 3.3)
+- [ ] Build initramfs generation script
+- [ ] Test: boot oldest kernel (3.10) with this initramfs
+
+/Verification/: =qemu-system-x86_64 -kernel <3.10-vmlinuz> -initrd
+<initramfs>= boots to a shell with quotatool and quota-tools available.
+
+/Dependencies/: Q4 result, 3.3 (need a kernel to test with)
+
+** TODO 3.5 Boot-verify all kernels
+Boot each kernel, run =uname -r=, verify it matches expected version.
+This catches: missing modules, bad initramfs, kernel config issues.
+
+*Agent-parallelizable*: each kernel can be verified independently.
+
+/Verification/: all kernels in matrix boot and report correct version.
+
+/Dependencies/: 3.3, 3.4 (for legacy), 1.2
+
+* Phase 4: Multi-Kernel Orchestration [0/4]
+
+The main loop: for each kernel in the matrix, boot it, run full
+test suite, collect results, checkpoint.
+
+** TODO 4.1 Build the orchestrator (=test/run-tests.sh=)
+Reads kernels.conf, loops over kernels, calls boot layer for each,
+collects results, prints summary.
+
+/Subtasks/:
+- [ ] Parse kernels.conf
+- [ ] For each kernel: boot → run test suite → collect TAP output
+- [ ] Aggregate results: per-kernel and overall summary
+- [ ] Exit code: 0 if all pass, 1 if any fail
+- [ ] Support running a single kernel: =./run-tests.sh --kernel ubuntu-2204=
+- [ ] Support running a single test: =./run-tests.sh --test B01=
+
+/Dependencies/: 1.2, 1.3, 2.5, 3.5
+
+** TODO 4.2 Checkpoint/reentrance
+Track completed kernels in =test/results/.checkpoint=.
+Re-running skips completed kernels. =--force= to re-run all.
+
+/Subtasks/:
+- [ ] Checkpoint file: append kernel name on completion
+- [ ] On start: read checkpoint, skip completed
+- [ ] =--force= flag to ignore checkpoint
+- [ ] =--clean= flag to remove results and checkpoint
+
+/Dependencies/: 4.1
+
+** TODO 4.3 Parallel execution (optional)
+Use GNU parallel or =xargs -P= to run multiple kernels
+simultaneously. Each kernel gets its own result file.
+
+/Dependencies/: 4.1, 4.2
+
+** TODO 4.4 Full matrix validation
+Run complete matrix: all kernels × all tests × both filesystems.
+Fix any kernel-specific failures. Document known-good matrix.
+
+/Verification/: clean run across all kernels. Results documented.
+
+/Dependencies/: 4.1, 4.2
+
+* Phase 5: CI Wrapper [0/3]
+
+Thin layer on top of the local framework. Disposable if CI
+platform changes.
+
+** TODO 5.1 GitHub Actions workflow
+=.github/workflows/test.yml= — matrix strategy over kernels.
+Each job: checkout → setup KVM → download kernel → run-tests.sh.
+
+/Subtasks/:
+- [ ] KVM permission setup (udev rule)
+- [ ] Install virtme-ng
+- [ ] Kernel caching (actions/cache for downloaded kernels)
+- [ ] Matrix definition from kernels.conf
+- [ ] TAP output → GitHub Actions summary
+
+/Dependencies/: 4.4
+
+** TODO 5.2 Cirrus CI for FreeBSD
+=.cirrus.yml= — FreeBSD VM, build quotatool, test UFS quotas.
+
+/Dependencies/: 4.4 (Linux framework must work first)
+
+** TODO 5.3 CI documentation
+Update README with CI badge. Document how to run tests locally.
+Document the tested kernel matrix.
+
+/Dependencies/: 5.1, 5.2
+
+* Dependency Graph
+
+#+begin_example
+Phase 1 (Foundation):
+  1.1 ──→ 1.2 ──→ 1.4
+           1.3 ──↗
+
+Phase 2 (Tests):
+  2.1 ──→ 2.3 ──→ 2.4 ──→ 2.5
+  2.2 ──↗
+
+Phase 3 (Kernels):           ← parallelizable with Phase 2
+  3.1 ──→ 3.2 ──→ 3.3 ──→ 3.4 ──→ 3.5
+                              ↑
+                             1.2 (boot layer needed for verification)
+
+Phase 4 (Orchestration):
+  2.5 + 3.5 ──→ 4.1 ──→ 4.2 ──→ 4.3
+                         4.4 ──↗
+
+Phase 5 (CI):
+  4.4 ──→ 5.1, 5.2 ──→ 5.3
+#+end_example
+
+Key parallelism opportunities:
+- *Phase 2 and Phase 3* can run in parallel (test writing vs kernel collection)
+- *Phase 3.3* (kernel downloads) is embarrassingly parallel across agents
+- *Phase 3.5* (boot verification) is embarrassingly parallel
+- *Phase 4.3* (parallel test execution) runs kernels concurrently
+
+* Decisions Log
+
+| Date       | Decision                                      | Rationale                              |
+|------------+-----------------------------------------------+----------------------------------------|
+| 2026-03-08 | Local-first, CI as thin wrapper               | Independence from vendor lock-in       |
+| 2026-03-08 | virtme-ng for ≥5.4, raw QEMU for <5.4         | virtiofs requires kernel 5.4+          |
+| 2026-03-08 | Multi-kernel is core, not optional             | Kernel diffs are #1 bug source         |
+| 2026-03-08 | Include 3.x/4.x kernels in initial matrix     | Prevent regressions on legacy systems  |
+| 2026-03-08 | TAP output format                              | Standard, machine-parseable, simple    |
+| 2026-03-08 | Shell scripts for test framework               | Portable, no deps, matches project DNA |
+| 2026-03-08 | One quotatool build for all kernels             | Ships own headers, runtime detection   |
+| 2026-03-08 | kern_quota_format() is critical test target     | Fragile, last updated ~kernel 4.x era  |
+
+* Open Questions
+
+** DONE Q1: Static linking for quotatool
+*Not needed.* Source analysis shows quotatool ships its own quota
+headers and does runtime format detection. One normally-linked build
+works across all kernel versions. See =research/quotatool-build-analysis.org=.
+
+If task 3.4 (legacy initramfs) is needed, the initramfs tools
+(busybox, repquota, e2fsprogs) may need static builds or bundled
+libs, but quotatool itself can be shared into the VM via 9p or
+virtiofs. musl-cc remains an option for the *tools*, not for quotatool.
+
+Tool note: [[https://github.com/intoli/exodus][exodus]] (GitHub: intoli/exodus)
+bundles dynamic binaries with their .so files. Unmaintained (dead
+since 2021). Noted for reference only.
+
+/Affects/: 3.4 (only if Q4 fails)
+
+** TODO Q2: Quota-tools (repquota) in legacy VMs
+Need =repquota= inside legacy VMs for test verification. Since
+quota-tools link against kernel headers and libc, there's risk of
+version-dependent behavior. Best approach: extract =repquota= from
+the matching distro package for each kernel (same vendor, same era).
+This is a one-time parallel job alongside kernel downloads (3.3).
+
+Each agent downloading a kernel also extracts the matching =quota=
+package from the same distro repo. E.g., CentOS 7 kernel → CentOS 7
+quota RPM → extract =repquota= binary + libs.
+
+/Affects/: 3.3, 3.4
+
+** WAITING Q3: XFS on very old kernels
+CentOS 7 (3.10) does support XFS quotas, but the interface may differ
+in edge cases. *Strategy*: try it, handle failures when we hit them.
+Skip XFS tests on specific kernels if needed (add a =skip_xfs= flag
+to kernels.conf).
+
+/Affects/: 3.1
+
+** TODO Q4: virtme-ng --force-9p on 4.x kernels
+=--force-9p= tells virtme-ng to use the 9p filesystem protocol
+(available since kernel 2.6.14) instead of virtiofs (requires 5.4+)
+for sharing the host filesystem into the VM. If this works on 4.x
+kernels, we can use virtme-ng for the entire legacy tier and *skip
+building a custom initramfs entirely* (eliminates task 3.4).
+
+*Test early*: download one 4.x kernel, try
+=vng --force-9p -r <vmlinuz-4.x> -- uname -r=. If it boots and
+prints the version, we're good. If not, fall back to raw QEMU.
+
+Also test on 3.10 (oldest in matrix). If 9p works on 3.x too,
+the two-tier split may be unnecessary.
+
+/Affects/: 1.2, 3.4 (potentially eliminates 3.4)

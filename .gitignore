@@ -14,3 +14,7 @@
 /autom4te.cache
 /FILESYSTEMS
 /johan*
+research/
+.claude/session.md
+test/kernels/*/
+test/results/

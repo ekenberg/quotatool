@@ -1,0 +1,129 @@
+#+TITLE: quotatool — Masterplan
+#+AUTHOR: Johan Ekenberg
+#+DATE: 2026-03-08
+
+* Purpose
+
+This document is the single source of truth for the quotatool
+modernization effort. It defines the goal, the major milestones
+to get there, and tracks which milestone is current.
+
+Each milestone has a separate step-plan file (=steps/NN-name.org=)
+created when that milestone becomes active. The step-plan contains
+detailed tasks, decisions, and progress for that milestone only.
+
+Background research lives in =research/=. This document references
+but does not duplicate that material.
+
+* Goal
+
+Transform quotatool from a multi-platform legacy tool into a focused,
+well-tested Linux (+BSD) utility with modern kernel API support.
+Establish automated testing that makes ongoing maintenance confident
+and low-effort.
+
+* Current State
+
+- Working tool, ~5,500 LOC of clean C, no dependencies
+- Supports Linux, FreeBSD, OpenBSD, NetBSD, macOS, Solaris, AIX
+- No test suite, no CI — changes are untested
+- Several supported platforms are dead or broken
+- Missing support for newer kernel APIs (quotactl_fd, project quotas)
+- Packaged in Debian, Ubuntu, Fedora, EPEL, Gentoo, openSUSE, Homebrew
+- Latest release: v1.6.5 (July 2024)
+
+* Milestones
+
+Each milestone is a discrete chunk of work that produces a
+concrete, verifiable result. Order matters — later milestones
+build on earlier ones.
+
+** M1: Multi-Kernel Test Framework [step-plan: steps/01-testing.org]
+/Status: PLANNING/
+
+The critical enabler for everything else. Without this, no change
+can be made with confidence.
+
+Decisions made:
+- *Local-first*: test framework is a self-contained script.
+  No dependency on any CI platform. GitHub Actions is an optional
+  thin wrapper on top.
+- *Multi-kernel testing is the core*: kernel version differences
+  (including vendor patches) are the primary bug source. This is
+  the #1 testing dimension, not an afterthought.
+- *Two-tier boot*: virtme-ng (fast, automatic) for kernels ≥5.4;
+  raw QEMU + custom initramfs for legacy kernels (3.x, 4.x).
+- *Loopback filesystem pattern*: create image → format → mount
+  with quotas → test → verify via repquota → teardown.
+
+Goals:
+- Achieve: "clone repo, run one command, get full test results
+  across 15-20 kernel versions"
+- Cover kernel versions from 3.10 (CentOS 7) through latest
+- Test both ext4 and XFS on each kernel
+- CI wrapper as optional convenience layer (GitHub Actions)
+- BSD testing via Cirrus CI (FreeBSD, OpenBSD)
+
+Inputs: =research/testing-infrastructure.org=,
+        =research/multi-kernel-testing.org=
+
+** M2: Drop Dead Platforms [step-plan: steps/02-platform-drops.org]
+/Status: NOT STARTED/
+
+Remove support for platforms that are dead, broken, or irrelevant.
+This simplifies the codebase and reduces the test matrix.
+
+Drop: macOS (APFS killed quotas), AIX (no users, can't test),
+Solaris (everyone uses ZFS), NetBSD (broke their own quotactl API).
+
+Keep: Linux, FreeBSD, OpenBSD.
+
+Result: smaller, honest codebase. Updated README, configure, Makefile.
+
+Inputs: =research/other-os-relevance.org=
+
+** M3: Codebase Cleanup [step-plan: steps/03-cleanup.org]
+/Status: NOT STARTED/
+
+With dead platforms removed and tests in place, clean up what remains.
+
+- Remove dead code, commented debug blocks
+- Static analysis (cppcheck, scan-build)
+- Fix known issues (e.g. mixed indentation)
+- Evaluate whether shipping custom kernel quota headers is still needed
+- Ensure clean compile with =-Wall -Wextra= on gcc and clang
+
+** M4: quotactl_fd() Support [step-plan: steps/04-quotactl-fd.org]
+/Status: NOT STARTED/
+
+Add support for the quotactl_fd() syscall (kernel 5.14+). This
+enables quota management on tmpfs (kernel 6.6+) and bcachefs —
+filesystems that have no block device path and thus can't use
+the original quotactl().
+
+Inputs: =research/linux-kernel-quota-api.org=
+
+** M5: Project Quota Support [step-plan: steps/05-project-quotas.org]
+/Status: NOT STARTED/
+
+Add =-p= flag for project quotas (quotas on directory trees).
+Supported by XFS (always) and ext4 (since kernel 4.4). Useful for
+container storage, web hosting docroots, CI build directories.
+
+Inputs: =research/linux-kernel-quota-api.org=
+
+** M6: Release and Documentation [step-plan: steps/06-release.org]
+/Status: NOT STARTED/
+
+Tag releases, update README, man page, and any project documentation
+to reflect the new state. Announce if appropriate.
+
+* Principles
+
+- *Tests first*: No code change lands without test coverage.
+- *Files over memory*: All state lives in tracked files, never in
+  LLM context alone. Update files at every checkpoint.
+- *No duplication*: One source of truth per topic. Reference, don't copy.
+- *Milestone focus*: Work on one milestone at a time. Don't mix.
+- *Masterplan is mutable*: Milestones can be reordered, split, merged,
+  or added as understanding grows. But changes are deliberate, not drift.
