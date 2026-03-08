@@ -162,31 +162,56 @@ fs_create_ext4() {
     _fs_log "  loop device: $loop"
 
     # 3. mkfs.ext4 with quota feature enabled
-    #    -O quota enables kernel-level quota support (ext4 >= 3.6).
+    #    -O quota enables kernel-level quota support (ext4 >= 3.15).
     #    With this feature, quotas are active at mount time — no
     #    quotacheck or quotaon needed.
-    #    Older kernels without this feature fall back to quotacheck path.
+    #    Older kernels can't mount filesystems with this feature, so we
+    #    try it first, and if the mount fails, re-format without it
+    #    and use the legacy quotacheck+quotaon path.
     local has_builtin_quota=0
+    local mkfs_ok=0
     if mkfs.ext4 -q -O quota "$loop" >/dev/null 2>&1; then
-        has_builtin_quota=1
-    else
-        _fs_log "  mkfs.ext4 -O quota failed, retrying without"
-        if ! mkfs.ext4 -q "$loop" >/dev/null 2>&1; then
-            _fs_err "mkfs.ext4 failed on $loop"
-            _fs_ext4_cleanup_on_error
-            return 1
-        fi
+        mkfs_ok=1
     fi
 
     # 4. Mount
     mkdir -p "$mnt"
     _cleanup_mnt="$mnt"
-    if ! mount -o usrquota,grpquota "$loop" "$mnt"; then
-        _fs_err "mount failed: $loop -> $mnt"
-        _fs_ext4_cleanup_on_error
-        return 1
+    if [[ "$mkfs_ok" -eq 1 ]]; then
+        if mount -o usrquota,grpquota "$loop" "$mnt" 2>/dev/null; then
+            has_builtin_quota=1
+            _fs_log "  mounted at $mnt"
+        else
+            # mkfs -O quota succeeded but kernel can't mount it (old kernel).
+            # Re-format without the quota feature and use legacy path.
+            _fs_log "  mount with -O quota failed (old kernel?), reformatting without"
+            if ! mkfs.ext4 -q -O ^metadata_csum "$loop" >/dev/null 2>&1; then
+                _fs_err "mkfs.ext4 (legacy) failed on $loop"
+                _fs_ext4_cleanup_on_error
+                return 1
+            fi
+            if ! mount -o usrquota,grpquota "$loop" "$mnt"; then
+                _fs_err "mount failed (legacy): $loop -> $mnt"
+                _fs_ext4_cleanup_on_error
+                return 1
+            fi
+            _fs_log "  mounted at $mnt"
+        fi
+    else
+        # mkfs -O quota not supported at all
+        _fs_log "  mkfs.ext4 -O quota not supported, using plain ext4"
+        if ! mkfs.ext4 -q "$loop" >/dev/null 2>&1; then
+            _fs_err "mkfs.ext4 failed on $loop"
+            _fs_ext4_cleanup_on_error
+            return 1
+        fi
+        if ! mount -o usrquota,grpquota "$loop" "$mnt"; then
+            _fs_err "mount failed: $loop -> $mnt"
+            _fs_ext4_cleanup_on_error
+            return 1
+        fi
+        _fs_log "  mounted at $mnt"
     fi
-    _fs_log "  mounted at $mnt"
 
     # 5+6. Enable quotas
     if [[ "$has_builtin_quota" -eq 1 ]]; then

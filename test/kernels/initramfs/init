@@ -1,0 +1,83 @@
+#!/bin/sh
+# Minimal init for raw QEMU boot path.
+#
+# Mounts the host filesystem via 9p (read-only), overlays writable
+# areas with tmpfs, chroots in, runs the test command, and propagates
+# the exit code back to the host via a second writable 9p share.
+#
+# Expects two 9p shares:
+#   hostroot  — host / mounted read-only
+#   results   — writable tmpdir for command file and exit code
+#
+# The command to run is read from /mnt/results/cmd (written by host).
+
+# Step 1: essential filesystems
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts
+
+# Step 2: load 9p modules if present (needed when 9p is not built-in)
+# The boot layer appends kernel-specific .ko files at /modules/ with
+# a load_order file specifying dependency-first sequence.
+if [ -d /modules ] && [ -f /modules/load_order ]; then
+    while read -r mod; do
+        [ -f "/modules/${mod}.ko" ] && insmod "/modules/${mod}.ko"
+    done < /modules/load_order
+elif [ -d /modules ]; then
+    # Fallback: try all .ko files (may fail on dep order)
+    for mod in /modules/*.ko; do
+        [ -f "$mod" ] && insmod "$mod" 2>/dev/null
+    done
+fi
+
+# Step 3: mount host root via 9p
+# Read-write to match vng behavior (CoW overlay). Tests only write to
+# /tmp and loop devices, so host files are not modified in practice.
+mkdir -p /mnt/host
+mount -t 9p -o trans=virtio,version=9p2000.L,msize=262144 hostroot /mnt/host
+if [ $? -ne 0 ]; then
+    # Try without msize (older kernels may not support it)
+    mount -t 9p -o trans=virtio,version=9p2000.L hostroot /mnt/host
+    if [ $? -ne 0 ]; then
+        echo "FATAL: 9p mount failed — check kernel has 9P_FS support" >&2
+        poweroff -f
+    fi
+fi
+
+# Step 4: mount results share (writable)
+mkdir -p /mnt/results
+mount -t 9p -o trans=virtio,version=9p2000.L,msize=262144 results /mnt/results 2>/dev/null \
+    || mount -t 9p -o trans=virtio,version=9p2000.L results /mnt/results
+
+# Step 5: overlay writable areas on top of the read-only host mount
+mount -t tmpfs tmpfs /mnt/host/tmp
+mount -t tmpfs tmpfs /mnt/host/run
+mount -t tmpfs tmpfs /mnt/host/var/tmp 2>/dev/null
+
+# Guest needs its own /dev, /proc, /sys inside the chroot
+mount -t devtmpfs devtmpfs /mnt/host/dev
+mkdir -p /mnt/host/dev/pts
+mount -t devpts devpts /mnt/host/dev/pts
+mount -t proc proc /mnt/host/proc
+mount -t sysfs sysfs /mnt/host/sys
+
+# Step 6: read the command
+if [ ! -f /mnt/results/cmd ]; then
+    echo "FATAL: no command file at /mnt/results/cmd" >&2
+    echo "1" > /mnt/results/exit_code
+    poweroff -f
+fi
+CMD=$(cat /mnt/results/cmd)
+
+# Step 7: run it inside the chroot
+# Combine stdout+stderr to preserve interleaved output ordering
+chroot /mnt/host /bin/sh -c "$CMD" > /mnt/results/stdout 2>&1
+EXIT_CODE=$?
+
+# Step 8: write exit code for the host to read
+echo "$EXIT_CODE" > /mnt/results/exit_code
+
+# Step 9: done
+poweroff -f

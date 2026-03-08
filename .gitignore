@@ -17,4 +17,6 @@
 research/
 .claude/session.md
 test/kernels/*/
+!test/kernels/initramfs/
+test/kernels/initramfs/initramfs.cpio.gz
 test/results/

@@ -18,7 +18,7 @@ chmod 777 "$MNT/enforce-ihard"
 
 created=0
 for i in $(seq 1 10); do
-    if su -s /bin/sh nobody -c "touch $MNT/enforce-ihard/file$i" 2>/dev/null; then
+    if runuser -u nobody -- sh -c "touch $MNT/enforce-ihard/file$i" 2>/dev/null; then
         created=$((created + 1))
     else
         echo "file creation blocked at file $i"

@@ -34,9 +34,12 @@ BOOT_VERBOSE="${BOOT_VERBOSE:-0}"
 BOOT_EXTRA_ARGS="${BOOT_EXTRA_ARGS:-}"
 BOOT_DISK="${BOOT_DISK:-}"
 
-# Minimum kernel version for virtme-ng (virtiofs requires 5.4+).
-# With --force-9p this might work on older kernels too (Q4 investigation).
+# Minimum kernel version for virtme-ng with --force-9p.
+# Q4 result: vng works with --force-9p on >=4.9, hangs on <=4.4
+# (virtio-serial devices not supported on older kernels).
+# Kernels >= 5.4 use virtiofs (default), 4.9-5.3 use --force-9p.
 _VIRTME_MIN_VERSION="5.4"
+_VIRTME_9P_MIN_VERSION="4.9"
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -131,10 +134,9 @@ _have_kvm() {
 #
 # Decision logic:
 #   1. If BOOT_METHOD is set to "virtme" or "qemu", honour it.
-#   2. If kernel version >= 5.4 and vng is available: virtme.
-#   3. If kernel version < 5.4 and vng is available: still try virtme
-#      with --force-9p (Q4: this may work on older kernels).
-#   4. If vng is unavailable: qemu (if available).
+#   2. If kernel >= 4.9 and vng available: virtme (with --force-9p for <5.4).
+#   3. If kernel < 4.9: raw qemu (vng hangs due to virtio-serial).
+#   4. If vng unavailable: qemu (if available).
 #   5. Nothing available: error.
 _detect_boot_method() {
     local kernel_path="$1"
@@ -167,22 +169,18 @@ _detect_boot_method() {
     local kver
     kver=$(_extract_kernel_version "$kernel_path") || kver="unknown"
 
-    if _have_virtme; then
-        if [[ "$kver" == "unknown" ]] || _version_ge "$kver" "$_VIRTME_MIN_VERSION"; then
+    if _have_virtme && { [[ "$kver" == "unknown" ]] || _version_ge "$kver" "$_VIRTME_9P_MIN_VERSION"; }; then
+        if _version_ge "$kver" "$_VIRTME_MIN_VERSION" 2>/dev/null; then
             _boot_log "Auto-detected: virtme (kernel $kver >= $_VIRTME_MIN_VERSION)"
-            echo "virtme"
-            return 0
         else
-            # Older kernel — still try virtme with --force-9p.
-            # This is the Q4 bet: 9p may work back to 2.6.14.
-            _boot_log "Auto-detected: virtme with --force-9p (kernel $kver < $_VIRTME_MIN_VERSION)"
-            echo "virtme"
-            return 0
+            _boot_log "Auto-detected: virtme with --force-9p (kernel $kver)"
         fi
+        echo "virtme"
+        return 0
     fi
 
     if _have_qemu; then
-        _boot_log "Auto-detected: qemu (vng not available)"
+        _boot_log "Auto-detected: qemu (kernel $kver < $_VIRTME_9P_MIN_VERSION or vng unavailable)"
         echo "qemu"
         return 0
     fi
@@ -292,12 +290,16 @@ _boot_virtme() {
 
 # Boot a kernel using raw QEMU and run a command inside the VM.
 #
-# This path is for kernels that can't use virtme-ng (if Q4 shows that
-# --force-9p doesn't work on old kernels). Uses:
+# For kernels too old for virtme-ng (< 4.9, where vng's virtio-serial
+# devices hang). Uses:
 #   - qemu-system-x86_64 with -kernel flag (direct boot, no bootloader)
-#   - Custom initramfs containing busybox + test tools
-#   - 9p filesystem sharing for host<->guest file exchange
-#   - isa-debug-exit device for exit code propagation
+#   - Custom initramfs (busybox + init script)
+#   - 9p filesystem sharing: host root (read-only) + results dir (writable)
+#   - Serial console for output (no virtio-serial)
+#   - Exit code propagated via file on the results 9p share
+#
+# The initramfs init script chroots into the host filesystem (mounted
+# via 9p), so all host tools (quotatool, mkfs, etc.) are available.
 #
 # Args:
 #   $1 — path to vmlinuz
@@ -308,20 +310,195 @@ _boot_qemu() {
     local kernel_path="$1"
     local command="$2"
 
-    # Q4 investigation may eliminate this path entirely.
-    # If virtme-ng --force-9p works on 3.x/4.x kernels, we don't need
-    # the raw QEMU path. Keep this stub until Q4 is resolved.
-    _boot_die "Legacy QEMU boot path not yet implemented.
+    if ! _have_qemu; then
+        _boot_die "qemu-system-x86_64 not found in PATH"; return 1
+    fi
 
-This path is needed only if virtme-ng --force-9p fails on kernels < 5.4.
-Resolve Q4 (test vng --force-9p on a 4.x/3.x kernel) before investing
-in the raw QEMU + initramfs approach.
+    # Locate initramfs (relative to boot.sh → ../kernels/initramfs/)
+    local lib_dir
+    lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local initramfs="$lib_dir/../kernels/initramfs/initramfs.cpio.gz"
 
-To test Q4:
-  1. Download a 4.x kernel (e.g., ubuntu-1804 4.15)
-  2. Run: vng --force-9p -r <vmlinuz-4.15> -- uname -r
-  3. If it prints the version → Q4 resolved, this path unnecessary
-  4. If it fails → implement this path (task 3.4 in step-plan)"
+    if [[ ! -f "$initramfs" ]]; then
+        _boot_die "Initramfs not found at $initramfs
+Run: test/kernels/initramfs/build.sh"
+        return 1
+    fi
+
+    # Create a temporary working directory for results + per-boot initramfs
+    local work_dir
+    work_dir=$(mktemp -d "${TMPDIR:-/tmp}/qemu-work.XXXXXX")
+    trap "rm -rf '$work_dir'" RETURN
+
+    local results_dir="$work_dir/results"
+    mkdir -p "$results_dir"
+
+    # Write the command to execute
+    echo "$command" > "$results_dir/cmd"
+
+    # Build a per-boot initramfs: base + kernel-specific 9p modules.
+    # cpio archives are concatenable — the kernel processes them in order.
+    local boot_initramfs="$work_dir/initramfs.cpio.gz"
+    cp "$initramfs" "$boot_initramfs"
+
+    # Find and append 9p/virtio modules if the kernel ships them
+    local kver_full
+    kver_full=$(basename "$kernel_path" | sed 's/^vmlinu[xz]-//')
+    local mod_dir=""
+
+    # Look for modules next to the vmlinuz (extracted kernel package)
+    local kernel_dir
+    kernel_dir=$(dirname "$kernel_path")
+    # Try: same extraction root (e.g., extracted/lib/modules/<ver>/)
+    local search_base
+    search_base=$(cd "$kernel_dir/.." 2>/dev/null && pwd || echo "")
+    if [[ -n "$search_base" ]]; then
+        local candidate
+        candidate=$(find "$search_base" -path "*/lib/modules/*/kernel" -type d 2>/dev/null | head -1)
+        if [[ -n "$candidate" ]]; then
+            mod_dir=$(dirname "$candidate")
+        fi
+    fi
+    # Also try system modules
+    if [[ -z "$mod_dir" && -d "/lib/modules/$kver_full" ]]; then
+        mod_dir="/lib/modules/$kver_full"
+    fi
+
+    if [[ -n "$mod_dir" ]]; then
+        _boot_log "Found modules at: $mod_dir"
+        local mod_tmp="$work_dir/mod_overlay"
+        mkdir -p "$mod_tmp/modules"
+
+        # Resolve 9p module dependencies recursively using modinfo.
+        # We need 9p.ko and all its deps loaded in dependency-first order.
+        local -A collected=()  # track what we've already added
+        _collect_module_deps() {
+            local mod_name="$1"
+            [[ -n "${collected[$mod_name]+x}" ]] && return
+            collected[$mod_name]=1
+
+            local mod_file
+            mod_file=$(find "$mod_dir" -name "${mod_name}.ko" 2>/dev/null | head -1)
+            [[ -z "$mod_file" ]] && return
+
+            # Recurse into dependencies first (depth-first)
+            local deps
+            deps=$(modinfo "$mod_file" 2>/dev/null | grep '^depends:' | sed 's/^depends:[[:space:]]*//')
+            if [[ -n "$deps" ]]; then
+                local IFS=','
+                for dep in $deps; do
+                    dep=$(echo "$dep" | tr '-' '_')
+                    _collect_module_deps "$dep"
+                done
+            fi
+
+            # Copy and record load order
+            cp "$mod_file" "$mod_tmp/modules/"
+            # Prefix with sequence number for ordered loading
+            local seq=${#load_order[@]}
+            load_order+=("$mod_name")
+            _boot_log "  added module: ${mod_name}.ko (deps: ${deps:-none})"
+        }
+
+        local -a load_order=()
+        # 9p filesystem (required for host mount)
+        _collect_module_deps "9pnet"
+        _collect_module_deps "9pnet_virtio"
+        _collect_module_deps "9p"
+        # Quota support (may be modules on old kernels)
+        _collect_module_deps "quota_tree"
+        _collect_module_deps "quota_v1"
+        _collect_module_deps "quota_v2"
+
+        if [[ ${#load_order[@]} -gt 0 ]]; then
+            # Write load order file so init knows the correct sequence
+            printf '%s\n' "${load_order[@]}" > "$mod_tmp/modules/load_order"
+            # Append as a second cpio archive
+            (cd "$mod_tmp" && find . | cpio -o -H newc --quiet | gzip -9) >> "$boot_initramfs"
+            _boot_log "Appended ${#load_order[@]} modules to initramfs"
+        fi
+    else
+        _boot_log "No module directory found — assuming 9p is built-in"
+    fi
+
+    # Build QEMU argument list
+    local -a qemu_args=()
+
+    # Basic machine setup
+    qemu_args+=(-machine "accel=kvm:tcg")
+    qemu_args+=(-cpu host)
+    qemu_args+=(-m "${BOOT_MEMORY}M")
+    qemu_args+=(-smp "$BOOT_CPUS")
+    qemu_args+=(-no-reboot)
+    qemu_args+=(-nographic)
+
+    # Direct kernel boot
+    qemu_args+=(-kernel "$kernel_path")
+    qemu_args+=(-initrd "$boot_initramfs")
+    qemu_args+=(-append "console=ttyS0 quiet loglevel=1 panic=-1")
+
+    # 9p share: host root
+    # Read-write to match vng behavior. Tests write only to /tmp and
+    # loop devices inside the VM, so host files are safe in practice.
+    qemu_args+=(
+        -fsdev "local,id=hostroot,path=/,security_model=none"
+        -device "virtio-9p-pci,fsdev=hostroot,mount_tag=hostroot"
+    )
+
+    # 9p share: results directory (writable)
+    qemu_args+=(
+        -fsdev "local,id=results,path=$results_dir,security_model=none"
+        -device "virtio-9p-pci,fsdev=results,mount_tag=results"
+    )
+
+    # No networking
+    qemu_args+=(-net none)
+
+    _boot_log "Running: qemu-system-x86_64 ${qemu_args[*]}"
+
+    # Capture output
+    local output_file
+    output_file=$(mktemp "${TMPDIR:-/tmp}/qemu-output.XXXXXX")
+
+    local qemu_exit=0
+    if ! timeout --signal=KILL "$BOOT_TIMEOUT" \
+         qemu-system-x86_64 "${qemu_args[@]}" \
+         > "$output_file" 2>&1; then
+        qemu_exit=$?
+    fi
+
+    # Print stdout/stderr from guest (captured by init script)
+    if [[ -f "$results_dir/stdout" ]]; then
+        cat "$results_dir/stdout"
+    fi
+    if [[ -f "$results_dir/stderr" ]]; then
+        cat "$results_dir/stderr" >&2
+    fi
+
+    # If no guest output files, print raw QEMU output (boot messages, errors)
+    if [[ ! -f "$results_dir/stdout" && ! -f "$results_dir/stderr" ]]; then
+        _boot_log "No guest output files — showing raw QEMU output:"
+        cat "$output_file" >&2
+    fi
+
+    # Detect timeout
+    if [[ $qemu_exit -eq 137 ]]; then
+        echo "[boot] VM killed after ${BOOT_TIMEOUT}s timeout" >&2
+        rm -f "$output_file"
+        return 124
+    fi
+
+    rm -f "$output_file"
+
+    # Read guest exit code
+    if [[ -f "$results_dir/exit_code" ]]; then
+        local guest_exit
+        guest_exit=$(cat "$results_dir/exit_code")
+        return "$guest_exit"
+    else
+        _boot_log "No exit_code file — guest may have crashed"
+        return 1
+    fi
 }
 
 # ---------------------------------------------------------------------------

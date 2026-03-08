@@ -16,7 +16,7 @@ fail() { echo "FAIL ($FSTYPE): $*" >&2; exit 1; }
 mkdir -p "$MNT/enforce-isoft"
 chmod 777 "$MNT/enforce-isoft"
 for i in $(seq 1 10); do
-    su -s /bin/sh nobody -c "touch $MNT/enforce-isoft/file$i" \
+    runuser -u nobody -- sh -c "touch $MNT/enforce-isoft/file$i" \
         || fail "creating file $i should succeed (soft limit)"
 done
 

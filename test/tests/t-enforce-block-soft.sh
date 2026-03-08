@@ -15,7 +15,7 @@ fail() { echo "FAIL ($FSTYPE): $*" >&2; exit 1; }
 # Write 200K as nobody — should succeed (soft limit, not hard)
 mkdir -p "$MNT/enforce-bsoft"
 chmod 777 "$MNT/enforce-bsoft"
-su -s /bin/sh nobody -c "dd if=/dev/zero of=$MNT/enforce-bsoft/fill bs=1K count=200 2>/dev/null" \
+runuser -u nobody -- sh -c "dd if=/dev/zero of=$MNT/enforce-bsoft/fill bs=1K count=200 2>/dev/null" \
     || fail "write past soft limit should succeed"
 
 # Verify usage exceeds soft limit

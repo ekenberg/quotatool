@@ -15,7 +15,7 @@ fail() { echo "FAIL ($FSTYPE): $*" >&2; exit 1; }
 # Write 200K as nobody — should fail (exceeds hard limit)
 mkdir -p "$MNT/enforce-bhard"
 chmod 777 "$MNT/enforce-bhard"
-if su -s /bin/sh nobody -c "dd if=/dev/zero of=$MNT/enforce-bhard/fill bs=1K count=200 2>/dev/null"; then
+if runuser -u nobody -- sh -c "dd if=/dev/zero of=$MNT/enforce-bhard/fill bs=1K count=200 2>/dev/null"; then
     # dd might "succeed" but write fewer bytes. Check actual size.
     actual=$(du -k "$MNT/enforce-bhard/fill" 2>/dev/null | awk '{print $1}')
     if [[ "$actual" -ge 200 ]]; then

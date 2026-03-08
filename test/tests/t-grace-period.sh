@@ -25,7 +25,7 @@ fi
 # Write data to exceed soft limit (triggers grace period)
 mkdir -p "$MNT/grace-test"
 chmod 777 "$MNT/grace-test"
-su -s /bin/sh nobody -c "dd if=/dev/zero of=$MNT/grace-test/fill bs=1K count=100 2>/dev/null" \
+runuser -u nobody -- sh -c "dd if=/dev/zero of=$MNT/grace-test/fill bs=1K count=100 2>/dev/null" \
     || fail "write as nobody failed"
 
 # quotatool -d fields:
