@@ -199,6 +199,47 @@ All tests must pass before moving to multi-kernel.
 
 /Dependencies/: 2.3, 2.4, 1.5
 
+* Phase 2b: Test Coverage Gaps [0/3]
+
+Tests that do NOT need the kernel matrix — run once on host.
+
+** TODO 2.6 Host-side argument parsing tests
+Unit conversion, edge cases, error handling. No VM needed — run
+quotatool directly on host against a local loopback filesystem.
+
+Tests needed:
+- Units: Kb, Mb, Gb, Tb, bytes, blocks, plain integers
+- Floating point: 1.2G, 1.8K, 0.5T
+- Edge values: 0, very large (4T+, ref issue #8), negative
+- Invalid input: bad units, non-numeric, empty string
+- Error paths: no root, invalid args, non-existent mountpoint,
+  missing required flags (-b/-i), conflicting options
+- Verbose output (-v, -v -v): verify output format/content
+- Dump output (-d): verify field count and format
+
+/Dependencies/: none (host-side, no VM)
+
+** TODO 2.7 Code coverage analysis (gcov)
+Rebuild quotatool with =--coverage= flags, run full test suite,
+generate coverage report. Identifies untested code paths in:
+- =src/linux/quota.c= — =kern_quota_format()= and the four
+  quota code paths (old, v0, generic, xfs)
+- =src/parse.c= — argument parsing
+- =src/main.c= — option handling and dispatch
+
+Target: identify which lines/branches are not exercised by the
+current test suite. Add tests to fill gaps.
+
+/Dependencies/: 2.6, test suite complete
+
+** TODO 2.8 Multi-kernel-specific tests
+Tests that only make sense across different kernels:
+- =kern_quota_format()= detection succeeds (D01, D02)
+- Get+set round-trip: set value, read back, compare (D03)
+- These ARE the kernel matrix tests — run per kernel in Phase 4
+
+/Dependencies/: Phase 3 (need kernels), Phase 4 (need orchestrator)
+
 * Phase 3: Kernel Collection [0/5]
 
 Download, extract, and prepare vendor-patched kernels for the
