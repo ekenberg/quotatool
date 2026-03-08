@@ -73,3 +73,5 @@ badges. Use for categorization where helpful.
 - Git commits: descriptive, one logical change per commit
 - Branches for non-trivial work
 - Do not push without explicit permission
+- **Never install system packages** (dnf, pip, npm, etc.) — tell the
+  user what needs installing and let them do it
