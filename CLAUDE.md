@@ -1,5 +1,24 @@
 # CLAUDE.md — quotatool project instructions
 
+## *** HOST CHECK — DO THIS FIRST ***
+
+This project MUST run on hostname `piano` (Johan's desktop). At the
+start of EVERY session, run `hostname` and verify. If not on `piano`:
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║  WARNING: WRONG HOST!  This project requires hostname       ║
+║  "piano" for M1 testing (QEMU/KVM/virtme-ng).               ║
+║                                                              ║
+║  You are on: <actual hostname>                               ║
+║                                                              ║
+║  Simple edits (README, docs) are fine, but anything          ║
+║  involving build, test, or VM work WILL NOT WORK here.       ║
+╚══════════════════════════════════════════════════════════════╝
+```
+
+Print this banner and wait for user acknowledgement before proceeding.
+
 ## First Priority: Consult MASTERPLAN.org
 
 Before any work, read `MASTERPLAN.org` to determine which milestone is
