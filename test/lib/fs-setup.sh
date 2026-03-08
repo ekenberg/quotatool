@@ -163,9 +163,13 @@ fs_create_ext4() {
 
     # 3. mkfs.ext4 with quota feature enabled
     #    -O quota enables kernel-level quota support (ext4 >= 3.6).
-    #    Older kernels without this feature still work via quotacheck.
-    if ! mkfs.ext4 -q -O quota "$loop" >/dev/null 2>&1; then
-        # Fall back without -O quota for very old kernels
+    #    With this feature, quotas are active at mount time — no
+    #    quotacheck or quotaon needed.
+    #    Older kernels without this feature fall back to quotacheck path.
+    local has_builtin_quota=0
+    if mkfs.ext4 -q -O quota "$loop" >/dev/null 2>&1; then
+        has_builtin_quota=1
+    else
         _fs_log "  mkfs.ext4 -O quota failed, retrying without"
         if ! mkfs.ext4 -q "$loop" >/dev/null 2>&1; then
             _fs_err "mkfs.ext4 failed on $loop"
@@ -184,21 +188,24 @@ fs_create_ext4() {
     fi
     _fs_log "  mounted at $mnt"
 
-    # 5. quotacheck — initialize quota accounting files
-    #    -u = user quotas, -g = group quotas, -m = don't try to remount ro
-    if ! quotacheck -ugm "$mnt" 2>/dev/null; then
-        _fs_err "quotacheck failed on $mnt"
-        _fs_ext4_cleanup_on_error
-        return 1
+    # 5+6. Enable quotas
+    if [[ "$has_builtin_quota" -eq 1 ]]; then
+        # Built-in quota: already active from mount. Nothing to do.
+        _fs_log "  quotas enabled via -O quota (built-in)"
+    else
+        # Legacy path: quotacheck to create accounting files, then quotaon
+        if ! quotacheck -ugm "$mnt" 2>/dev/null; then
+            _fs_err "quotacheck failed on $mnt"
+            _fs_ext4_cleanup_on_error
+            return 1
+        fi
+        if ! quotaon "$mnt" 2>/dev/null; then
+            _fs_err "quotaon failed on $mnt"
+            _fs_ext4_cleanup_on_error
+            return 1
+        fi
+        _fs_log "  quotas enabled via quotacheck+quotaon (legacy)"
     fi
-
-    # 6. quotaon — enable enforcement
-    if ! quotaon "$mnt" 2>/dev/null; then
-        _fs_err "quotaon failed on $mnt"
-        _fs_ext4_cleanup_on_error
-        return 1
-    fi
-    _fs_log "  quotas enabled (ext4)"
 
     # 7. Verify — repquota should return 0
     if ! repquota "$mnt" >/dev/null 2>&1; then

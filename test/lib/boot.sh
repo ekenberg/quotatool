@@ -252,9 +252,8 @@ _boot_virtme() {
     fi
 
     # The command to execute inside the VM.
-    # vng runs it via: vng [opts] -- COMMAND
-    vng_args+=(--)
-    vng_args+=("$command")
+    # Use -e (--exec) instead of -- to avoid requiring a PTS.
+    vng_args+=(-e "$command")
 
     _boot_log "Running: vng ${vng_args[*]}"
 
@@ -264,10 +263,11 @@ _boot_virtme() {
 
     local exit_code=0
 
-    # Run with timeout. Capture stdout+stderr to file AND pass through
-    # to our stdout (so callers can capture it).
+    # vng requires a PTS (pseudo-terminal) even with -e. Wrap with
+    # "script -qec" to provide one. -e propagates the child exit code.
+    # Timeout wraps the whole thing to kill hung VMs.
     if ! timeout --signal=KILL "$BOOT_TIMEOUT" \
-         vng "${vng_args[@]}" \
+         script -qec "vng ${vng_args[*]}" /dev/null \
          > "$output_file" 2>&1; then
         exit_code=$?
     fi
