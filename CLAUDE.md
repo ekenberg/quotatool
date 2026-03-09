@@ -92,3 +92,17 @@ badges. Use for categorization where helpful.
 - Do not push without explicit permission
 - **Never install system packages** (dnf, pip, npm, etc.) — tell the
   user what needs installing and let them do it
+
+## Complex Bash Commands
+
+**ENFORCED**: Never run multi-step or complex bash commands directly via
+the Bash tool. Instead, write them to `test/tmp_run.sh` and run that.
+This avoids repeated permission prompts (user has `test/tmp_run.sh`
+pre-approved) and makes commands reviewable.
+
+```bash
+# Write the commands to tmp_run.sh, then:
+bash test/tmp_run.sh
+```
+
+`tmp_run.sh` is gitignored — it's a scratch file, not committed.

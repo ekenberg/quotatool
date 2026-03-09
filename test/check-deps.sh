@@ -134,8 +134,6 @@ _check_cmd "qemu" "qemu-system-x86_64" \
 _check_cmd "virtme-ng (vng)" "vng" \
     "virtme-ng (pip install virtme-ng)" "virtme-ng (pip install virtme-ng)" "virtme-ng (pip install virtme-ng)"
 
-_check_cmd "script" "script" \
-    "util-linux" "util-linux-core" "util-linux"
 
 # KVM
 if [ -e /dev/kvm ]; then

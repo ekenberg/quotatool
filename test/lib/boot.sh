@@ -250,12 +250,9 @@ _boot_virtme() {
     fi
 
     # The command to execute inside the VM.
-    # Use -e (--exec) instead of -- to avoid requiring a PTS.
-    # Shell-escape the command so it survives the script -qec
-    # string flattening (e.g., "uname -r" → "uname\ -r").
-    local escaped_cmd
-    printf -v escaped_cmd '%q' "$command"
-    vng_args+=(-e "$escaped_cmd")
+    # Pass directly — pty.spawn preserves argument boundaries, so no
+    # shell escaping needed (unlike the old script -qec approach).
+    vng_args+=(-e "$command")
 
     _boot_log "Running: vng ${vng_args[*]}"
 
@@ -265,13 +262,14 @@ _boot_virtme() {
 
     local exit_code=0
 
-    # vng requires a PTS (pseudo-terminal) even with -e. Wrap with
-    # "script -qec" to provide one. -e propagates the child exit code.
-    # Timeout wraps the whole thing to kill hung VMs.
-    # NOTE: Do NOT use `if ! cmd; then rc=$?` — the `!` negates the exit
-    # code, making $? always 0 inside the then-body. Use `cmd || rc=$?`.
+    # vng requires a PTS (pseudo-terminal) even with -e. Use Python's
+    # pty.spawn() to provide one — Python is always available since vng
+    # itself is Python. This avoids a dependency on `script` (util-linux)
+    # which isn't always installed (e.g., Fedora splits it into
+    # util-linux-core).
     timeout --foreground --signal=KILL "$BOOT_TIMEOUT" \
-         script -qec "vng ${vng_args[*]}" /dev/null \
+         python3 -c "import pty,sys,os;rc=pty.spawn(sys.argv[1:]);sys.exit(os.waitstatus_to_exitcode(rc) if hasattr(os,'waitstatus_to_exitcode') else (rc>>8))" \
+         vng "${vng_args[@]}" \
          > "$output_file" 2>&1 || exit_code=$?
 
     # Print captured output
