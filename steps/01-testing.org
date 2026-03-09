@@ -623,6 +623,71 @@ Document the "add a new kernel" procedure step by step.
 
 /Dependencies/: 6.1 (design), 7.3
 
+* Phase 8: Host-Independent Test Rootfs [0/5]
+
+The test framework runs host-compiled binaries (glibc) inside old
+kernels. glibc enforces a minimum kernel version at runtime. As host
+distros update glibc, old kernels become untestable: =FATAL: kernel
+too old=. This defeats the purpose of legacy kernel coverage.
+
+Discovered 2026-03-09 on Fedora 43 (glibc 2.41, floor = 4.4):
+debian-7, debian-8, ubuntu-1404, centos7 all fail. centos7 is tier 1.
+See =research/glibc-kernel-floor.org= for full analysis and options.
+
+Goal: replace host-dependent rootfs with a musl-based rootfs that has
+*no kernel version floor*. The musl-static busybox in the initramfs
+already proves this works — extend the approach to all test tools.
+
+Recommended path: Option C (hybrid) — static musl quotatool + Alpine
+minirootfs for tools. Only new test dep: =musl-gcc= (one package).
+
+** TODO 8.1 Prototype Alpine minirootfs download
+Download official Alpine Linux minirootfs (musl-based, ~3.5 MB).
+SHA256-verify like busybox. Script: =test/kernels/build-alpine-rootfs.sh=.
+Extract to staging dir, verify basic shell works.
+
+/Verification/: Alpine rootfs extracted, =/bin/sh= runs, =uname= works.
+
+** TODO 8.2 Install test tool packages into Alpine rootfs
+Use =apk= (Alpine's package manager) to install: bash, e2fsprogs,
+xfsprogs, quota-tools, util-linux (runuser, losetup, mount).
+Pin package versions for reproducibility.
+
+/Verification/: =mkfs.ext4=, =quotacheck=, =repquota=, =runuser= all
+present and executable inside the rootfs.
+
+** TODO 8.3 Build static musl quotatool for tests
+Add =make static-test= or similar target that builds quotatool with
+=musl-gcc -static=. This is the binary that goes into the Alpine
+rootfs — our code, statically linked, no glibc dependency.
+
+/Verification/: =file quotatool-musl= shows =statically linked=.
+=./quotatool-musl -V= works. Binary runs inside Alpine rootfs on
+old kernel.
+
+/Dependencies/: 8.1
+
+** TODO 8.4 Integrate Alpine rootfs into boot paths
+When kernel version < host glibc floor, use Alpine rootfs instead of
+host filesystem. This replaces both the qemu+9p and qemu+rootfs
+paths for affected kernels. Existing paths stay unchanged for
+compatible kernels (zero regression).
+
+Boot path selection becomes:
+#+begin_example
+kernel >= glibc_floor → current path (unchanged)
+kernel < glibc_floor  → qemu + alpine rootfs (musl, no floor)
+#+end_example
+
+/Dependencies/: 8.2, 8.3
+
+** TODO 8.5 Validate old kernels from modern host
+Run full test suite on debian-7, debian-8, ubuntu-1404, centos7 from
+a Fedora 43+ host (glibc >= 2.40). All must pass using the Alpine
+rootfs path. Compare results with Mint 21 (glibc 2.35) baseline.
+
+/Dependencies/: 8.4
+
 * Dependency Graph
 
 #+begin_example
@@ -651,6 +716,10 @@ Phase 7 (Cold-Start):       ← CURRENT PRIORITY
   7.1 ──→ 7.3
   7.2 ──→ 7.3 ──→ 7.4
   6.1 ──→ 7.5
+
+Phase 8 (Host-Independent Rootfs):
+  8.1 ──→ 8.2 ──→ 8.4 ──→ 8.5
+  8.1 ──→ 8.3 ──→ 8.4
 #+end_example
 
 Key parallelism opportunities:
