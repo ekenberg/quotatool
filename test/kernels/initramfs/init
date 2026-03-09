@@ -17,19 +17,25 @@
 # Mode detection: /dev/vda present → rootfs mode, else 9p mode.
 
 # Step 1: essential filesystems
+echo "[init] starting"
 mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 mount -t devtmpfs devtmpfs /dev
 mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts
+echo "[init] filesystems mounted"
 
 # Step 2: load modules if present
 # The boot layer appends kernel-specific .ko files at /modules/ with
 # a load_order file specifying dependency-first sequence.
 if [ -d /modules ] && [ -f /modules/load_order ]; then
+    echo "[init] loading modules..."
     while read -r mod; do
-        [ -f "/modules/${mod}.ko" ] && insmod "/modules/${mod}.ko"
+        if [ -f "/modules/${mod}.ko" ]; then
+            insmod "/modules/${mod}.ko" 2>&1 || echo "[init] WARN: insmod ${mod}.ko failed"
+        fi
     done < /modules/load_order
+    echo "[init] modules loaded"
 elif [ -d /modules ]; then
     # Fallback: try all .ko files (may fail on dep order)
     for mod in /modules/*.ko; do
@@ -38,8 +44,11 @@ elif [ -d /modules ]; then
 fi
 
 # Step 3: detect mode
+echo "[init] checking for /dev/vda..."
+ls -la /dev/vd* 2>/dev/null || echo "[init] no /dev/vd* devices found"
 if [ -b /dev/vda ]; then
     # ===== Rootfs disk mode (RHEL kernels without 9p) =====
+    echo "[init] rootfs mode: mounting /dev/vda"
 
     mkdir -p /mnt/rootfs
     mount -o ro /dev/vda /mnt/rootfs
@@ -68,6 +77,7 @@ if [ -b /dev/vda ]; then
     fi
 
     # Run it inside the chroot (output goes to serial console)
+    echo "[init] chroot: running $CMD"
     chroot /mnt/rootfs /bin/bash -c "export PATH=/bin:/sbin:/usr/bin:/usr/sbin; $CMD" 2>&1
     EXIT_CODE=$?
 

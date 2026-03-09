@@ -492,7 +492,12 @@ Run: test/kernels/initramfs/build.sh"
     # Direct kernel boot
     qemu_args+=(-kernel "$kernel_path")
     qemu_args+=(-initrd "$boot_initramfs")
-    qemu_args+=(-append "console=ttyS0 quiet loglevel=1 panic=-1")
+    # In verbose mode, show kernel messages (helps debug boot failures)
+    if [[ "$BOOT_VERBOSE" == "1" ]]; then
+        qemu_args+=(-append "console=ttyS0 loglevel=4 panic=-1")
+    else
+        qemu_args+=(-append "console=ttyS0 quiet loglevel=1 panic=-1")
+    fi
 
     if [[ $rootfs_mode -eq 1 ]]; then
         # Rootfs disk mode: self-contained image with all tools and tests
