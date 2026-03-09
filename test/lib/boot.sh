@@ -251,7 +251,11 @@ _boot_virtme() {
 
     # The command to execute inside the VM.
     # Use -e (--exec) instead of -- to avoid requiring a PTS.
-    vng_args+=(-e "$command")
+    # Shell-escape the command so it survives the script -qec
+    # string flattening (e.g., "uname -r" → "uname\ -r").
+    local escaped_cmd
+    printf -v escaped_cmd '%q' "$command"
+    vng_args+=(-e "$escaped_cmd")
 
     _boot_log "Running: vng ${vng_args[*]}"
 
@@ -346,15 +350,23 @@ Run: test/kernels/initramfs/build.sh"
     kver_full=$(basename "$kernel_path" | sed 's/^vmlinu[xz]-//')
     local mod_dir=""
 
-    # Look for modules next to the vmlinuz (extracted kernel package)
+    # Look for modules in the extracted kernel package.
+    # Walk up from vmlinuz to find the extraction root, then search for
+    # modules in both /lib/modules/ and /usr/lib/modules/ (usrmerge).
     local kernel_dir
     kernel_dir=$(dirname "$kernel_path")
-    # Try: same extraction root (e.g., extracted/lib/modules/<ver>/)
-    local search_base
-    search_base=$(cd "$kernel_dir/.." 2>/dev/null && pwd || echo "")
-    if [[ -n "$search_base" ]]; then
+    # Find the "extracted" directory (walk up from vmlinuz location)
+    local search_base="$kernel_dir"
+    while [[ "$search_base" != "/" && "$(basename "$search_base")" != "extracted" ]]; do
+        search_base=$(dirname "$search_base")
+    done
+    if [[ "$(basename "$search_base")" == "extracted" ]]; then
         local candidate
-        candidate=$(find "$search_base" -path "*/lib/modules/*/kernel" -type d 2>/dev/null | head -1)
+        # Try /lib/modules first, then /usr/lib/modules (Debian 13+)
+        candidate=$(find "$search_base/lib/modules" -maxdepth 2 -name "kernel" -type d 2>/dev/null | head -1)
+        if [[ -z "$candidate" ]]; then
+            candidate=$(find "$search_base/usr/lib/modules" -maxdepth 2 -name "kernel" -type d 2>/dev/null | head -1)
+        fi
         if [[ -n "$candidate" ]]; then
             mod_dir=$(dirname "$candidate")
         fi
@@ -401,9 +413,13 @@ Run: test/kernels/initramfs/build.sh"
         }
 
         local -a load_order=()
-        # 9p filesystem (required for host mount)
+        # 9p filesystem and virtio transport (host mount)
+        # Order matters: virtio core → virtio PCI → 9p transport → 9p fs
         _collect_module_deps "9pnet"
         _collect_module_deps "9pnet_virtio"
+        # Virtio PCI bus (needed for virtio-9p-pci device, depends on
+        # virtio + virtio_ring which 9pnet_virtio already pulled in)
+        _collect_module_deps "virtio_pci"
         _collect_module_deps "9p"
         # Quota support (may be modules on old kernels)
         _collect_module_deps "quota_tree"

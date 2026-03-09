@@ -61,15 +61,30 @@ is_extracted() {
 
 # Find the vmlinuz path for an extracted kernel.
 # Checks multiple locations:
-#   /boot/vmlinu*           — Debian, Ubuntu, CentOS 6/7
-#   /lib/modules/*/vmlinuz  — EL8+, Fedora 30+
+#   /boot/vmlinu*              — Debian <=12, Ubuntu, CentOS 6/7, openSUSE
+#   /lib/modules/*/vmlinuz     — EL8+, Fedora 30+
+#   /usr/lib/modules/*/vmlinuz — Debian 13+ (usrmerge)
 find_vmlinuz() {
     local name="$1"
     local dir="$SCRIPT_DIR/$name/extracted"
     # Try /boot first (most common)
     ls "$dir"/boot/vmlinu* 2>/dev/null | head -1 && return
-    # EL8+: vmlinuz inside /lib/modules/<ver>/
-    find "$dir/lib/modules" -maxdepth 2 -name "vmlinuz" 2>/dev/null | head -1
+    # EL8+, Fedora: vmlinuz inside /lib/modules/<ver>/
+    find "$dir/lib/modules" -maxdepth 2 -name "vmlinuz" 2>/dev/null | head -1 && return
+    # Debian 13+: usrmerge puts modules under /usr/lib/modules/
+    find "$dir/usr/lib/modules" -maxdepth 2 -name "vmlinuz" 2>/dev/null | head -1
+}
+
+# Ensure /lib/modules/ symlink exists for usrmerge packages (Debian 13+).
+# virtme-ng needs modules at /lib/modules/<ver>/ — create a symlink
+# if the package only has /usr/lib/modules/.
+fixup_usrmerge() {
+    local name="$1"
+    local dir="$SCRIPT_DIR/$name/extracted"
+    if [[ -d "$dir/usr/lib/modules" && ! -d "$dir/lib/modules" ]]; then
+        mkdir -p "$dir/lib"
+        ln -sf "$dir/usr/lib/modules" "$dir/lib/modules"
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -177,6 +192,9 @@ download_ppa() {
         dpkg-deb -x "$modules_file" "$dest/extracted"
     fi
 
+    # Fix usrmerge layout (Debian 13+)
+    fixup_usrmerge "$name"
+
     # Verify vmlinuz exists
     local vmlinuz
     vmlinuz=$(find_vmlinuz "$name")
@@ -230,6 +248,8 @@ download_rpm() {
         (cd "$dest/extracted" && rpm2cpio "$filepath" | cpio -idm --quiet 2>/dev/null)
     done
 
+    fixup_usrmerge "$name"
+
     # Verify
     local vmlinuz
     vmlinuz=$(find_vmlinuz "$name")
@@ -275,6 +295,8 @@ download_deb() {
         info "  Extracting: $filename"
         dpkg-deb -x "$filepath" "$dest/extracted"
     done
+
+    fixup_usrmerge "$name"
 
     local vmlinuz
     vmlinuz=$(find_vmlinuz "$name")
