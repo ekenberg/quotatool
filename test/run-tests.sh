@@ -72,7 +72,9 @@ Options:
   --smoke         Quick infrastructure check (~30s). Boots one kernel
                   per boot path (virtme, QEMU+9p, QEMU+rootfs) and
                   runs a minimal test on each. Use after --setup.
+  --list          Show all kernels with boot method, tier, and status
   --tier N        Only run kernels of tier N (1, 2, or 3)
+                  Tiers: 1=actively supported, 2=recently EOL, 3=historical
   --kernel NAME   Only run the named kernel
   --host-only     Run tests on the host kernel only (no VMs, fast)
   --timeout SECS  Per-kernel timeout in seconds (default: 300)
@@ -86,6 +88,7 @@ OPT_KERNEL=""
 OPT_HOST_ONLY=0
 OPT_SETUP=0
 OPT_SMOKE=0
+OPT_LIST=0
 OPT_TIMEOUT="300"
 OPT_VERBOSE="0"
 
@@ -93,6 +96,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --setup)     OPT_SETUP=1; shift ;;
         --smoke)     OPT_SMOKE=1; shift ;;
+        --list)      OPT_LIST=1; shift ;;
         --tier)      OPT_TIER="$2"; shift 2 ;;
         --kernel)    OPT_KERNEL="$2"; shift 2 ;;
         --host-only) OPT_HOST_ONLY=1; shift ;;
@@ -170,7 +174,9 @@ if [[ $OPT_SETUP -eq 1 ]]; then
     if [[ ! -f "$local_rootfs" ]]; then
         if [[ -x "$KERNELS_DIR/build-rootfs.sh" ]]; then
             _setup_step "Building rootfs disk image (for RHEL kernels)..."
-            "$KERNELS_DIR/build-rootfs.sh" || true  # non-fatal
+            if ! "$KERNELS_DIR/build-rootfs.sh"; then
+                echo -e "${YELLOW}WARNING: rootfs build failed. RHEL kernel tests (alma/centos) will be skipped.${NC}"
+            fi
             echo ""
         fi
     elif [[ "$QUOTATOOL" -nt "$local_rootfs" ]]; then
@@ -204,6 +210,13 @@ if [[ -f "$local_rootfs" && "$QUOTATOOL" -nt "$local_rootfs" ]]; then
     fi
 fi
 
+# Detect glibc minimum kernel version (affects which kernels can use 9p path)
+GLIBC_MIN_KVER=""
+_glibc_min=$(file /bin/sh 2>/dev/null | grep -oP 'for GNU/Linux \K[0-9.]+' || true)
+if [[ -n "$_glibc_min" ]]; then
+    GLIBC_MIN_KVER="$_glibc_min"
+fi
+
 # Set boot layer options
 export BOOT_TIMEOUT="$OPT_TIMEOUT"
 export BOOT_VERBOSE="$OPT_VERBOSE"
@@ -213,6 +226,58 @@ mkdir -p "$RESULTS_DIR"
 
 # The command to run inside each VM
 GUEST_CMD="$SCRIPT_DIR/guest-run-all.sh"
+
+# ---------------------------------------------------------------------------
+# List mode
+# ---------------------------------------------------------------------------
+
+if [[ $OPT_LIST -eq 1 ]]; then
+    if [[ ! -f "$CONF" ]]; then
+        echo "No kernels.conf found. Run --setup first." >&2
+        exit 1
+    fi
+    printf "${BOLD}%-18s %-8s %-10s %-5s %-10s %s${NC}\n" \
+        "KERNEL" "VERSION" "BOOT" "TIER" "STATUS" "NOTES"
+    echo "------------------------------------------------------------------------"
+    while IFS='|' read -r name version boot tier source; do
+        name=$(echo "$name" | xargs)
+        version=$(echo "$version" | xargs)
+        boot=$(echo "$boot" | xargs)
+        tier=$(echo "$tier" | xargs)
+        local_status="" notes=""
+
+        # Determine boot path
+        boot_path="$boot"
+        if [[ "$boot" == "qemu" ]]; then
+            if has_9p "$name" 2>/dev/null; then
+                boot_path="qemu+9p"
+            else
+                boot_path="qemu+rootfs"
+            fi
+        fi
+
+        # Check download/extraction status
+        kdir="$KERNELS_DIR/$name/extracted"
+        if [[ -d "$kdir" ]] && find "$kdir" -name "vmlinu*" 2>/dev/null | grep -q .; then
+            local_status="${GREEN}ready${NC}"
+        else
+            local_status="${RED}not downloaded${NC}"
+        fi
+
+        # Check glibc compatibility for 9p path
+        if [[ -n "$GLIBC_MIN_KVER" && "$boot_path" == "qemu+9p" ]]; then
+            if [[ "$(printf '%s\n' "$GLIBC_MIN_KVER" "$version" | sort -V | head -1)" != "$GLIBC_MIN_KVER" ]]; then
+                notes="glibc needs kernel >=$GLIBC_MIN_KVER"
+            fi
+        fi
+
+        printf "%-18s %-8s %-10s %-5s " "$name" "$version" "$boot_path" "$tier"
+        echo -ne "$local_status"
+        [[ -n "$notes" ]] && echo -ne "  ${YELLOW}$notes${NC}"
+        echo ""
+    done < <(grep -v '^\s*#' "$CONF" | grep -v '^\s*$')
+    exit 0
+fi
 
 # ---------------------------------------------------------------------------
 # Host-only mode
@@ -316,6 +381,15 @@ if [[ $OPT_SMOKE -eq 1 ]]; then
     [[ $smoke_fail -gt 0 ]] && printf ", ${RED}${smoke_fail} fail${NC}"
     [[ $smoke_skip -gt 0 ]] && printf ", ${YELLOW}${smoke_skip} skip${NC}"
     echo ""
+
+    if [[ $smoke_fail -gt 0 || $smoke_skip -gt 0 ]]; then
+        echo ""
+        [[ $smoke_fail -gt 0 ]] && echo "Debug failures: run-tests.sh --kernel <name> --verbose"
+        [[ $smoke_skip -gt 0 ]] && echo "Skipped kernels may need: run-tests.sh --setup"
+        if [[ -n "$GLIBC_MIN_KVER" ]]; then
+            echo "Note: host glibc requires kernel >=$GLIBC_MIN_KVER (qemu+9p path affected)"
+        fi
+    fi
 
     [[ $smoke_fail -gt 0 ]] && exit 1
     exit 0

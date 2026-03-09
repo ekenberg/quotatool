@@ -178,6 +178,10 @@ on both ext4 and XFS.
 ### Prerequisites
 
 Linux host with KVM support (`/dev/kvm` must exist and be accessible).
+If `/dev/kvm` exists but isn't accessible, add yourself to the kvm group:
+
+    sudo usermod -aG kvm $USER
+    # then log out and back in
 
 Check what's needed:
 
@@ -189,13 +193,13 @@ hints. The essentials:
 **Debian/Ubuntu:**
 
     sudo apt install qemu-system-x86 e2fsprogs xfsprogs quota \
-        util-linux cpio rpm2cpio curl kmod file zstd
+        util-linux cpio rpm2cpio curl kmod file zstd dpkg
     pip install virtme-ng
 
 **Fedora/RHEL:**
 
     sudo dnf install qemu-system-x86-core e2fsprogs xfsprogs quota \
-        util-linux cpio rpm2cpio curl kmod file zstd
+        util-linux cpio rpm2cpio curl kmod file zstd dpkg
     pip install virtme-ng
 
 ### Quick start
@@ -217,6 +221,7 @@ the infrastructure works.
     test/run-tests.sh                    # all 25 kernels (~50 min)
     test/run-tests.sh --kernel debian-12 # single kernel
     test/run-tests.sh --tier 1           # tier 1 only (10 kernels)
+    test/run-tests.sh --list             # show all kernels and status
 
 Results are saved to `test/results/`.
 
@@ -226,6 +231,23 @@ Defined in `test/kernels/kernels.conf`. Covers:
 - Ubuntu 14.04–24.04, Debian 7–13, CentOS 7
 - AlmaLinux 8–10, Fedora 30/39, openSUSE 15.1–15.6
 - Amazon Linux 2, mainline 5.19/6.2
+
+Kernels are grouped into tiers:
+- **Tier 1**: Actively supported distros (must test before release)
+- **Tier 2**: Recently EOL or significant niche (should test)
+- **Tier 3**: Historical/EOL (nice to have, regression coverage)
+
+### Troubleshooting
+
+If a smoke test fails, run the failing kernel with `--verbose`:
+
+    test/run-tests.sh --kernel <name> --verbose
+
+**qemu+9p failures on newer hosts**: The qemu+9p path runs host
+binaries inside old kernels. If your host glibc is newer than the
+test kernel supports (glibc 2.40+ needs kernel >= 4.4), old kernels
+will fail with "kernel too old". This only affects tier 2-3 legacy
+kernels (< 4.4). Use `--list` to check compatibility.
 
 ## License
 This software is available under the terms of the GNU General Public License (GPL) 2.0 or any later version.

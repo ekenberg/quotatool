@@ -151,7 +151,7 @@ download_ppa() {
     local image_file="$dest/$image_basename"
     if [[ ! -f "$image_file" ]]; then
         info "  Downloading: $image_basename"
-        curl -fSL -o "$image_file" "$image_url" \
+        curl -fSL --progress-bar -o "$image_file" "$image_url" \
             || die "Failed to download $image_url"
     else
         skip "$image_basename (already downloaded)"
@@ -166,7 +166,7 @@ download_ppa() {
         modules_file="$dest/$modules_basename"
         if [[ ! -f "$modules_file" ]]; then
             info "  Downloading: $modules_basename"
-            curl -fSL -o "$modules_file" "$modules_url" \
+            curl -fSL --progress-bar -o "$modules_file" "$modules_url" \
                 || die "Failed to download $modules_url"
         else
             skip "$modules_basename (already downloaded)"
@@ -235,7 +235,7 @@ download_rpm() {
         local filepath="$dest/$filename"
         if [[ ! -f "$filepath" ]]; then
             info "  Downloading: $filename"
-            curl -fSL -o "$filepath" "$url" \
+            curl -fSL --progress-bar -o "$filepath" "$url" \
                 || die "Failed to download $url"
         else
             skip "$filename (already downloaded)"
@@ -284,7 +284,7 @@ download_deb() {
         local filepath="$dest/$filename"
         if [[ ! -f "$filepath" ]]; then
             info "  Downloading: $filename"
-            curl -fSL -o "$filepath" "$url" \
+            curl -fSL --progress-bar -o "$filepath" "$url" \
                 || die "Failed to download $url"
         else
             skip "$filename (already downloaded)"
@@ -368,9 +368,15 @@ cmd_download() {
     local force="${OPT_FORCE:-0}"
     local count=0 downloaded=0 skipped=0 unavail=0 failed=0
 
-    parse_conf | while IFS='|' read -r name version boot tier source; do
-        count=$((count + 1))
+    # Count total entries for progress display
+    local total=0
+    while IFS='|' read -r _n _v _b _t _s; do
+        if [[ -n "$filter_tier" && "$_t" != "$filter_tier" ]]; then continue; fi
+        if [[ -n "$filter_kernel" && "$_n" != "$filter_kernel" ]]; then continue; fi
+        total=$((total + 1))
+    done < <(parse_conf)
 
+    parse_conf | while IFS='|' read -r name version boot tier source; do
         # Filter by tier
         if [[ -n "$filter_tier" && "$tier" != "$filter_tier" ]]; then
             continue
@@ -381,18 +387,20 @@ cmd_download() {
             continue
         fi
 
+        count=$((count + 1))
+
         local source_type="${source%%:*}"
 
         # Skip unavailable
         if [[ "$source_type" == "unavailable" ]]; then
-            warn "$name: not yet available"
+            warn "[$count/$total] $name: not yet available"
             unavail=$((unavail + 1))
             continue
         fi
 
         # Skip already extracted (unless --force)
         if [[ "$force" != "1" ]] && is_extracted "$name"; then
-            skip "$name (already extracted, use --force to re-download)"
+            skip "[$count/$total] $name (already extracted)"
             skipped=$((skipped + 1))
             continue
         fi
@@ -402,7 +410,7 @@ cmd_download() {
             rm -rf "$SCRIPT_DIR/$name/extracted"
         fi
 
-        info "Downloading: ${BOLD}$name${NC} (kernel $version, tier $tier)"
+        info "[$count/$total] Downloading: ${BOLD}$name${NC} (kernel $version, tier $tier)"
         # Don't let individual failures stop the whole batch
         set +e
         download_one "$name" "$version" "$boot" "$tier" "$source"

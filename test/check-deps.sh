@@ -139,7 +139,7 @@ if [ -e /dev/kvm ]; then
     if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then
         _ok "/dev/kvm" ""
     else
-        _warn "/dev/kvm" "exists but not accessible — add yourself to kvm group"
+        _warn "/dev/kvm" "exists but not accessible — run: sudo usermod -aG kvm \$USER (then re-login)"
     fi
 else
     _warn "/dev/kvm" "not available — VMs will use emulation (very slow)"
@@ -183,7 +183,7 @@ _check_cmd "rpm2cpio" "rpm2cpio" \
     "rpm2cpio" "rpm" "rpm-tools" 0
 
 _check_cmd "dpkg-deb" "dpkg-deb" \
-    "dpkg" "dpkg" "dpkg" 0
+    "dpkg" "dpkg" "dpkg"
 
 echo ""
 
@@ -227,13 +227,13 @@ if [ -f "$BB" ]; then
         _warn "busybox-musl" "exists but NOT statically linked — run: test/kernels/initramfs/build-busybox.sh --force"
     fi
 else
-    _warn "busybox-musl" "not found — run: test/kernels/initramfs/build-busybox.sh"
+    _warn "busybox-musl" "not found — will be downloaded by run-tests.sh --setup"
 fi
 
 if [ -f "$INITRAMFS" ]; then
     _ok "initramfs.cpio.gz" "($(du -h "$INITRAMFS" | cut -f1))"
 else
-    _warn "initramfs.cpio.gz" "not built — run: test/kernels/initramfs/build.sh"
+    _warn "initramfs.cpio.gz" "not built — will be built by run-tests.sh --setup"
 fi
 
 echo ""
