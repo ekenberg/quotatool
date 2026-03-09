@@ -171,9 +171,19 @@ Feel free to add an Issue on https://github.com/ekenberg/quotatool
 
 ## Testing
 
-quotatool has a multi-kernel test suite that boots 25 vendor kernels
-(3.2 through 6.12) in QEMU/virtme-ng VMs and tests quota operations
-on both ext4 and XFS.
+quotatool has a multi-kernel test suite that boots vendor kernels in
+QEMU/virtme-ng VMs and tests quota operations on both ext4 and XFS.
+
+The kernel matrix covers actively supported Linux distros (Ubuntu,
+Debian, RHEL/Alma/CentOS, Fedora, openSUSE) plus recently EOL and
+historical versions for regression coverage. Kernels are grouped
+into three tiers:
+
+- **Tier 1**: Actively supported distros — must test before release
+- **Tier 2**: Recently EOL or significant niche — should test
+- **Tier 3**: Historical/EOL — nice to have, catches regressions
+
+Run `test/run-tests.sh --list` to see the current matrix.
 
 ### Prerequisites
 
@@ -210,32 +220,20 @@ From a fresh clone:
     test/run-tests.sh --setup --smoke    # download kernels, smoke test
 
 `--setup` handles everything: downloads busybox, builds initramfs,
-downloads all 25 vendor kernels (~5.9 GB), builds rootfs for RHEL
-kernels. First run takes a while (mostly kernel downloads).
+downloads vendor kernels, builds rootfs for RHEL kernels.
+First run takes a while (mostly kernel downloads).
 
 `--smoke` runs one kernel per boot path (~30 seconds) to verify
 the infrastructure works.
 
 ### Full test run
 
-    test/run-tests.sh                    # all 25 kernels (~50 min)
+    test/run-tests.sh                    # all kernels
     test/run-tests.sh --kernel debian-12 # single kernel
-    test/run-tests.sh --tier 1           # tier 1 only (10 kernels)
+    test/run-tests.sh --tier 1           # tier 1 only
     test/run-tests.sh --list             # show all kernels and status
 
 Results are saved to `test/results/`.
-
-### Kernel matrix
-
-Defined in `test/kernels/kernels.conf`. Covers:
-- Ubuntu 14.04–24.04, Debian 7–13, CentOS 7
-- AlmaLinux 8–10, Fedora 30/39, openSUSE 15.1–15.6
-- Amazon Linux 2, mainline 5.19/6.2
-
-Kernels are grouped into tiers:
-- **Tier 1**: Actively supported distros (must test before release)
-- **Tier 2**: Recently EOL or significant niche (should test)
-- **Tier 3**: Historical/EOL (nice to have, regression coverage)
 
 ### Troubleshooting
 
