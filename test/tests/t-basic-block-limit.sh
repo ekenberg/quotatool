@@ -11,7 +11,7 @@ QUOTATOOL="$SCRIPT_DIR/../../quotatool"
 
 FSTYPE="$1"
 MNT="$2"
-TEST_USER="nobody"
+TEST_USER="$TEST_USER_NAME"
 LIMIT="100M"
 EXPECTED=102400  # 100M in 1K blocks
 

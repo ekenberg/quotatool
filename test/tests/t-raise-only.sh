@@ -10,21 +10,21 @@ fail() { echo "FAIL ($FSTYPE): $*" >&2; exit 1; }
 [[ -x "$QUOTATOOL" ]] || fail "quotatool not found"
 
 # Set limit to 100M
-"$QUOTATOOL" -u nobody -b -l 100M "$MNT" || fail "initial set failed"
+"$QUOTATOOL" -u "$TEST_USER_NAME" -b -l 100M "$MNT" || fail "initial set failed"
 
 # Try to lower to 50M with -R (should NOT lower)
-"$QUOTATOOL" -R -u nobody -b -l 50M "$MNT" || fail "raise-only command failed"
+"$QUOTATOOL" -R -u "$TEST_USER_NAME" -b -l 50M "$MNT" || fail "raise-only command failed"
 
-dump=$("$QUOTATOOL" -d -u nobody "$MNT") || fail "quotatool -d failed"
+dump=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT") || fail "quotatool -d failed"
 echo "dump: $dump"
 
 hard=$(echo "$dump" | awk '{print $5}')
 [[ "$hard" -eq 102400 ]] || fail "hard=$hard, expected 102400 (should not have lowered)"
 
 # Raise to 200M with -R (should work)
-"$QUOTATOOL" -R -u nobody -b -l 200M "$MNT" || fail "raise command failed"
+"$QUOTATOOL" -R -u "$TEST_USER_NAME" -b -l 200M "$MNT" || fail "raise command failed"
 
-dump=$("$QUOTATOOL" -d -u nobody "$MNT") || fail "quotatool -d failed"
+dump=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT") || fail "quotatool -d failed"
 echo "dump after raise: $dump"
 
 hard=$(echo "$dump" | awk '{print $5}')

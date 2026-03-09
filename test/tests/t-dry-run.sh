@@ -9,13 +9,13 @@ FSTYPE="$1"; MNT="$2"
 fail() { echo "FAIL ($FSTYPE): $*" >&2; exit 1; }
 [[ -x "$QUOTATOOL" ]] || fail "quotatool not found"
 
-# First clear any existing limits for uid 11111
-"$QUOTATOOL" -u :11111 -b -q 0 -l 0 "$MNT" 2>/dev/null || true
+# First clear any existing limits for non-existent uid
+"$QUOTATOOL" -u ":$TEST_NOEXIST_UID" -b -q 0 -l 0 "$MNT" 2>/dev/null || true
 
 # Dry run: set limits but -n should prevent actual change
-"$QUOTATOOL" -n -u :11111 -b -q 50M -l 100M "$MNT" || fail "dry run command failed"
+"$QUOTATOOL" -n -u ":$TEST_NOEXIST_UID" -b -q 50M -l 100M "$MNT" || fail "dry run command failed"
 
-dump=$("$QUOTATOOL" -d -u :11111 "$MNT") || fail "quotatool -d failed"
+dump=$("$QUOTATOOL" -d -u ":$TEST_NOEXIST_UID" "$MNT") || fail "quotatool -d failed"
 echo "dump: $dump"
 
 soft=$(echo "$dump" | awk '{print $4}')

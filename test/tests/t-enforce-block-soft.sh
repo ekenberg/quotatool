@@ -10,16 +10,16 @@ fail() { echo "FAIL ($FSTYPE): $*" >&2; exit 1; }
 [[ -x "$QUOTATOOL" ]] || fail "quotatool not found"
 
 # Set soft=100K (100 blocks), no hard limit
-"$QUOTATOOL" -u nobody -b -q 100 -l 0 "$MNT" || fail "set soft limit failed"
+"$QUOTATOOL" -u "$TEST_USER_NAME" -b -q 100 -l 0 "$MNT" || fail "set soft limit failed"
 
-# Write 200K as nobody — should succeed (soft limit, not hard)
+# Write 200K as test user — should succeed (soft limit, not hard)
 mkdir -p "$MNT/enforce-bsoft"
 chmod 777 "$MNT/enforce-bsoft"
-runuser -u nobody -- sh -c "dd if=/dev/zero of=$MNT/enforce-bsoft/fill bs=1K count=200 2>/dev/null" \
+runuser -u "$TEST_USER_NAME" -- sh -c "dd if=/dev/zero of=$MNT/enforce-bsoft/fill bs=1K count=200 2>/dev/null" \
     || fail "write past soft limit should succeed"
 
 # Verify usage exceeds soft limit
-dump=$("$QUOTATOOL" -d -u nobody "$MNT") || fail "quotatool -d failed"
+dump=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT") || fail "quotatool -d failed"
 echo "dump: $dump"
 
 used=$(echo "$dump" | awk '{print $3}')
@@ -30,4 +30,4 @@ echo "PASS ($FSTYPE): wrote past soft limit, used=$used > soft=$soft"
 
 # Cleanup
 rm -rf "$MNT/enforce-bsoft"
-"$QUOTATOOL" -u nobody -b -q 0 -l 0 "$MNT" 2>/dev/null || true
+"$QUOTATOOL" -u "$TEST_USER_NAME" -b -q 0 -l 0 "$MNT" 2>/dev/null || true

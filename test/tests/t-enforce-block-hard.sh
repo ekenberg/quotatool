@@ -10,12 +10,12 @@ fail() { echo "FAIL ($FSTYPE): $*" >&2; exit 1; }
 [[ -x "$QUOTATOOL" ]] || fail "quotatool not found"
 
 # Set hard=100K (100 blocks), soft=50K
-"$QUOTATOOL" -u nobody -b -q 50 -l 100 "$MNT" || fail "set limits failed"
+"$QUOTATOOL" -u "$TEST_USER_NAME" -b -q 50 -l 100 "$MNT" || fail "set limits failed"
 
-# Write 200K as nobody — should fail (exceeds hard limit)
+# Write 200K as test user — should fail (exceeds hard limit)
 mkdir -p "$MNT/enforce-bhard"
 chmod 777 "$MNT/enforce-bhard"
-if runuser -u nobody -- sh -c "dd if=/dev/zero of=$MNT/enforce-bhard/fill bs=1K count=200 2>/dev/null"; then
+if runuser -u "$TEST_USER_NAME" -- sh -c "dd if=/dev/zero of=$MNT/enforce-bhard/fill bs=1K count=200 2>/dev/null"; then
     # dd might "succeed" but write fewer bytes. Check actual size.
     actual=$(du -k "$MNT/enforce-bhard/fill" 2>/dev/null | awk '{print $1}')
     if [[ "$actual" -ge 200 ]]; then
@@ -27,7 +27,7 @@ else
 fi
 
 # Verify usage does not exceed hard limit
-dump=$("$QUOTATOOL" -d -u nobody "$MNT") || fail "quotatool -d failed"
+dump=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT") || fail "quotatool -d failed"
 echo "dump: $dump"
 
 used=$(echo "$dump" | awk '{print $3}')
@@ -38,4 +38,4 @@ echo "PASS ($FSTYPE): hard block limit enforced, used=$used <= hard=$hard"
 
 # Cleanup
 rm -rf "$MNT/enforce-bhard"
-"$QUOTATOOL" -u nobody -b -q 0 -l 0 "$MNT" 2>/dev/null || true
+"$QUOTATOOL" -u "$TEST_USER_NAME" -b -q 0 -l 0 "$MNT" 2>/dev/null || true

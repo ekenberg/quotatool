@@ -9,9 +9,9 @@ FSTYPE="$1"; MNT="$2"
 fail() { echo "FAIL ($FSTYPE): $*" >&2; exit 1; }
 [[ -x "$QUOTATOOL" ]] || fail "quotatool not found"
 
-"$QUOTATOOL" -u nobody -b -q 50M -l 100M "$MNT" || fail "quotatool exited $?"
+"$QUOTATOOL" -u "$TEST_USER_NAME" -b -q 50M -l 100M "$MNT" || fail "quotatool exited $?"
 
-dump=$("$QUOTATOOL" -d -u nobody "$MNT") || fail "quotatool -d failed"
+dump=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT") || fail "quotatool -d failed"
 echo "dump: $dump"
 
 soft=$(echo "$dump" | awk '{print $4}')

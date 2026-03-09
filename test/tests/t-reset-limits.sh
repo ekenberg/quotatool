@@ -10,11 +10,11 @@ fail() { echo "FAIL ($FSTYPE): $*" >&2; exit 1; }
 [[ -x "$QUOTATOOL" ]] || fail "quotatool not found"
 
 # Set block and inode limits
-"$QUOTATOOL" -u nobody -b -q 50M -l 100M "$MNT" || fail "set block limits failed"
-"$QUOTATOOL" -u nobody -i -q 100 -l 200 "$MNT" || fail "set inode limits failed"
+"$QUOTATOOL" -u "$TEST_USER_NAME" -b -q 50M -l 100M "$MNT" || fail "set block limits failed"
+"$QUOTATOOL" -u "$TEST_USER_NAME" -i -q 100 -l 200 "$MNT" || fail "set inode limits failed"
 
 # Verify they're set
-dump=$("$QUOTATOOL" -d -u nobody "$MNT") || fail "quotatool -d failed"
+dump=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT") || fail "quotatool -d failed"
 echo "dump before reset: $dump"
 
 bsoft=$(echo "$dump" | awk '{print $4}')
@@ -26,11 +26,11 @@ ihard=$(echo "$dump" | awk '{print $9}')
     || fail "limits not set: bsoft=$bsoft bhard=$bhard isoft=$isoft ihard=$ihard"
 
 # Reset all to zero
-"$QUOTATOOL" -u nobody -b -q 0 -l 0 "$MNT" || fail "reset block limits failed"
-"$QUOTATOOL" -u nobody -i -q 0 -l 0 "$MNT" || fail "reset inode limits failed"
+"$QUOTATOOL" -u "$TEST_USER_NAME" -b -q 0 -l 0 "$MNT" || fail "reset block limits failed"
+"$QUOTATOOL" -u "$TEST_USER_NAME" -i -q 0 -l 0 "$MNT" || fail "reset inode limits failed"
 
 # Verify all cleared
-dump=$("$QUOTATOOL" -d -u nobody "$MNT") || fail "quotatool -d failed after reset"
+dump=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT") || fail "quotatool -d failed after reset"
 echo "dump after reset: $dump"
 
 bsoft=$(echo "$dump" | awk '{print $4}')
