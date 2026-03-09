@@ -412,11 +412,12 @@ Results (2026-03-09) — 20/25 kernels tested, 5 skipped (Q7):
 | ubuntu-1404     |    3.13 | qemu   |    3 | 15/16 | 15/15+1s | grace -r fail          |
 | debian-8        |    3.16 | qemu   |    3 | 15/16 | 15/15+1s | grace -r fail          |
 | debian-7        |     3.2 | qemu   |    3 | 15/16 | 14/15+1s | grace -r + xfs blkacct |
-| centos6         |     2.6 | qemu   |    1 |    — |   — | Q7: no 9p               |
-| centos7         |    3.10 | qemu   |    1 |    — |   — | Q7: no 9p               |
-| alma8           |    4.18 | virtme |    1 |    — |   — | Q7: no 9p               |
-| alma9           |    5.14 | virtme |    1 |    — |   — | Q7: no 9p               |
-| amazon-2        |    4.14 | virtme |    3 |    — |   — | Q7: no 9p               |
+| alma10          |    6.12 | qemu*  |    1 | 16/16 | 16/16 | Clean (rootfs disk)    |
+| alma9           |    5.14 | qemu*  |    1 | 16/16 | 16/16 | Clean (rootfs disk)    |
+| alma8           |    4.18 | qemu*  |    1 | 16/16 | 16/16 | Clean (rootfs disk)    |
+| centos7         |    3.10 | qemu*  |    1 | 15/16 | 16/16 | grace -r (rootfs disk) |
+| centos6         |     2.6 | qemu*  |    1 |    — |   — | unsupported: no 9p fs, glibc floor |
+| amazon-2        |    4.14 | qemu*  |    3 |    — |   — | RPM module mismatch    |
 
 (+1s = XFS grace period skip, expected)
 
@@ -510,6 +511,114 @@ production.
 
 /Dependencies/: 4.4 (matrix must work first)
 
+* Phase 7: Reproducible Cold-Start [1/5]
+
+The test framework must be usable from a fresh =git clone= with
+minimal manual steps. Currently 5 manual steps with undocumented
+sequencing and cryptic failures. Goal: one command after deps are
+installed.
+
+Priority: this phase comes before CI (Phase 5) and before any
+quotatool code changes. A test framework that only works on one
+developer's machine is not a test framework.
+
+** DONE 7.1 Replace glibc busybox with musl-static busybox
+The initramfs uses a glibc-linked static busybox (=for GNU/Linux 3.2.0=).
+This fails on CentOS 6 (kernel 2.6.32) with "kernel too old".
+
+Fix: download official musl-static binary from busybox.net (1.35.0,
+1.1MB, 402 applets, SHA256-verified). Zero build dependencies on host.
+=build-busybox.sh= downloads with checksum verification, falls back to
+building from source with musl-gcc if download fails.
+
+=initramfs/build.sh= prefers local =busybox-musl= over system busybox.
+
+/Results/:
+- Busybox init works on kernel 2.6.32 (centos6) — no "kernel too old"
+- debian-8 (3.16) QEMU path: verified passing
+- debian-12 (6.1) virtme path: verified passing (no regression)
+- centos6 still blocked: has 9pnet but no 9p filesystem module, and
+  rootfs path fails because host glibc (2.35) requires kernel >=3.2.
+  centos6 is EOL since 2020, kernel 2.6.32 — documented as unsupported.
+
+/Dependencies/: none
+
+** TODO 7.2 Write =test/check-deps.sh=
+Executable script that validates all required host tools are present.
+Replace the static =test/DEPENDENCIES.md= with a runnable check.
+
+/Must check/:
+- qemu-system-x86_64 (required)
+- virtme-ng / vng (required for kernels >=4.9)
+- /dev/kvm accessible (warn if not — tests run 100x slower)
+- curl (for downloading busybox and kernels)
+- mkfs.ext4 (e2fsprogs)
+- mkfs.xfs (xfsprogs)
+- quotaon, quotaoff, repquota, quotacheck (quota package)
+- losetup, mount (util-linux)
+- rpm2cpio + cpio (for RPM kernel extraction)
+- dpkg-deb (for DEB kernel extraction)
+- curl or wget (for kernel downloads)
+
+/Output/: clear pass/fail per tool, install hints per distro
+(Ubuntu/Debian apt, Fedora/RHEL dnf). Exit 0 only if all required.
+
+/Verification/: passes on correctly set up host, fails with helpful
+messages on a bare system.
+
+/Dependencies/: none
+
+** TODO 7.3 Self-bootstrapping =run-tests.sh=
+Make the orchestrator self-sufficient. Currently requires manual
+invocation of download.sh, build-rootfs.sh, initramfs/build.sh.
+
+/Behavior/:
+- Run =check-deps.sh= first. Abort with message if deps missing.
+- If kernels not downloaded: prompt (or with =--setup= flag, run
+  =download.sh= automatically).
+- If initramfs not built: build it (fast, <5s).
+- If rootfs.img missing or stale (older than quotatool binary):
+  rebuild it automatically.
+- If quotatool not built: build it.
+- Then proceed with test execution.
+
+This means =./test/run-tests.sh --setup= is the single command that
+goes from bare clone to full test results (after deps installed).
+
+/Verification/: fresh clone → install deps → =run-tests.sh --setup=
+→ all 25 kernels tested, results printed.
+
+/Dependencies/: 7.1, 7.2
+
+** TODO 7.4 Smoke test / setup verification
+A =--verify-setup= or =--smoke= flag that quickly validates the
+infrastructure works before committing to a full 50-minute run.
+
+/Must test/:
+- Boot one virtme kernel (modern path)
+- Boot one QEMU+9p kernel (legacy path)
+- Boot one QEMU+rootfs kernel (RHEL path)
+- Run 1-2 tests on each, confirm pass
+- Total time: <30 seconds
+
+/Dependencies/: 7.3
+
+** TODO 7.5 Add EOL dates and validation to =kernels.conf=
+Extend the =kernels.conf= format with machine-readable metadata
+for maintenance:
+
+Format extension: =name|version|boot|tier|source|eol_date=
+
+Add =download.sh --check-urls= to HTTP HEAD all URLs and report
+which are still reachable. Run this before releases.
+
+Add =download.sh --check-eol= to flag entries past their EOL date
+and suggest tier demotions.
+
+Document the "add a new kernel" procedure step by step.
+
+/Dependencies/: 6.1 (design), 7.3
+
 * Dependency Graph
 
 #+begin_example
@@ -533,6 +642,11 @@ Phase 4 (Orchestration):
 
 Phase 5 (CI):
   4.4 ──→ 5.1, 5.2 ──→ 5.3
+
+Phase 7 (Cold-Start):       ← CURRENT PRIORITY
+  7.1 ──→ 7.3
+  7.2 ──→ 7.3 ──→ 7.4
+  6.1 ──→ 7.5
 #+end_example
 
 Key parallelism opportunities:
@@ -656,29 +770,29 @@ Additional findings:
 
 /Affects/: 1.2, 3.4 (resolved — raw QEMU path works)
 
-** TODO Q7: RHEL-derived vendor kernels lack 9p filesystem module
-Discovered 2026-03-09, scope expanded during boot verification.
-ALL RHEL-derived vendor kernels lack =9p.ko=: centos6, centos7,
-alma8, alma9, amazon-2. Red Hat never enables 9P_FS. This affects
-both the virtme and raw QEMU boot paths (both use 9p).
+** DONE Q7: RHEL-derived vendor kernels lack 9p filesystem module
+Resolved 2026-03-09. Option 1 (virtio-blk disk image) implemented.
 
-The remaining 20 kernels (all Debian, Ubuntu, Fedora, openSUSE,
-mainline) have 9p and boot successfully.
+=build-rootfs.sh= creates a self-contained ext4 disk image (~57MB)
+using =mke2fs -d= (no sudo). Contains host binaries, shared libs,
+PAM modules, test scripts, quotatool. Mounted read-only via
+virtio-blk, tmpfs overlays for writable areas.
 
-*Options*:
-1. *virtio-blk disk image*: create a disk image containing quotatool,
-   test scripts, and tools. Pass as =-drive= to QEMU. Initramfs
-   mounts the disk instead of 9p. Most portable.
-2. *NFS root*: boot with NFS rootfs. Complex, needs NFS server.
-3. *Build 9p from source*: compile 9p.ko for each vendor kernel.
-   Fragile, needs matching kernel headers.
-4. *Accept limitation*: test RHEL kernels only for boot +
-   =kern_quota_format()= detection (bake the check into initramfs).
-   Skip full test suite on kernels without 9p.
+=initramfs/init= auto-detects =/dev/vda= → rootfs mode.
+=boot.sh= handles compressed modules (=.ko.xz=, =.ko.zst=).
+=run-tests.sh= auto-falls back to rootfs for kernels without 9p.
+Exit code via serial marker =QUOTATOOL_EXIT:<code>=.
 
-Option 1 or 4 seem best. Option 4 is simplest — the critical test
-is whether =kern_quota_format()= works, which can be tested with a
-minimal program baked into initramfs without needing the full test
-framework.
+Results:
+- alma10 (6.12): 32/32 pass
+- alma9 (5.14): 32/32 pass
+- alma8 (4.18): 32/32 pass
+- centos7 (3.10): 31/32 (grace-r bug, known)
+- centos6 (2.6): unsupported — busybox fixed (musl-static), but kernel
+  2.6.32 has no 9p filesystem module and host glibc (>=2.35) requires
+  kernel >=3.2 for rootfs path. EOL since 2020, dropped from matrix.
+- amazon-2 (4.14): blocked — RPM module/kernel symbol mismatch
+  (=virtio_break_device= not in vmlinuz). Likely needs companion
+  package. Tier 3, low priority.
 
-/Affects/: centos6, centos7, alma8, alma9, amazon-2 in kernels.conf
+/Affects/: resolved for centos7, alma8/9/10. centos6 dropped, amazon-2 pending.
