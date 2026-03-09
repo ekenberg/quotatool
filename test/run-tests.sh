@@ -69,6 +69,9 @@ Options:
   --setup         Bootstrap everything: check deps, download kernels,
                   build initramfs/rootfs, build quotatool, then run tests.
                   This is the single command for a fresh git clone.
+  --smoke         Quick infrastructure check (~30s). Boots one kernel
+                  per boot path (virtme, QEMU+9p, QEMU+rootfs) and
+                  runs a minimal test on each. Use after --setup.
   --tier N        Only run kernels of tier N (1, 2, or 3)
   --kernel NAME   Only run the named kernel
   --host-only     Run tests on the host kernel only (no VMs, fast)
@@ -82,12 +85,14 @@ OPT_TIER=""
 OPT_KERNEL=""
 OPT_HOST_ONLY=0
 OPT_SETUP=0
+OPT_SMOKE=0
 OPT_TIMEOUT="300"
 OPT_VERBOSE="0"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --setup)     OPT_SETUP=1; shift ;;
+        --smoke)     OPT_SMOKE=1; shift ;;
         --tier)      OPT_TIER="$2"; shift 2 ;;
         --kernel)    OPT_KERNEL="$2"; shift 2 ;;
         --host-only) OPT_HOST_ONLY=1; shift ;;
@@ -221,12 +226,108 @@ if [[ $OPT_HOST_ONLY -eq 1 ]]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Smoke test mode
+# ---------------------------------------------------------------------------
+
+if [[ $OPT_SMOKE -eq 1 ]]; then
+    echo -e "${BOLD}Smoke test — one kernel per boot path${NC}"
+    echo ""
+
+    smoke_pass=0
+    smoke_fail=0
+    smoke_skip=0
+
+    # A quick command that tests basic boot + quotatool binary runs.
+    # Use absolute path — QEMU+9p chroot doesn't have quotatool in PATH.
+    SMOKE_CMD="$QUOTATOOL -V && uname -r && echo SMOKE_PASS"
+
+    _smoke_run() {
+        local label="$1" name="$2" method="$3"
+        local vmlinuz use_rootfs=0
+
+        vmlinuz=$(find_vmlinuz "$name")
+        if [[ -z "$vmlinuz" ]]; then
+            printf "  %-12s %-16s " "$label" "$name"
+            echo -e "${YELLOW}SKIP${NC} (kernel not downloaded)"
+            smoke_skip=$((smoke_skip + 1))
+            return
+        fi
+
+        printf "  %-12s %-16s " "$label" "$name"
+
+        local rc=0 out=""
+        if [[ "$method" == "rootfs" ]]; then
+            local rootfs_img="$KERNELS_DIR/rootfs.img"
+            if [[ ! -f "$rootfs_img" ]]; then
+                echo -e "${YELLOW}SKIP${NC} (rootfs.img not built)"
+                smoke_skip=$((smoke_skip + 1))
+                return
+            fi
+            out=$(BOOT_METHOD=qemu BOOT_ROOTFS="$rootfs_img" BOOT_TIMEOUT=60 \
+                boot_kernel "$vmlinuz" "/test/guest-run-all.sh ext4 1" 2>&1) || rc=$?
+        else
+            out=$(BOOT_METHOD="$method" BOOT_TIMEOUT=60 \
+                boot_kernel "$vmlinuz" "$SMOKE_CMD" 2>&1) || rc=$?
+        fi
+
+        if [[ $rc -eq 0 ]]; then
+            echo -e "${GREEN}PASS${NC}"
+            smoke_pass=$((smoke_pass + 1))
+        elif [[ $rc -eq 124 ]]; then
+            echo -e "${RED}TIMEOUT${NC}"
+            smoke_fail=$((smoke_fail + 1))
+        else
+            echo -e "${RED}FAIL${NC} (exit $rc)"
+            smoke_fail=$((smoke_fail + 1))
+        fi
+    }
+
+    # Pick one kernel per boot path:
+    # virtme: first available tier-1 virtme kernel
+    # qemu+9p: first available QEMU kernel with 9p
+    # qemu+rootfs: first available kernel without 9p
+
+    # Virtme path — try debian-12, then ubuntu-2404, then any virtme kernel
+    for k in debian-12 ubuntu-2404 debian-11 ubuntu-2204; do
+        if [[ -n "$(find_vmlinuz "$k" 2>/dev/null)" ]]; then
+            _smoke_run "virtme" "$k" "virtme"
+            break
+        fi
+    done
+
+    # QEMU+9p path — try debian-8, then debian-7, then ubuntu-1404
+    for k in debian-8 debian-7 ubuntu-1404; do
+        if [[ -n "$(find_vmlinuz "$k" 2>/dev/null)" ]]; then
+            _smoke_run "qemu+9p" "$k" "qemu"
+            break
+        fi
+    done
+
+    # QEMU+rootfs path — try alma9, then centos7, then alma8
+    for k in alma9 centos7 alma8; do
+        if [[ -n "$(find_vmlinuz "$k" 2>/dev/null)" ]] && ! has_9p "$k"; then
+            _smoke_run "qemu+rootfs" "$k" "rootfs"
+            break
+        fi
+    done
+
+    echo ""
+    printf "Smoke: ${GREEN}${smoke_pass} pass${NC}"
+    [[ $smoke_fail -gt 0 ]] && printf ", ${RED}${smoke_fail} fail${NC}"
+    [[ $smoke_skip -gt 0 ]] && printf ", ${YELLOW}${smoke_skip} skip${NC}"
+    echo ""
+
+    [[ $smoke_fail -gt 0 ]] && exit 1
+    exit 0
+fi
+
+# ---------------------------------------------------------------------------
 # Multi-kernel mode
 # ---------------------------------------------------------------------------
 
 if [[ ! -f "$CONF" ]]; then
     echo "ERROR: kernels.conf not found at $CONF" >&2
-    echo "Run: test/kernels/download.sh" >&2
+    echo "Run: test/kernels/download.sh (or run-tests.sh --setup)" >&2
     exit 1
 fi
 

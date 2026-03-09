@@ -511,7 +511,7 @@ production.
 
 /Dependencies/: 4.4 (matrix must work first)
 
-* Phase 7: Reproducible Cold-Start [3/5]
+* Phase 7: Reproducible Cold-Start [4/5]
 
 The test framework must be usable from a fresh =git clone= with
 minimal manual steps. Currently 5 manual steps with undocumented
@@ -590,7 +590,7 @@ goes from bare clone to full test results (after deps installed).
 
 /Dependencies/: 7.1, 7.2
 
-** TODO 7.4 Smoke test / setup verification
+** DONE 7.4 Smoke test / setup verification
 A =--verify-setup= or =--smoke= flag that quickly validates the
 infrastructure works before committing to a full 50-minute run.
 
@@ -796,3 +796,13 @@ Results:
   package. Tier 3, low priority.
 
 /Affects/: resolved for centos7, alma8/9/10. centos6 dropped, amazon-2 pending.
+
+** TODO Q8: Binary output location (=./quotatool= vs =src/quotatool=)
+Currently =make= places the binary at project root (=./quotatool=).
+Investigate whether =src/quotatool= is more conventional for autoconf
+projects of this type. Compare with similar C tools using
+=./configure && make=. If =src/= is better practice, update Makefile
+and all scripts that reference the binary path (=run-tests.sh=,
+=build-rootfs.sh=, =check-deps.sh=, =guest-run-all.sh=).
+
+/Affects/: build system, test framework paths. Low risk, contained change.
