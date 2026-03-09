@@ -1,6 +1,9 @@
 quotatool
 =========
 
+> **Branch `m1-testing` — development branch, not for production use.**
+> See [Testing](#testing) below for how to run the multi-kernel test suite.
+
 ![Quotatool](http://quotatool.ekenberg.se/diskusage.gif) Commandline utility for filesystem quotas on Linux, Mac OS X, FreeBSD, OpenBSD, NetBSD, Solaris and AIX
 
 *Set 50Gb soft and hard diskusage limits for user johan on filesystem /home*
@@ -165,6 +168,64 @@ FreeBSD, OpenBSD, NetBSD (ufs, ffs)
 
 Missing your favorite *nix OS? Missing a feature, or found a bug?
 Feel free to add an Issue on https://github.com/ekenberg/quotatool
+
+## Testing
+
+quotatool has a multi-kernel test suite that boots 25 vendor kernels
+(3.2 through 6.12) in QEMU/virtme-ng VMs and tests quota operations
+on both ext4 and XFS.
+
+### Prerequisites
+
+Linux host with KVM support (`/dev/kvm` must exist and be accessible).
+
+Check what's needed:
+
+    test/check-deps.sh
+
+This shows required and optional tools with distro-specific install
+hints. The essentials:
+
+**Debian/Ubuntu:**
+
+    sudo apt install qemu-system-x86 e2fsprogs xfsprogs quota \
+        util-linux cpio rpm2cpio curl kmod file zstd
+    pip install virtme-ng
+
+**Fedora/RHEL:**
+
+    sudo dnf install qemu-system-x86-core e2fsprogs xfsprogs quota \
+        util-linux cpio rpm2cpio curl kmod file zstd
+    pip install virtme-ng
+
+### Quick start
+
+From a fresh clone:
+
+    ./configure && make                  # build quotatool
+    test/run-tests.sh --setup --smoke    # download kernels, smoke test
+
+`--setup` handles everything: downloads busybox, builds initramfs,
+downloads all 25 vendor kernels (~5.9 GB), builds rootfs for RHEL
+kernels. First run takes a while (mostly kernel downloads).
+
+`--smoke` runs one kernel per boot path (~30 seconds) to verify
+the infrastructure works.
+
+### Full test run
+
+    test/run-tests.sh                    # all 25 kernels (~50 min)
+    test/run-tests.sh --kernel debian-12 # single kernel
+    test/run-tests.sh --tier 1           # tier 1 only (10 kernels)
+
+Results are saved to `test/results/`.
+
+### Kernel matrix
+
+Defined in `test/kernels/kernels.conf`. Covers:
+- Ubuntu 14.04–24.04, Debian 7–13, CentOS 7
+- AlmaLinux 8–10, Fedora 30/39, openSUSE 15.1–15.6
+- Amazon Linux 2, mainline 5.19/6.2
 
 ## License
 This software is available under the terms of the GNU General Public License (GPL) 2.0 or any later version.

@@ -1,6 +1,10 @@
 #+TITLE: M1: Multi-Kernel Test Framework — Step Plan
 #+DATE: 2026-03-08
 
+*DO NOT MERGE TO =master=.* Development branches (=m1-testing=, future
+=m2-*=, =m3-*=) chain off each other. Master stays untouched until all
+milestones are tested and explicitly approved for public release.
+
 * Overview
 
 Build a local-first, CI-agnostic test framework that tests quotatool
