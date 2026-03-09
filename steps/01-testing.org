@@ -511,7 +511,7 @@ production.
 
 /Dependencies/: 4.4 (matrix must work first)
 
-* Phase 7: Reproducible Cold-Start [2/5]
+* Phase 7: Reproducible Cold-Start [3/5]
 
 The test framework must be usable from a fresh =git clone= with
 minimal manual steps. Currently 5 manual steps with undocumented
@@ -568,7 +568,7 @@ messages on a bare system.
 
 /Dependencies/: none
 
-** TODO 7.3 Self-bootstrapping =run-tests.sh=
+** DONE 7.3 Self-bootstrapping =run-tests.sh=
 Make the orchestrator self-sufficient. Currently requires manual
 invocation of download.sh, build-rootfs.sh, initramfs/build.sh.
 

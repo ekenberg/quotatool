@@ -66,6 +66,9 @@ Usage: run-tests.sh [OPTIONS]
 Run the quotatool test suite across multiple kernels.
 
 Options:
+  --setup         Bootstrap everything: check deps, download kernels,
+                  build initramfs/rootfs, build quotatool, then run tests.
+                  This is the single command for a fresh git clone.
   --tier N        Only run kernels of tier N (1, 2, or 3)
   --kernel NAME   Only run the named kernel
   --host-only     Run tests on the host kernel only (no VMs, fast)
@@ -78,11 +81,13 @@ EOF
 OPT_TIER=""
 OPT_KERNEL=""
 OPT_HOST_ONLY=0
+OPT_SETUP=0
 OPT_TIMEOUT="300"
 OPT_VERBOSE="0"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --setup)     OPT_SETUP=1; shift ;;
         --tier)      OPT_TIER="$2"; shift 2 ;;
         --kernel)    OPT_KERNEL="$2"; shift 2 ;;
         --host-only) OPT_HOST_ONLY=1; shift ;;
@@ -93,12 +98,105 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Ensure quotatool is built
-QUOTATOOL="$SCRIPT_DIR/../src/quotatool"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+QUOTATOOL="$PROJECT_DIR/quotatool"
+INITRAMFS_DIR="$SCRIPT_DIR/kernels/initramfs"
+KERNELS_DIR="$SCRIPT_DIR/kernels"
+
+# ---------------------------------------------------------------------------
+# Setup / bootstrap
+# ---------------------------------------------------------------------------
+
+_setup_step() {
+    echo -e "${BLUE}==> $1${NC}"
+}
+
+# Always check: quotatool binary
 if [[ ! -x "$QUOTATOOL" ]]; then
-    echo -e "${YELLOW}Building quotatool...${NC}"
-    make -C "$SCRIPT_DIR/.." -j"$(nproc)" >/dev/null 2>&1 \
-        || { echo -e "${RED}Build failed${NC}"; exit 1; }
+    _setup_step "Building quotatool..."
+    if [[ -f "$PROJECT_DIR/Makefile" ]]; then
+        make -C "$PROJECT_DIR" -j"$(nproc)" >/dev/null 2>&1 \
+            || { echo -e "${RED}Build failed. Run ./configure first?${NC}"; exit 1; }
+    elif [[ -f "$PROJECT_DIR/configure" ]]; then
+        (cd "$PROJECT_DIR" && ./configure >/dev/null 2>&1 && make -j"$(nproc)" >/dev/null 2>&1) \
+            || { echo -e "${RED}Build failed${NC}"; exit 1; }
+    else
+        echo -e "${RED}No Makefile or configure script found${NC}" >&2
+        exit 1
+    fi
+fi
+
+if [[ $OPT_SETUP -eq 1 ]]; then
+    echo -e "${BOLD}Setting up test framework...${NC}"
+    echo ""
+
+    # Step 1: check host dependencies
+    _setup_step "Checking host dependencies..."
+    if ! "$SCRIPT_DIR/check-deps.sh"; then
+        echo ""
+        echo -e "${RED}Missing required dependencies. Install them and re-run.${NC}"
+        exit 1
+    fi
+    echo ""
+
+    # Step 2: busybox for initramfs
+    if [[ ! -f "$INITRAMFS_DIR/busybox-musl" ]]; then
+        _setup_step "Downloading busybox (musl-static)..."
+        "$INITRAMFS_DIR/build-busybox.sh"
+        echo ""
+    fi
+
+    # Step 3: build initramfs
+    if [[ ! -f "$INITRAMFS_DIR/initramfs.cpio.gz" ]]; then
+        _setup_step "Building initramfs..."
+        "$INITRAMFS_DIR/build.sh"
+        echo ""
+    fi
+
+    # Step 4: download kernels
+    if [[ ! -f "$CONF" ]] || [[ $(find "$KERNELS_DIR" -maxdepth 1 -type d ! -name initramfs ! -name kernels | wc -l) -lt 5 ]]; then
+        _setup_step "Downloading vendor kernels (this takes a while)..."
+        "$KERNELS_DIR/download.sh"
+        echo ""
+    fi
+
+    # Step 5: build rootfs (for RHEL kernels without 9p)
+    local_rootfs="$KERNELS_DIR/rootfs.img"
+    if [[ ! -f "$local_rootfs" ]]; then
+        if [[ -x "$KERNELS_DIR/build-rootfs.sh" ]]; then
+            _setup_step "Building rootfs disk image (for RHEL kernels)..."
+            "$KERNELS_DIR/build-rootfs.sh" || true  # non-fatal
+            echo ""
+        fi
+    elif [[ "$QUOTATOOL" -nt "$local_rootfs" ]]; then
+        _setup_step "Rebuilding rootfs (quotatool binary is newer)..."
+        "$KERNELS_DIR/build-rootfs.sh" --force || true
+        echo ""
+    fi
+
+    echo -e "${GREEN}Setup complete.${NC}"
+    echo ""
+fi
+
+# Auto-build initramfs if missing (fast, <5s, always safe to do)
+if [[ ! -f "$INITRAMFS_DIR/initramfs.cpio.gz" ]]; then
+    if [[ ! -f "$INITRAMFS_DIR/busybox-musl" ]]; then
+        _setup_step "Downloading busybox (musl-static)..."
+        "$INITRAMFS_DIR/build-busybox.sh" \
+            || { echo -e "${RED}Failed to obtain busybox. Run: test/kernels/initramfs/build-busybox.sh${NC}"; exit 1; }
+    fi
+    _setup_step "Building initramfs..."
+    "$INITRAMFS_DIR/build.sh" \
+        || { echo -e "${RED}Failed to build initramfs${NC}"; exit 1; }
+fi
+
+# Auto-rebuild rootfs if quotatool binary is newer (keeps tests in sync)
+local_rootfs="$KERNELS_DIR/rootfs.img"
+if [[ -f "$local_rootfs" && "$QUOTATOOL" -nt "$local_rootfs" ]]; then
+    if [[ -x "$KERNELS_DIR/build-rootfs.sh" ]]; then
+        _setup_step "Rebuilding rootfs (quotatool binary is newer)..."
+        "$KERNELS_DIR/build-rootfs.sh" --force || true
+    fi
 fi
 
 # Set boot layer options
