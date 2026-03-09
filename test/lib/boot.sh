@@ -254,6 +254,17 @@ _boot_virtme() {
     # shell escaping needed (unlike the old script -qec approach).
     vng_args+=(-e "$command")
 
+    # Point vng to our static busybox so it doesn't depend on the system
+    # having busybox installed. Without this, vng fails with
+    # "initramfs is needed, and no busybox was found" on distros that
+    # don't ship busybox (e.g., Fedora).
+    local lib_dir
+    lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local busybox="$lib_dir/../kernels/initramfs/busybox-musl"
+    if [[ -f "$busybox" ]]; then
+        vng_args+=(--busybox "$busybox")
+    fi
+
     _boot_log "Running: vng ${vng_args[*]}"
 
     # Temporary file for capturing output
@@ -262,13 +273,9 @@ _boot_virtme() {
 
     local exit_code=0
 
-    # vng requires a PTS (pseudo-terminal) even with -e. Use Python's
-    # pty.spawn() to provide one — Python is always available since vng
-    # itself is Python. This avoids a dependency on `script` (util-linux)
-    # which isn't always installed (e.g., Fedora splits it into
-    # util-linux-core).
+    # Run vng directly. With -e, vng executes the command and exits
+    # without needing an interactive terminal. No PTY wrapper needed.
     timeout --foreground --signal=KILL "$BOOT_TIMEOUT" \
-         python3 -c "import pty,sys,os;rc=pty.spawn(sys.argv[1:]);sys.exit(os.waitstatus_to_exitcode(rc) if hasattr(os,'waitstatus_to_exitcode') else (rc>>8))" \
          vng "${vng_args[@]}" \
          > "$output_file" 2>&1 || exit_code=$?
 
