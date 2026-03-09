@@ -162,12 +162,10 @@ if [[ $OPT_SETUP -eq 1 ]]; then
         echo ""
     fi
 
-    # Step 4: download kernels
-    if [[ ! -f "$CONF" ]] || [[ $(find "$KERNELS_DIR" -maxdepth 1 -type d ! -name initramfs ! -name kernels | wc -l) -lt 5 ]]; then
-        _setup_step "Downloading vendor kernels (this takes a while)..."
-        "$KERNELS_DIR/download.sh"
-        echo ""
-    fi
+    # Step 4: download kernels (idempotent — skips already-extracted kernels)
+    _setup_step "Checking/downloading vendor kernels..."
+    "$KERNELS_DIR/download.sh"
+    echo ""
 
     # Step 5: build rootfs (for RHEL kernels without 9p)
     local_rootfs="$KERNELS_DIR/rootfs.img"
