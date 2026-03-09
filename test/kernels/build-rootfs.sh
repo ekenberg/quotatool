@@ -76,29 +76,44 @@ collect_libs() {
 
 copy_with_path() {
     # Copy a file into staging dir, preserving its absolute path.
-    # Follows the full symlink chain (e.g., awk → alternatives → gawk).
+    # Handles symlink chains: copies the source as-is (preserving symlinks),
+    # then walks the chain copying each intermediate link AND the final
+    # resolved target. Uses both one-hop readlink AND readlink -f to
+    # ensure nothing is missed.
     local src="$1" dst_root="$2"
     local dest="$dst_root$src"
     mkdir -p "$(dirname "$dest")"
     cp -a "$src" "$dest" 2>/dev/null || true
-    # Walk the full symlink chain and copy each intermediate target
+
+    # Walk symlink chain one hop at a time (catches intermediates)
     local cur="$src"
     while [[ -L "$cur" ]]; do
-        local link_target
-        link_target=$(readlink "$cur")
-        # Handle relative symlinks
-        if [[ "$link_target" != /* ]]; then
-            link_target="$(dirname "$cur")/$link_target"
+        local raw_target
+        raw_target=$(readlink "$cur")
+        local abs_target
+        if [[ "$raw_target" == /* ]]; then
+            abs_target="$raw_target"
+        else
+            abs_target="$(dirname "$cur")/$raw_target"
         fi
-        # Normalize
-        link_target=$(readlink -f "$link_target" 2>/dev/null || echo "$link_target")
-        if [[ -e "$link_target" ]]; then
-            local dest_target="$dst_root$link_target"
+        if [[ -e "$abs_target" || -L "$abs_target" ]]; then
+            local dest_target="$dst_root$abs_target"
             mkdir -p "$(dirname "$dest_target")"
-            cp -a "$link_target" "$dest_target" 2>/dev/null || true
+            cp -a "$abs_target" "$dest_target" 2>/dev/null || true
         fi
-        cur="$link_target"
+        cur="$abs_target"
     done
+
+    # Also copy the fully resolved target (readlink -f skips to end)
+    if [[ -L "$src" ]]; then
+        local final
+        final=$(readlink -f "$src" 2>/dev/null || true)
+        if [[ -n "$final" && -e "$final" ]]; then
+            local dest_final="$dst_root$final"
+            mkdir -p "$(dirname "$dest_final")"
+            cp -a "$final" "$dest_final" 2>/dev/null || true
+        fi
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -154,10 +169,21 @@ trap 'rm -rf "$STAGING"' EXIT
 
 log "Building staging directory..."
 
-# Create directory structure
-mkdir -p "$STAGING"/{bin,sbin,lib,lib64,usr/bin,usr/sbin,usr/lib,usr/lib64}
+# Create directory structure — mirror host's merged-usr layout if present.
+# Modern distros (Debian 12+, Fedora 17+, Ubuntu 20.04+) merge /bin→/usr/bin,
+# /lib→/usr/lib, etc. Compiled-in paths (e.g., PAM module dir) reference the
+# non-canonical path, so the rootfs must have matching symlinks.
+mkdir -p "$STAGING"/usr/{bin,sbin,lib,lib64}
 mkdir -p "$STAGING"/{etc,dev,proc,sys,tmp,run,var/tmp,root}
 mkdir -p "$STAGING/dev/pts"
+for _d in bin sbin lib lib64; do
+    if [[ -L "/$_d" ]]; then
+        # Host has merged-usr: create matching symlink
+        ln -sf "$(readlink "/$_d")" "$STAGING/$_d"
+    else
+        mkdir -p "$STAGING/$_d"
+    fi
+done
 chmod 1777 "$STAGING/tmp" "$STAGING/var/tmp"
 
 # Copy binaries
@@ -189,27 +215,34 @@ for lib in "${libs[@]}"; do
     copy_with_path "$lib" "$STAGING"
 done
 
-# Copy the dynamic linker(s)
-for ld in /lib64/ld-linux-x86-64.so* /lib/x86_64-linux-gnu/ld-linux-x86-64.so*; do
-    [[ -f "$ld" || -L "$ld" ]] && copy_with_path "$ld" "$STAGING"
-done
-
-# Ensure /lib64 exists (some binaries hardcode it)
-if [[ -d "$STAGING/lib/x86_64-linux-gnu" && ! -e "$STAGING/lib64" ]]; then
-    ln -sf lib/x86_64-linux-gnu "$STAGING/lib64"
-elif [[ ! -e "$STAGING/lib64" ]]; then
-    mkdir -p "$STAGING/lib64"
+# Copy the dynamic linker — discover it, don't hardcode paths.
+# The linker is whatever the ELF INTERP header of /bin/sh points to.
+_interp=$(readelf -l "$(readlink -f /bin/sh)" 2>/dev/null \
+    | grep -oP '(?<=interpreter: )\S+(?=\])' || true)
+if [[ -n "$_interp" && -e "$_interp" ]]; then
+    copy_with_path "$_interp" "$STAGING"
+    # Some binaries reference /lib64/ld-linux-x86-64.so.2 regardless
+    # of where it actually lives. Ensure that path works too.
+    if [[ "$_interp" != /lib64/* && ! -e "$STAGING/lib64/$(basename "$_interp")" ]]; then
+        # lib64 may be a symlink (merged-usr) or dir — handle both
+        if [[ -L "$STAGING/lib64" ]]; then
+            # Symlink: target dir should already exist under /usr/lib64
+            mkdir -p "$STAGING/usr/lib64" 2>/dev/null || true
+        elif [[ ! -d "$STAGING/lib64" ]]; then
+            mkdir -p "$STAGING/lib64"
+        fi
+        ln -sf "$_interp" "$STAGING/lib64/$(basename "$_interp")"
+    fi
 fi
 
 # PAM modules (needed by runuser for privilege switching in tests)
 log "Copying PAM modules and config..."
+# Discover PAM security dir dynamically — find where pam_permit.so lives
 pam_security=""
-for d in /lib/x86_64-linux-gnu/security /lib64/security /usr/lib/x86_64-linux-gnu/security; do
-    if [[ -d "$d" ]]; then
-        pam_security="$d"
-        break
-    fi
-done
+_pam_permit=$(find /lib /lib64 /usr/lib /usr/lib64 -name "pam_permit.so" 2>/dev/null | head -1)
+if [[ -n "$_pam_permit" ]]; then
+    pam_security=$(dirname "$_pam_permit")
+fi
 if [[ -n "$pam_security" ]]; then
     mkdir -p "$STAGING$pam_security"
     cp -a "$pam_security"/*.so "$STAGING$pam_security/" 2>/dev/null || true
@@ -253,14 +286,14 @@ ln -sf /proc/mounts "$STAGING/etc/mtab"
 # login.defs (runuser reads it)
 [[ -f /etc/login.defs ]] && cp /etc/login.defs "$STAGING/etc/login.defs"
 
-cat > "$STAGING/etc/ld.so.conf" <<'LDCONF'
-/lib
-/lib64
-/usr/lib
-/usr/lib64
-/lib/x86_64-linux-gnu
-/usr/lib/x86_64-linux-gnu
-LDCONF
+# Generate ld.so.conf from the actual library directories in staging
+# (no hardcoded paths — works on Debian, Fedora, Arch, etc.)
+: > "$STAGING/etc/ld.so.conf"
+for _dir in $(find "$STAGING" -name "*.so*" -printf '%h\n' 2>/dev/null | sort -u); do
+    # Strip staging prefix to get the path as seen inside the rootfs
+    _reldir="${_dir#"$STAGING"}"
+    [[ -n "$_reldir" ]] && echo "$_reldir" >> "$STAGING/etc/ld.so.conf"
+done
 
 # Run ldconfig in staging to generate ld.so.cache
 if [[ -x "$STAGING/sbin/ldconfig" ]]; then
