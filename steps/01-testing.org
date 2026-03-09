@@ -325,13 +325,23 @@ initramfs containing:
 
 /Dependencies/: Q4 result, 3.3 (need a kernel to test with)
 
-** TODO 3.5 Boot-verify all kernels
+** DOING 3.5 Boot-verify all kernels
 Boot each kernel, run =uname -r=, verify it matches expected version.
-This catches: missing modules, bad initramfs, kernel config issues.
+=test/kernels/verify-boot.sh= automates this.
 
-*Agent-parallelizable*: each kernel can be verified independently.
+Results (2026-03-09):
+- *20/20 non-RHEL kernels pass*: all Ubuntu, Debian, Fedora, openSUSE,
+  mainline kernels boot and report correct version
+- 5 RHEL-derived kernels blocked by Q7 (no 9p module):
+  centos6, centos7, alma8, alma9, amazon-2
 
-/Verification/: all kernels in matrix boot and report correct version.
+Fixes applied during verification:
+- virtio_pci.ko added to QEMU initramfs module list
+- Module load order fixed (virtio core before virtio_pci)
+- Debian 13 usrmerge: modules at =/usr/lib/modules/=, not =/lib/modules/=
+- vng command quoting fix for multi-word commands
+
+/Verification/: =verify-boot.sh= shows 20 pass, 5 blocked (Q7).
 
 /Dependencies/: 3.3, 3.4 (for legacy), 1.2
 
@@ -550,14 +560,14 @@ Additional findings:
 
 /Affects/: 1.2, 3.4 (resolved — raw QEMU path works)
 
-** TODO Q7: RHEL/CentOS vendor kernels lack 9p filesystem module
-Discovered 2026-03-09. Both CentOS 6 (2.6.32) and CentOS 7 (3.10)
-vendor kernels have NO =9p.ko= filesystem module — Red Hat never
-enables 9P_FS in their kernel config. CentOS 6 has =9pnet.ko= and
-=9pnet_virtio.ko= (network layer) but not the filesystem client.
+** TODO Q7: RHEL-derived vendor kernels lack 9p filesystem module
+Discovered 2026-03-09, scope expanded during boot verification.
+ALL RHEL-derived vendor kernels lack =9p.ko=: centos6, centos7,
+alma8, alma9, amazon-2. Red Hat never enables 9P_FS. This affects
+both the virtme and raw QEMU boot paths (both use 9p).
 
-This breaks our raw QEMU boot path which relies on 9p to share the
-host filesystem into the VM.
+The remaining 20 kernels (all Debian, Ubuntu, Fedora, openSUSE,
+mainline) have 9p and boot successfully.
 
 *Options*:
 1. *virtio-blk disk image*: create a disk image containing quotatool,
@@ -566,7 +576,7 @@ host filesystem into the VM.
 2. *NFS root*: boot with NFS rootfs. Complex, needs NFS server.
 3. *Build 9p from source*: compile 9p.ko for each vendor kernel.
    Fragile, needs matching kernel headers.
-4. *Accept limitation*: test CentOS kernels only for boot +
+4. *Accept limitation*: test RHEL kernels only for boot +
    =kern_quota_format()= detection (bake the check into initramfs).
    Skip full test suite on kernels without 9p.
 
@@ -575,4 +585,4 @@ is whether =kern_quota_format()= works, which can be tested with a
 minimal program baked into initramfs without needing the full test
 framework.
 
-/Affects/: centos6, centos7 in kernels.conf, boot.sh QEMU path
+/Affects/: centos6, centos7, alma8, alma9, amazon-2 in kernels.conf
