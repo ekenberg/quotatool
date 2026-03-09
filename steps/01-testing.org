@@ -465,6 +465,51 @@ Document the tested kernel matrix.
 
 /Dependencies/: 5.1, 5.2
 
+* Phase 6: Kernel Matrix Maintenance [0/1]
+
+The kernel matrix is a snapshot. Distros release new kernels
+continuously. Without a maintenance strategy, the matrix goes stale
+within 12-24 months and the test framework loses its value.
+
+** TODO 6.1 Future-proof the kernel matrix
+
+Design a sustainable process for keeping =kernels.conf= current as
+distros release new versions and old ones go EOL. This is not a
+one-time task — it's an ongoing concern that needs a low-friction
+solution.
+
+Problems to solve:
+- *Discovery*: How do we learn that Ubuntu 26.04, AlmaLinux 10,
+  Fedora 44, Debian 14, etc. have been released? Manual tracking
+  doesn't scale and is easy to forget.
+- *URL sourcing*: Each distro has different repository layouts,
+  package naming, and mirror structures. URLs break over time
+  (packages move from =security.ubuntu.com= to =old-releases=,
+  Fedora moves from =releases/= to =archive/=, etc.).
+- *Tier rotation*: When a new LTS ships, the old one should move
+  from tier 1 → tier 2 → tier 3 → eventually drop. Needs clear
+  rules (e.g., "tier 1 = actively supported LTS/stable").
+- *Validation*: New kernels may need new mkfs flags, new module
+  deps, new boot quirks. Adding a kernel isn't just a URL —
+  it needs a test run.
+- *Minimum viable process*: Something a single maintainer can do
+  in 30 minutes twice a year, not a full-time job.
+
+Possible approaches (not exhaustive, needs design):
+- A =kernels.conf= comment convention marking each entry with
+  EOL date → simple grep to find stale entries
+- A script that checks distro release feeds (RSS, release-monitoring.org,
+  endoflife.date API) and flags new releases
+- =download.sh --check-urls= to verify existing URLs still resolve
+- Document the "add a new kernel" procedure so it's repeatable
+- Periodic review cadence (e.g., at each quotatool release)
+
+This is critical infrastructure — the test matrix IS the project's
+regression safety net. A stale matrix means untested kernels in
+production.
+
+/Dependencies/: 4.4 (matrix must work first)
+
 * Dependency Graph
 
 #+begin_example
