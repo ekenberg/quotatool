@@ -509,7 +509,7 @@ for entry in "${entries[@]}"; do
 
     if [[ $rc -eq 0 ]]; then
         # Extract pass/fail counts from guest output
-        summary=$(grep -E '^Results:' "$result_file" | tail -1)
+        summary=$(grep -E '^Results:' "$result_file" | tail -1 || true)
         echo -e "${GREEN}PASS${NC} $summary"
         passed=$((passed + 1))
     elif [[ $rc -eq 124 ]]; then
@@ -518,7 +518,7 @@ for entry in "${entries[@]}"; do
         failed_names+=("$name")
     else
         # Extract failure details
-        failures=$(grep -E '^  FAIL:' "$result_file" | head -5)
+        failures=$(grep -E '^  FAIL:' "$result_file" | head -5 || true)
         echo -e "${RED}FAIL${NC} (exit $rc)"
         [[ -n "$failures" ]] && echo "$failures" | sed 's/^/    /'
         failed=$((failed + 1))
