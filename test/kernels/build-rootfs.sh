@@ -239,7 +239,7 @@ fi
 log "Copying PAM modules and config..."
 # Discover PAM security dir dynamically — find where pam_permit.so lives
 pam_security=""
-_pam_permit=$(find /lib /lib64 /usr/lib /usr/lib64 -name "pam_permit.so" 2>/dev/null | head -1)
+_pam_permit=$(find /lib /lib64 /usr/lib /usr/lib64 -name "pam_permit.so" 2>/dev/null | head -1 || true)
 if [[ -n "$_pam_permit" ]]; then
     pam_security=$(dirname "$_pam_permit")
 fi
