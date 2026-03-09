@@ -342,6 +342,9 @@ if [[ $OPT_SMOKE -eq 1 ]]; then
         else
             echo -e "${RED}FAIL${NC} (exit $rc)"
             smoke_fail=$((smoke_fail + 1))
+            if [[ "$OPT_VERBOSE" == "1" && -n "$out" ]]; then
+                echo "$out" | tail -20 | sed 's/^/    /'
+            fi
         fi
     }
 
@@ -454,7 +457,7 @@ for entry in "${entries[@]}"; do
         if [[ -f "$rootfs_img" ]]; then
             use_rootfs=1
         else
-            printf "%-20s %-8s %-8s " "$name" "$version" "$boot"
+            printf "%-20s %-8s %-12s " "$name" "$version" "qemu+rootfs"
             echo -e "${YELLOW}SKIP${NC} (no 9p — build rootfs: test/kernels/build-rootfs.sh)"
             skipped=$((skipped + 1))
             skipped_names+=("$name(no-9p)")
@@ -465,24 +468,43 @@ for entry in "${entries[@]}"; do
     # Find vmlinuz
     vmlinuz=$(find_vmlinuz "$name")
     if [[ -z "$vmlinuz" ]]; then
-        printf "%-20s %-8s %-8s " "$name" "$version" "$boot"
+        printf "%-20s %-8s %-12s " "$name" "$version" "$boot"
         echo -e "${RED}FAIL${NC} vmlinuz not found"
         failed=$((failed + 1))
         failed_names+=("$name")
         continue
     fi
 
+    # Determine actual boot path for display
+    if [[ $use_rootfs -eq 1 ]]; then
+        actual_boot="qemu+rootfs"
+    elif [[ "$boot" == "qemu" ]]; then
+        actual_boot="qemu+9p"
+    else
+        actual_boot="$boot"
+    fi
+
     # Run test suite on this kernel
-    printf "%-20s %-8s %-8s " "$name" "$version" "$boot"
+    printf "%-20s %-8s %-12s " "$name" "$version" "$actual_boot"
 
     result_file="$RESULTS_DIR/${name}.log"
     rc=0
+    [[ "$OPT_VERBOSE" == "1" ]] && echo ""
     if [[ $use_rootfs -eq 1 ]]; then
         # Rootfs mode: force QEMU (virtme needs 9p), use rootfs command path
-        BOOT_METHOD=qemu BOOT_ROOTFS="$rootfs_img" \
-            boot_kernel "$vmlinuz" "/test/guest-run-all.sh" > "$result_file" 2>&1 || rc=$?
+        if [[ "$OPT_VERBOSE" == "1" ]]; then
+            BOOT_METHOD=qemu BOOT_ROOTFS="$rootfs_img" \
+                boot_kernel "$vmlinuz" "/test/guest-run-all.sh" 2>&1 | tee "$result_file" || rc=${PIPESTATUS[0]}
+        else
+            BOOT_METHOD=qemu BOOT_ROOTFS="$rootfs_img" \
+                boot_kernel "$vmlinuz" "/test/guest-run-all.sh" > "$result_file" 2>&1 || rc=$?
+        fi
     else
-        BOOT_METHOD="$boot" boot_kernel "$vmlinuz" "$GUEST_CMD" > "$result_file" 2>&1 || rc=$?
+        if [[ "$OPT_VERBOSE" == "1" ]]; then
+            BOOT_METHOD="$boot" boot_kernel "$vmlinuz" "$GUEST_CMD" 2>&1 | tee "$result_file" || rc=${PIPESTATUS[0]}
+        else
+            BOOT_METHOD="$boot" boot_kernel "$vmlinuz" "$GUEST_CMD" > "$result_file" 2>&1 || rc=$?
+        fi
     fi
 
     if [[ $rc -eq 0 ]]; then
