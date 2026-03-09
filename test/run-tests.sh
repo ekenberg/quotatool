@@ -176,13 +176,19 @@ for entry in "${entries[@]}"; do
         continue
     fi
 
-    # Skip kernels without 9p (Q7)
+    # Check 9p support; if missing, use rootfs disk image (RHEL kernels)
+    use_rootfs=0
     if ! has_9p "$name"; then
-        printf "%-20s %-8s %-8s " "$name" "$version" "$boot"
-        echo -e "${YELLOW}SKIP${NC} (no 9p module — Q7)"
-        skipped=$((skipped + 1))
-        skipped_names+=("$name(no-9p)")
-        continue
+        rootfs_img="$SCRIPT_DIR/kernels/rootfs.img"
+        if [[ -f "$rootfs_img" ]]; then
+            use_rootfs=1
+        else
+            printf "%-20s %-8s %-8s " "$name" "$version" "$boot"
+            echo -e "${YELLOW}SKIP${NC} (no 9p — build rootfs: test/kernels/build-rootfs.sh)"
+            skipped=$((skipped + 1))
+            skipped_names+=("$name(no-9p)")
+            continue
+        fi
     fi
 
     # Find vmlinuz
@@ -200,7 +206,13 @@ for entry in "${entries[@]}"; do
 
     result_file="$RESULTS_DIR/${name}.log"
     rc=0
-    BOOT_METHOD="$boot" boot_kernel "$vmlinuz" "$GUEST_CMD" > "$result_file" 2>&1 || rc=$?
+    if [[ $use_rootfs -eq 1 ]]; then
+        # Rootfs mode: force QEMU (virtme needs 9p), use rootfs command path
+        BOOT_METHOD=qemu BOOT_ROOTFS="$rootfs_img" \
+            boot_kernel "$vmlinuz" "/test/guest-run-all.sh" > "$result_file" 2>&1 || rc=$?
+    else
+        BOOT_METHOD="$boot" boot_kernel "$vmlinuz" "$GUEST_CMD" > "$result_file" 2>&1 || rc=$?
+    fi
 
     if [[ $rc -eq 0 ]]; then
         # Extract pass/fail counts from guest output

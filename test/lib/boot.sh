@@ -389,8 +389,10 @@ Run: test/kernels/initramfs/build.sh"
             [[ -n "${collected[$mod_name]+x}" ]] && return
             collected[$mod_name]=1
 
+            # Find module file (may be compressed: .ko, .ko.xz, .ko.zst, .ko.gz)
             local mod_file
-            mod_file=$(find "$mod_dir" -name "${mod_name}.ko" 2>/dev/null | head -1)
+            mod_file=$(find "$mod_dir" \( -name "${mod_name}.ko" -o -name "${mod_name}.ko.xz" \
+                -o -name "${mod_name}.ko.zst" -o -name "${mod_name}.ko.gz" \) 2>/dev/null | head -1)
             [[ -z "$mod_file" ]] && return
 
             # Recurse into dependencies first (depth-first)
@@ -404,10 +406,13 @@ Run: test/kernels/initramfs/build.sh"
                 done
             fi
 
-            # Copy and record load order
-            cp "$mod_file" "$mod_tmp/modules/"
-            # Prefix with sequence number for ordered loading
-            local seq=${#load_order[@]}
+            # Decompress if needed, then copy as plain .ko for insmod
+            case "$mod_file" in
+                *.ko.xz)  xz -dc "$mod_file" > "$mod_tmp/modules/${mod_name}.ko" ;;
+                *.ko.zst) zstd -dc "$mod_file" > "$mod_tmp/modules/${mod_name}.ko" 2>/dev/null ;;
+                *.ko.gz)  gzip -dc "$mod_file" > "$mod_tmp/modules/${mod_name}.ko" ;;
+                *)        cp "$mod_file" "$mod_tmp/modules/" ;;
+            esac
             load_order+=("$mod_name")
             _boot_log "  added module: ${mod_name}.ko (deps: ${deps:-none})"
         }
@@ -417,8 +422,11 @@ Run: test/kernels/initramfs/build.sh"
         # Order matters: virtio core → virtio PCI → 9p transport → 9p fs
         _collect_module_deps "9pnet"
         _collect_module_deps "9pnet_virtio"
-        # Virtio PCI bus (needed for virtio-9p-pci device, depends on
-        # virtio + virtio_ring which 9pnet_virtio already pulled in)
+        # Virtio core (modinfo reports no depends: for these, but they're
+        # required by virtio_pci and virtio_blk on RHEL kernels)
+        _collect_module_deps "virtio"
+        _collect_module_deps "virtio_ring"
+        # Virtio PCI bus (needed for virtio-9p-pci and virtio-blk-pci)
         _collect_module_deps "virtio_pci"
         _collect_module_deps "9p"
         # Quota support (may be modules on old kernels)
@@ -439,6 +447,8 @@ Run: test/kernels/initramfs/build.sh"
         _collect_module_deps "libcrc32c"
         _collect_module_deps "exportfs"
         _collect_module_deps "xfs"
+        # Virtio block device (needed for rootfs disk path on RHEL kernels)
+        _collect_module_deps "virtio_blk"
 
         if [[ ${#load_order[@]} -gt 0 ]]; then
             # Write load order file so init knows the correct sequence
@@ -449,6 +459,23 @@ Run: test/kernels/initramfs/build.sh"
         fi
     else
         _boot_log "No module directory found — assuming 9p is built-in"
+    fi
+
+    # Detect rootfs disk mode (RHEL kernels without 9p)
+    local rootfs_mode=0
+    if [[ -n "${BOOT_ROOTFS:-}" ]]; then
+        if [[ ! -f "$BOOT_ROOTFS" ]]; then
+            _boot_die "BOOT_ROOTFS='$BOOT_ROOTFS' does not exist"; return 1
+        fi
+        rootfs_mode=1
+        _boot_log "Rootfs mode: using disk image $BOOT_ROOTFS"
+
+        # Embed the command in a per-boot initramfs overlay at /cmd
+        # (the init script reads /cmd when in rootfs mode)
+        local cmd_overlay="$work_dir/cmd_overlay"
+        mkdir -p "$cmd_overlay"
+        echo "$command" > "$cmd_overlay/cmd"
+        (cd "$cmd_overlay" && echo cmd | cpio -o -H newc --quiet | gzip -9) >> "$boot_initramfs"
     fi
 
     # Build QEMU argument list
@@ -467,19 +494,26 @@ Run: test/kernels/initramfs/build.sh"
     qemu_args+=(-initrd "$boot_initramfs")
     qemu_args+=(-append "console=ttyS0 quiet loglevel=1 panic=-1")
 
-    # 9p share: host root
-    # Read-write to match vng behavior. Tests write only to /tmp and
-    # loop devices inside the VM, so host files are safe in practice.
-    qemu_args+=(
-        -fsdev "local,id=hostroot,path=/,security_model=none"
-        -device "virtio-9p-pci,fsdev=hostroot,mount_tag=hostroot"
-    )
+    if [[ $rootfs_mode -eq 1 ]]; then
+        # Rootfs disk mode: self-contained image with all tools and tests
+        qemu_args+=(
+            -drive "file=$BOOT_ROOTFS,if=virtio,format=raw,readonly=on"
+        )
+    else
+        # 9p share: host root
+        # Read-write to match vng behavior. Tests write only to /tmp and
+        # loop devices inside the VM, so host files are safe in practice.
+        qemu_args+=(
+            -fsdev "local,id=hostroot,path=/,security_model=none"
+            -device "virtio-9p-pci,fsdev=hostroot,mount_tag=hostroot"
+        )
 
-    # 9p share: results directory (writable)
-    qemu_args+=(
-        -fsdev "local,id=results,path=$results_dir,security_model=none"
-        -device "virtio-9p-pci,fsdev=results,mount_tag=results"
-    )
+        # 9p share: results directory (writable)
+        qemu_args+=(
+            -fsdev "local,id=results,path=$results_dir,security_model=none"
+            -device "virtio-9p-pci,fsdev=results,mount_tag=results"
+        )
+    fi
 
     # No networking
     qemu_args+=(-net none)
@@ -497,37 +531,54 @@ Run: test/kernels/initramfs/build.sh"
         qemu_exit=$?
     fi
 
-    # Print stdout/stderr from guest (captured by init script)
-    if [[ -f "$results_dir/stdout" ]]; then
-        cat "$results_dir/stdout"
-    fi
-    if [[ -f "$results_dir/stderr" ]]; then
-        cat "$results_dir/stderr" >&2
-    fi
-
-    # If no guest output files, print raw QEMU output (boot messages, errors)
-    if [[ ! -f "$results_dir/stdout" && ! -f "$results_dir/stderr" ]]; then
-        _boot_log "No guest output files — showing raw QEMU output:"
-        cat "$output_file" >&2
-    fi
-
-    # Detect timeout
+    # Detect timeout (both modes)
     if [[ $qemu_exit -eq 137 ]]; then
         echo "[boot] VM killed after ${BOOT_TIMEOUT}s timeout" >&2
         rm -f "$output_file"
         return 124
     fi
 
-    rm -f "$output_file"
-
-    # Read guest exit code
-    if [[ -f "$results_dir/exit_code" ]]; then
-        local guest_exit
-        guest_exit=$(cat "$results_dir/exit_code")
+    if [[ $rootfs_mode -eq 1 ]]; then
+        # Rootfs mode: results come from serial output with exit marker
+        local guest_exit=1
+        local marker
+        marker=$(grep -o '===QUOTATOOL_EXIT:[0-9]*===' "$output_file" | tail -1 || true)
+        if [[ -n "$marker" ]]; then
+            guest_exit=$(echo "$marker" | grep -o '[0-9]*')
+            # Print output without the marker line
+            grep -v '===QUOTATOOL_EXIT:' "$output_file" || true
+        else
+            _boot_log "No exit marker — guest may have crashed"
+            cat "$output_file" >&2
+        fi
+        rm -f "$output_file"
         return "$guest_exit"
     else
-        _boot_log "No exit_code file — guest may have crashed"
-        return 1
+        # 9p mode: results from results share
+        if [[ -f "$results_dir/stdout" ]]; then
+            cat "$results_dir/stdout"
+        fi
+        if [[ -f "$results_dir/stderr" ]]; then
+            cat "$results_dir/stderr" >&2
+        fi
+
+        # If no guest output files, print raw QEMU output (boot messages, errors)
+        if [[ ! -f "$results_dir/stdout" && ! -f "$results_dir/stderr" ]]; then
+            _boot_log "No guest output files — showing raw QEMU output:"
+            cat "$output_file" >&2
+        fi
+
+        rm -f "$output_file"
+
+        # Read guest exit code
+        if [[ -f "$results_dir/exit_code" ]]; then
+            local guest_exit
+            guest_exit=$(cat "$results_dir/exit_code")
+            return "$guest_exit"
+        else
+            _boot_log "No exit_code file — guest may have crashed"
+            return 1
+        fi
     fi
 }
 

@@ -19,5 +19,6 @@ research/
 test/kernels/*/
 !test/kernels/initramfs/
 test/kernels/initramfs/initramfs.cpio.gz
+test/kernels/rootfs.img
 test/results/
-# tmp_run.sh — throwaway test runner, do not commit
+test/tmp_run.sh

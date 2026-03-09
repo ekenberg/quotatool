@@ -1,15 +1,20 @@
 #!/bin/sh
 # Minimal init for raw QEMU boot path.
 #
-# Mounts the host filesystem via 9p (read-only), overlays writable
-# areas with tmpfs, chroots in, runs the test command, and propagates
-# the exit code back to the host via a second writable 9p share.
+# Two modes, auto-detected:
 #
-# Expects two 9p shares:
-#   hostroot  — host / mounted read-only
-#   results   — writable tmpdir for command file and exit code
+#   9p mode (default):
+#     Mounts host filesystem via 9p, chroots in, runs the test command.
+#     Exit code propagated via writable 9p results share.
+#     Expects: hostroot (9p share), results (9p share), /mnt/results/cmd
 #
-# The command to run is read from /mnt/results/cmd (written by host).
+#   Rootfs mode (RHEL kernels without 9p):
+#     Mounts a virtio-blk disk image containing all binaries, libs,
+#     and test scripts. No 9p needed. Exit code printed to serial
+#     as a marker line for the host to parse.
+#     Expects: /dev/vda (ext4 disk image), /cmd (in initramfs overlay)
+#
+# Mode detection: /dev/vda present → rootfs mode, else 9p mode.
 
 # Step 1: essential filesystems
 mount -t proc proc /proc
@@ -18,7 +23,7 @@ mount -t devtmpfs devtmpfs /dev
 mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts
 
-# Step 2: load 9p modules if present (needed when 9p is not built-in)
+# Step 2: load modules if present
 # The boot layer appends kernel-specific .ko files at /modules/ with
 # a load_order file specifying dependency-first sequence.
 if [ -d /modules ] && [ -f /modules/load_order ]; then
@@ -32,7 +37,49 @@ elif [ -d /modules ]; then
     done
 fi
 
-# Step 3: mount host root via 9p
+# Step 3: detect mode
+if [ -b /dev/vda ]; then
+    # ===== Rootfs disk mode (RHEL kernels without 9p) =====
+
+    mkdir -p /mnt/rootfs
+    mount -o ro /dev/vda /mnt/rootfs
+    if [ $? -ne 0 ]; then
+        echo "FATAL: failed to mount rootfs disk /dev/vda" >&2
+        poweroff -f
+    fi
+
+    # Writable overlays (tests write to /tmp for loop devices)
+    mount -t tmpfs tmpfs /mnt/rootfs/tmp
+    mount -t tmpfs tmpfs /mnt/rootfs/run
+    mount -t tmpfs tmpfs /mnt/rootfs/var/tmp 2>/dev/null
+
+    # Guest needs its own /dev, /proc, /sys inside the chroot
+    mount -t devtmpfs devtmpfs /mnt/rootfs/dev
+    mkdir -p /mnt/rootfs/dev/pts
+    mount -t devpts devpts /mnt/rootfs/dev/pts
+    mount -t proc proc /mnt/rootfs/proc
+    mount -t sysfs sysfs /mnt/rootfs/sys
+
+    # Read command (from initramfs overlay, or default)
+    if [ -f /cmd ]; then
+        CMD=$(cat /cmd)
+    else
+        CMD="/test/guest-run-all.sh"
+    fi
+
+    # Run it inside the chroot (output goes to serial console)
+    chroot /mnt/rootfs /bin/bash -c "export PATH=/bin:/sbin:/usr/bin:/usr/sbin; $CMD" 2>&1
+    EXIT_CODE=$?
+
+    # Signal exit code to host via serial marker
+    echo "===QUOTATOOL_EXIT:${EXIT_CODE}==="
+
+    poweroff -f
+fi
+
+# ===== 9p mode (default) =====
+
+# Step 3b: mount host root via 9p
 # Read-write to match vng behavior (CoW overlay). Tests only write to
 # /tmp and loop devices, so host files are not modified in practice.
 mkdir -p /mnt/host
