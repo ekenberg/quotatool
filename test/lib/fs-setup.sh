@@ -333,15 +333,19 @@ fs_create_xfs() {
         "-f -m crc=0,finobt=0,rmapbt=0,reflink=0"
         "-f -m crc=0,finobt=0,rmapbt=0,reflink=0 -n ftype=0"
     )
+    local mkfs_err=""
     for mkfs_flags in "${format_attempts[@]}"; do
         # shellcheck disable=SC2086
-        if mkfs.xfs $mkfs_flags "$loop" >/dev/null 2>&1; then
+        mkfs_err=$(mkfs.xfs $mkfs_flags "$loop" 2>&1) && mkfs_err=""
+        if [[ -z "$mkfs_err" ]]; then
             if mount -o uquota,gquota "$loop" "$mnt" 2>/dev/null; then
                 xfs_mounted=1
                 _fs_log "  mounted at $mnt (mkfs.xfs $mkfs_flags)"
                 break
             fi
             _fs_log "  mount failed with $mkfs_flags, trying simpler format"
+        else
+            _fs_log "  mkfs.xfs $mkfs_flags failed: $mkfs_err"
         fi
     done
     if [[ "$xfs_mounted" -eq 0 ]]; then
