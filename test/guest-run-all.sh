@@ -30,7 +30,7 @@ for fstype in $FSTYPES; do
 
     # Create filesystem once for all tests
     if [[ "$fstype" == "xfs" ]]; then
-        fs_create_xfs "$MNT" 200M
+        fs_create_xfs "$MNT" 512M
     else
         fs_create_ext4 "$MNT" 200M
     fi
