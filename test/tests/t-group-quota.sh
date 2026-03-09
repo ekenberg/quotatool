@@ -9,10 +9,10 @@ FSTYPE="$1"; MNT="$2"
 fail() { echo "FAIL ($FSTYPE): $*" >&2; exit 1; }
 [[ -x "$QUOTATOOL" ]] || fail "quotatool not found"
 
-# Use nogroup (gid 65534)
-"$QUOTATOOL" -g nogroup -b -q 50M -l 100M "$MNT" || fail "quotatool exited $?"
+# Use gid 65534 (nogroup on Debian, nobody on Fedora — use numeric to be portable)
+"$QUOTATOOL" -g 65534 -b -q 50M -l 100M "$MNT" || fail "quotatool exited $?"
 
-dump=$("$QUOTATOOL" -d -g nogroup "$MNT") || fail "quotatool -d failed"
+dump=$("$QUOTATOOL" -d -g 65534 "$MNT") || fail "quotatool -d failed"
 echo "dump: $dump"
 
 soft=$(echo "$dump" | awk '{print $4}')
