@@ -268,7 +268,7 @@ _boot_virtme() {
     # vng requires a PTS (pseudo-terminal) even with -e. Wrap with
     # "script -qec" to provide one. -e propagates the child exit code.
     # Timeout wraps the whole thing to kill hung VMs.
-    if ! timeout --signal=KILL "$BOOT_TIMEOUT" \
+    if ! timeout --foreground --signal=KILL "$BOOT_TIMEOUT" \
          script -qec "vng ${vng_args[*]}" /dev/null \
          > "$output_file" 2>&1; then
         exit_code=$?
@@ -530,7 +530,10 @@ Run: test/kernels/initramfs/build.sh"
     output_file=$(mktemp "${TMPDIR:-/tmp}/qemu-output.XXXXXX")
 
     local qemu_exit=0
-    if ! timeout --signal=KILL "$BOOT_TIMEOUT" \
+    # Use --foreground so Ctrl-C (SIGINT) reaches the timeout+qemu process
+    # group from an interactive terminal. Without it, timeout runs in its
+    # own process group and SIGINT from the terminal never arrives.
+    if ! timeout --foreground --signal=KILL "$BOOT_TIMEOUT" \
          qemu-system-x86_64 "${qemu_args[@]}" \
          > "$output_file" 2>&1; then
         qemu_exit=$?
