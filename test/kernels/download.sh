@@ -56,14 +56,20 @@ parse_conf() {
 # Check if a kernel is already extracted (vmlinuz exists).
 is_extracted() {
     local name="$1"
-    local dir="$SCRIPT_DIR/$name/extracted"
-    [[ -d "$dir" ]] && ls "$dir"/boot/vmlinu* >/dev/null 2>&1
+    [[ -n "$(find_vmlinuz "$name")" ]]
 }
 
 # Find the vmlinuz path for an extracted kernel.
+# Checks multiple locations:
+#   /boot/vmlinu*           — Debian, Ubuntu, CentOS 6/7
+#   /lib/modules/*/vmlinuz  — EL8+, Fedora 30+
 find_vmlinuz() {
     local name="$1"
-    ls "$SCRIPT_DIR/$name/extracted/boot"/vmlinu* 2>/dev/null | head -1
+    local dir="$SCRIPT_DIR/$name/extracted"
+    # Try /boot first (most common)
+    ls "$dir"/boot/vmlinu* 2>/dev/null | head -1 && return
+    # EL8+: vmlinuz inside /lib/modules/<ver>/
+    find "$dir/lib/modules" -maxdepth 2 -name "vmlinuz" 2>/dev/null | head -1
 }
 
 # ---------------------------------------------------------------------------

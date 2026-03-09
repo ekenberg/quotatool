@@ -278,16 +278,23 @@ Features implemented:
 /Dependencies/: 3.1
 
 ** DONE 3.3 Download all kernels
-All 26 kernels downloaded and extracted (~10 GB total).
+All 25 vendor kernels downloaded and extracted (~5.9 GB total).
+
+Switched from mainline PPA kernels to actual distro vendor kernels
+(vendor patches affect quota behavior). Only 2 mainline PPA kernels
+remain (5.19, 6.2) for Arch/Gentoo coverage where no vendor kernel exists.
 
 Breakdown:
-- Tier 1: 10/10 (8 PPA + centos6 RPM + centos7 RPM)
-- Tier 2: 8/8 (all PPA)
-- Tier 3: 8/8 (all PPA; 3.16.85 amd64 failed, using 3.16.84)
-- Quota-tools (repquota) extraction: deferred (see Q2).
-  Host repquota works for PPA kernels via 9p/virtiofs sharing.
+- Tier 1: 10/10 (3 Ubuntu .deb, 3 Debian .deb, 2 Alma RPM, 2 CentOS RPM)
+- Tier 2: 8/8 (2 Ubuntu .deb, 2 Debian .deb, 2 openSUSE RPM, 2 Fedora RPM)
+- Tier 3: 7/7 (2 Debian .deb, 1 Ubuntu .deb, 1 openSUSE RPM, 1 Amazon RPM, 2 mainline PPA)
 
-/Verification/: =download.sh --list= shows 26/26 extracted.
+Package sources: security.ubuntu.com, security.debian.org,
+archive.debian.org, repo.almalinux.org, vault.centos.org,
+dl.fedoraproject.org, download.opensuse.org, cdn.amazonlinux.com,
+kernel.ubuntu.com/mainline (PPA, only for mainline-5.19 + mainline-6.2).
+
+/Verification/: =download.sh --list= shows 25/25 extracted.
 
 /Dependencies/: 3.2
 
