@@ -688,6 +688,57 @@ rootfs path. Compare results with Mint 21 (glibc 2.35) baseline.
 
 /Dependencies/: 8.4
 
+* Phase 9: Dependency Audit & Minimization [0/3]
+
+Every external tool is a portability failure waiting to happen (as
+=script(1)= just demonstrated). Audit the entire framework and prune
+everything that isn't essential. The minimal core is: *Python3*
+(required by vng), *busybox-musl* (static, no deps), *QEMU*, and the
+quota/filesystem tools that are the actual test subject. Everything
+else is suspect.
+
+** TODO 9.1 Audit all external commands used by the framework
+Walk every =.sh= file in =test/= and catalog every external command
+invoked. For each command, classify:
+- *Essential*: directly needed for testing (mkfs, quota tools, qemu)
+- *Replaceable*: can be done by something already in the core
+  (e.g., =script= → =python3 pty=, =curl= → =python3 urllib=)
+- *Removable*: not actually needed or only used in one place
+
+Deliverable: a table in =research/dependency-audit.org= with every
+command, which scripts use it, classification, and replacement plan.
+
+/Dependencies/: none
+
+** TODO 9.2 Replace or eliminate non-essential dependencies
+For each "replaceable" command from 9.1, implement the replacement.
+For each "removable" command, delete the usage. Update =check-deps.sh=
+to match.
+
+Candidates already identified:
+- =curl= → =python3 urllib= (download.sh, build-busybox.sh)
+- =rpm2cpio= → pure Python or busybox (kernel extraction)
+- =dpkg-deb= → =ar= + =tar= (standard tools, or Python)
+- =file= → could check ELF header directly
+- =strings= → =grep -a= or Python
+- =readelf= → Python struct parsing or just skip
+
+Not all of these will be worth doing — assess cost vs benefit.
+
+/Dependencies/: 9.1
+
+** TODO 9.3 Document the minimal dependency set
+Update =check-deps.sh= and README to reflect the pruned dependency
+list. Clearly separate:
+- *Hard requirements*: cannot run without these (qemu, python3, etc.)
+- *Test subjects*: what we're testing (mkfs.ext4, quota tools, etc.)
+- *Build requirements*: only for =./configure && make= (cc, make)
+
+Goal: someone reading the list should understand WHY each dep exists
+and be confident nothing is superfluous.
+
+/Dependencies/: 9.2
+
 * Dependency Graph
 
 #+begin_example
@@ -720,6 +771,9 @@ Phase 7 (Cold-Start):       ← CURRENT PRIORITY
 Phase 8 (Host-Independent Rootfs):
   8.1 ──→ 8.2 ──→ 8.4 ──→ 8.5
   8.1 ──→ 8.3 ──→ 8.4
+
+Phase 9 (Dependency Minimization):
+  9.1 ──→ 9.2 ──→ 9.3
 #+end_example
 
 Key parallelism opportunities:
