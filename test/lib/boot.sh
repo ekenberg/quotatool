@@ -425,6 +425,20 @@ Run: test/kernels/initramfs/build.sh"
         _collect_module_deps "quota_tree"
         _collect_module_deps "quota_v1"
         _collect_module_deps "quota_v2"
+        # Loop device (module on some Debian/CentOS kernels, built-in elsewhere)
+        _collect_module_deps "loop"
+        # ext4 filesystem + implicit deps (module on Debian 7/8, CentOS 6/7)
+        _collect_module_deps "crc16"
+        _collect_module_deps "mbcache"
+        _collect_module_deps "jbd2"
+        _collect_module_deps "ext4"
+        # XFS filesystem + deps
+        # libcrc32c has softdep on crc32c (not in depends:, only softdep:)
+        _collect_module_deps "crc32c_generic"
+        _collect_module_deps "crc32c"
+        _collect_module_deps "libcrc32c"
+        _collect_module_deps "exportfs"
+        _collect_module_deps "xfs"
 
         if [[ ${#load_order[@]} -gt 0 ]]; then
             # Write load order file so init knows the correct sequence

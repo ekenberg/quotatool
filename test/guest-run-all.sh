@@ -12,6 +12,11 @@ TEST_DIR="$SCRIPT_DIR/tests"
 
 source "$SCRIPT_DIR/lib/fs-setup.sh"
 
+# Ensure required modules are loaded (may be modules in vendor kernels)
+modprobe loop 2>/dev/null || true
+modprobe quota_v2 2>/dev/null || true
+modprobe quota_tree 2>/dev/null || true
+
 FSTYPES="ext4 xfs"
 PASS=0
 FAIL=0

@@ -165,16 +165,29 @@ fs_create_ext4() {
     #    -O quota enables kernel-level quota support (ext4 >= 3.15).
     #    With this feature, quotas are active at mount time — no
     #    quotacheck or quotaon needed.
-    #    Older kernels can't mount filesystems with this feature, so we
-    #    try it first, and if the mount fails, re-format without it
-    #    and use the legacy quotacheck+quotaon path.
+    #    Caveats:
+    #    - Kernels < ~4.5 can mount -O quota but don't enforce limits.
+    #    - Kernels < 3.15 can't mount -O quota at all.
+    #    For kernels < 4.5, force the legacy quotacheck+quotaon path
+    #    which enforces properly.
     local has_builtin_quota=0
     local mkfs_ok=0
-    if mkfs.ext4 -q -O quota "$loop" >/dev/null 2>&1; then
+    local force_legacy=0
+    local kver_major kver_minor
+    kver_major=$(uname -r | cut -d. -f1)
+    kver_minor=$(uname -r | cut -d. -f2)
+    if [[ $kver_major -lt 4 || ($kver_major -eq 4 && $kver_minor -lt 5) ]]; then
+        force_legacy=1
+        _fs_log "  kernel $kver_major.$kver_minor < 4.5: forcing legacy quota path"
+    fi
+
+    if [[ "$force_legacy" -eq 0 ]] && mkfs.ext4 -q -O quota "$loop" >/dev/null 2>&1; then
         mkfs_ok=1
     fi
 
-    # 4. Mount
+    # 4. Mount — try progressively simpler formats on mount failure.
+    #    Modern mkfs.ext4 creates features (metadata_csum, 64bit) that
+    #    old kernels can't mount. Fall back to stripping them.
     mkdir -p "$mnt"
     _cleanup_mnt="$mnt"
     if [[ "$mkfs_ok" -eq 1 ]]; then
@@ -182,35 +195,35 @@ fs_create_ext4() {
             has_builtin_quota=1
             _fs_log "  mounted at $mnt"
         else
-            # mkfs -O quota succeeded but kernel can't mount it (old kernel).
-            # Re-format without the quota feature and use legacy path.
-            _fs_log "  mount with -O quota failed (old kernel?), reformatting without"
-            if ! mkfs.ext4 -q -O ^metadata_csum "$loop" >/dev/null 2>&1; then
-                _fs_err "mkfs.ext4 (legacy) failed on $loop"
-                _fs_ext4_cleanup_on_error
-                return 1
-            fi
-            if ! mount -o usrquota,grpquota "$loop" "$mnt"; then
-                _fs_err "mount failed (legacy): $loop -> $mnt"
-                _fs_ext4_cleanup_on_error
-                return 1
-            fi
-            _fs_log "  mounted at $mnt"
+            # -O quota mount failed — fall through to legacy path
+            _fs_log "  mount with -O quota failed, falling back to legacy"
+            mkfs_ok=0
         fi
-    else
-        # mkfs -O quota not supported at all
-        _fs_log "  mkfs.ext4 -O quota not supported, using plain ext4"
-        if ! mkfs.ext4 -q "$loop" >/dev/null 2>&1; then
-            _fs_err "mkfs.ext4 failed on $loop"
+    fi
+
+    if [[ "$mkfs_ok" -eq 0 ]]; then
+        # Try progressively simpler ext4 formats until one mounts
+        local ext4_mounted=0
+        local -a ext4_attempts=(
+            "-q"
+            "-q -O ^metadata_csum"
+            "-q -O ^metadata_csum,^64bit"
+        )
+        for ext4_flags in "${ext4_attempts[@]}"; do
+            # shellcheck disable=SC2086
+            if mkfs.ext4 $ext4_flags "$loop" >/dev/null 2>&1; then
+                if mount -o usrquota,grpquota "$loop" "$mnt" 2>/dev/null; then
+                    ext4_mounted=1
+                    _fs_log "  mounted at $mnt (mkfs.ext4 $ext4_flags)"
+                    break
+                fi
+            fi
+        done
+        if [[ "$ext4_mounted" -eq 0 ]]; then
+            _fs_err "ext4: all format attempts failed"
             _fs_ext4_cleanup_on_error
             return 1
         fi
-        if ! mount -o usrquota,grpquota "$loop" "$mnt"; then
-            _fs_err "mount failed: $loop -> $mnt"
-            _fs_ext4_cleanup_on_error
-            return 1
-        fi
-        _fs_log "  mounted at $mnt"
     fi
 
     # 5+6. Enable quotas
@@ -304,25 +317,38 @@ fs_create_xfs() {
     _cleanup_loop="$loop"
     _fs_log "  loop device: $loop"
 
-    # 3. mkfs.xfs
-    #    -f = force (overwrite any existing signature on the loop device)
-    if ! mkfs.xfs -f "$loop" >/dev/null 2>&1; then
-        _fs_err "mkfs.xfs failed on $loop"
-        _fs_xfs_cleanup_on_error
-        return 1
-    fi
-
-    # 4. Mount with quota options
-    #    XFS enables quotas at mount time — no separate quotaon step.
-    #    uquota,gquota are the XFS-native names; usrquota,grpquota also work.
+    # 3+4. mkfs.xfs + mount
+    #    Try progressively simpler XFS formats until one works:
+    #    1. Default (modern: crc=1, reflink=1) — kernels >=5.1 or so
+    #    2. reflink=0 — kernels >=3.15 without CONFIG_XFS_REFLINK
+    #    3. crc=0 (XFS v4) — kernels <3.15
+    #    This avoids hardcoding kernel version cutoffs that don't account
+    #    for vendor kernel CONFIG differences.
     mkdir -p "$mnt"
     _cleanup_mnt="$mnt"
-    if ! mount -o uquota,gquota "$loop" "$mnt"; then
-        _fs_err "mount failed: $loop -> $mnt"
+    local xfs_mounted=0
+    local -a format_attempts=(
+        "-f"
+        "-f -m reflink=0"
+        "-f -m crc=0,finobt=0,rmapbt=0,reflink=0"
+        "-f -m crc=0,finobt=0,rmapbt=0,reflink=0 -n ftype=0"
+    )
+    for mkfs_flags in "${format_attempts[@]}"; do
+        # shellcheck disable=SC2086
+        if mkfs.xfs $mkfs_flags "$loop" >/dev/null 2>&1; then
+            if mount -o uquota,gquota "$loop" "$mnt" 2>/dev/null; then
+                xfs_mounted=1
+                _fs_log "  mounted at $mnt (mkfs.xfs $mkfs_flags)"
+                break
+            fi
+            _fs_log "  mount failed with $mkfs_flags, trying simpler format"
+        fi
+    done
+    if [[ "$xfs_mounted" -eq 0 ]]; then
+        _fs_err "XFS: all format attempts failed"
         _fs_xfs_cleanup_on_error
         return 1
     fi
-    _fs_log "  mounted at $mnt"
 
     # 5. No quotacheck needed — XFS handles this internally
 
