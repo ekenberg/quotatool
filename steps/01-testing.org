@@ -245,74 +245,54 @@ Tests that only make sense across different kernels:
 Download, extract, and prepare vendor-patched kernels for the
 test matrix. *Highly parallelizable* — each kernel is independent.
 
-** TODO 3.1 Define kernel matrix (=test/kernels/kernels.conf=)
-Format: =name|version|source_url|boot_method|notes=
+** DONE 3.1 Define kernel matrix (=test/kernels/kernels.conf=)
+Format: =name|version|boot_method|tier|source=
 
-Two tiers:
-- Legacy (<5.4, boot_method=qemu): raw QEMU + initramfs
-- Modern (≥5.4, boot_method=virtme): virtme-ng
+26 kernels across 3 tiers. Definitive matrix in =research/kernel-matrix.org=,
+operational config in =test/kernels/kernels.conf=.
 
-/Candidate list/ (refine during implementation):
+Sources:
+- Ubuntu mainline PPA (=ppa:vX.Y=): 24 kernels. Auto-discovered .deb filenames.
+  Includes XFS, quota, 9p modules. Version coverage, not vendor patches.
+- CentOS vault RPMs (=rpm:<url>=): 2 kernels (centos6, centos7).
+  Direct URLs to final update kernels. Has XFS + quota, but *no 9p module*.
+- Commented out: ubuntu-2604 (7.0, unreleased), mainline-3.0 (not on PPA).
 
-Legacy tier:
-| Name          | Kernel | Source                  |
-|---------------+--------+-------------------------|
-| centos7       | 3.10   | vault.centos.org        |
-| debian-jessie | 3.16   | snapshot.debian.org     |
-| ubuntu-1604   | 4.4    | archive.ubuntu.com     |
-| debian-stretch| 4.9    | snapshot.debian.org     |
-| ubuntu-1804   | 4.15   | archive.ubuntu.com     |
-| rhel8         | 4.18   | vault.centos.org        |
+/Verification/: =download.sh --list= shows full matrix with status.
 
-Modern tier:
-| Name            | Kernel | Source                  |
-|-----------------+--------+-------------------------|
-| ubuntu-2004     | 5.4    | archive.ubuntu.com     |
-| debian-bullseye | 5.10   | snapshot.debian.org     |
-| rhel9           | 5.14   | vault.centos.org        |
-| ubuntu-2204     | 5.15   | archive.ubuntu.com     |
-| debian-bookworm | 6.1    | snapshot.debian.org     |
-| ubuntu-2404     | 6.8    | archive.ubuntu.com     |
-| fedora-40       | 6.8    | koji.fedoraproject.org  |
-| fedora-41       | 6.12   | koji.fedoraproject.org  |
-| mainline-5.14   | 5.14   | kernel.ubuntu.com PPA  |
-| mainline-6.6    | 6.6    | kernel.ubuntu.com PPA  |
+** DONE 3.2 Write kernel download/extract scripts
+=test/kernels/download.sh= — reads kernels.conf, downloads + extracts.
+Idempotent (skips already-extracted). Records exact URLs in =SOURCE_URLS=
+file per kernel for reproducibility.
 
-/Verification/: kernels.conf is parseable, all URLs resolve.
-
-** TODO 3.2 Write kernel download/extract scripts
-=test/kernels/download.sh= — downloads .deb/.rpm, extracts
-vmlinuz + modules. Idempotent (skip already-downloaded).
-
-/Subtasks/:
-- [ ] Debian/Ubuntu path: =dpkg-deb -x= extraction
-- [ ] RHEL/Fedora/CentOS path: =rpm2cpio | cpio= extraction
-- [ ] Mainline PPA path: direct download
-- [ ] Output structure: =test/kernels/<name>/boot/vmlinuz-*=,
-      =test/kernels/<name>/lib/modules/*/=
-- [ ] Checksum verification where available
+Features implemented:
+- [X] PPA path: scrapes index, auto-discovers .deb files, handles both
+  old-style (single linux-image) and new-style (image-unsigned + modules)
+- [X] RPM path: =rpm2cpio | cpio= extraction
+- [X] Direct .deb path (for future vendor packages)
+- [X] Output structure: =test/kernels/<name>/extracted/boot/vmlinuz-*=,
+      =test/kernels/<name>/extracted/lib/modules/*/=
+- [X] =--list=, =--tier N=, =--kernel NAME=, =--force=, =--clean= options
+- [X] =SOURCE_URLS= file per kernel recording exact download URLs
 
 /Dependencies/: 3.1
 
-** TODO 3.3 Download all kernels + matching quota-tools
-Run download.sh for each kernel in kernels.conf.
-Also extract matching =repquota= binary from the same distro repo
-(needed for test verification inside VMs — see Q2).
+** DONE 3.3 Download all kernels
+All 26 kernels downloaded and extracted (~10 GB total).
 
-*Agent-parallelizable*: assign groups of kernels to separate agents:
-- Agent A: all Debian/Ubuntu kernels + quota packages (dpkg path)
-- Agent B: all RHEL/CentOS/Fedora kernels + quota packages (rpm path)
-- Agent C: mainline PPA kernels (use host repquota)
-Each agent runs independently, no shared state.
+Breakdown:
+- Tier 1: 10/10 (8 PPA + centos6 RPM + centos7 RPM)
+- Tier 2: 8/8 (all PPA)
+- Tier 3: 8/8 (all PPA; 3.16.85 amd64 failed, using 3.16.84)
+- Quota-tools (repquota) extraction: deferred (see Q2).
+  Host repquota works for PPA kernels via 9p/virtiofs sharing.
 
-/Verification/: every kernel in kernels.conf has a vmlinuz on disk,
-and legacy kernels have a matching repquota binary.
+/Verification/: =download.sh --list= shows 26/26 extracted.
 
 /Dependencies/: 3.2
 
-** TODO 3.4 Build legacy initramfs (may be eliminated by Q4)
-*Gate*: resolve Q4 first. If =vng --force-9p= works on 4.x and 3.x
-kernels, this task is unnecessary — virtme-ng handles everything.
+** DONE 3.4 Build legacy initramfs
+Q4 resolved: vng hangs on <4.9, so raw QEMU path is needed.
 
 quotatool itself needs only ONE build for all kernels (see
 =research/quotatool-build-analysis.org=): it ships its own quota
@@ -529,18 +509,63 @@ inside VM to compare.
 
 /Affects/: test suite (=t-grace-period.sh= XFS skip)
 
-** TODO Q4: virtme-ng --force-9p on 4.x kernels
-=--force-9p= tells virtme-ng to use the 9p filesystem protocol
-(available since kernel 2.6.14) instead of virtiofs (requires 5.4+)
-for sharing the host filesystem into the VM. If this works on 4.x
-kernels, we can use virtme-ng for the entire legacy tier and *skip
-building a custom initramfs entirely* (eliminates task 3.4).
+** TODO Q6: ARM/aarch64 support
+Does quotatool work on ARM? The C code uses quotactl() which is
+arch-independent, and the shipped quota structs are likely ABI-stable
+across architectures. But it hasn't been tested. Research:
+- Any arch-specific code paths in src/?
+- Would need QEMU user-mode or cross-compilation to test
+- Defer until after M1 is complete on x86_64
 
-*Test early*: download one 4.x kernel, try
-=vng --force-9p -r <vmlinuz-4.x> -- uname -r=. If it boots and
-prints the version, we're good. If not, fall back to raw QEMU.
+/Affects/: future architecture support
 
-Also test on 3.10 (oldest in matrix). If 9p works on 3.x too,
-the two-tier split may be unnecessary.
+** DONE Q4: virtme-ng --force-9p on 4.x kernels
+Resolved 2026-03-09. Results:
+- =vng --force-9p= works on kernels *>=4.9* (tested 4.9, 4.15)
+- Hangs on *<=4.4* (tested 3.12, 4.4) — virtio-serial devices
+  not supported by these kernels
+- Split point: 4.9 (not 5.4 as originally assumed)
 
-/Affects/: 1.2, 3.4 (potentially eliminates 3.4)
+*Solution*: two boot paths, both working:
+- Kernels >=4.9: virtme-ng with =--force-9p= (for 4.9-5.3)
+  or virtiofs (for >=5.4)
+- Kernels <4.9: raw QEMU + custom initramfs (busybox + init)
+  with 9p host filesystem sharing and automatic kernel module
+  detection (9p, quota modules loaded via insmod)
+
+Task 3.4 NOT eliminated — raw QEMU path implemented and working.
+Additional findings:
+- Old kernels need legacy quota path (quotacheck+quotaon instead
+  of =mkfs.ext4 -O quota=) — fs-setup.sh handles both automatically
+- Grace period restart (=-r=) broken on legacy quota path (<=4.9)
+- =su= fails in chroot under old kernels (PAM issue) — replaced
+  with =runuser= in all enforcement tests
+
+/Affects/: 1.2, 3.4 (resolved — raw QEMU path works)
+
+** TODO Q7: RHEL/CentOS vendor kernels lack 9p filesystem module
+Discovered 2026-03-09. Both CentOS 6 (2.6.32) and CentOS 7 (3.10)
+vendor kernels have NO =9p.ko= filesystem module — Red Hat never
+enables 9P_FS in their kernel config. CentOS 6 has =9pnet.ko= and
+=9pnet_virtio.ko= (network layer) but not the filesystem client.
+
+This breaks our raw QEMU boot path which relies on 9p to share the
+host filesystem into the VM.
+
+*Options*:
+1. *virtio-blk disk image*: create a disk image containing quotatool,
+   test scripts, and tools. Pass as =-drive= to QEMU. Initramfs
+   mounts the disk instead of 9p. Most portable.
+2. *NFS root*: boot with NFS rootfs. Complex, needs NFS server.
+3. *Build 9p from source*: compile 9p.ko for each vendor kernel.
+   Fragile, needs matching kernel headers.
+4. *Accept limitation*: test CentOS kernels only for boot +
+   =kern_quota_format()= detection (bake the check into initramfs).
+   Skip full test suite on kernels without 9p.
+
+Option 1 or 4 seem best. Option 4 is simplest — the critical test
+is whether =kern_quota_format()= works, which can be tested with a
+minimal program baked into initramfs without needing the full test
+framework.
+
+/Affects/: centos6, centos7 in kernels.conf, boot.sh QEMU path
