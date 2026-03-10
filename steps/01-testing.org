@@ -383,9 +383,11 @@ Re-running skips completed kernels. =--force= to re-run all.
 
 /Dependencies/: 4.1
 
-** TODO 4.3 Parallel execution (optional)
-Use GNU parallel or =xargs -P= to run multiple kernels
-simultaneously. Each kernel gets its own result file.
+** TODO 4.3 Parallel execution
+Add =run-tests.sh --jobs N= (like =make -jN=) to run N kernels
+concurrently using bash background jobs + =wait=. No external deps
+(no GNU parallel). Each kernel already writes its own result file.
+Default =--jobs 1= (sequential, current behavior).
 
 /Dependencies/: 4.1, 4.2
 

@@ -475,13 +475,17 @@ for entry in "${entries[@]}"; do
         continue
     fi
 
-    # Determine actual boot path for display
+    # Determine actual boot path for display (matches boot.sh auto-detection)
     if [[ $use_rootfs -eq 1 ]]; then
         actual_boot="qemu+rootfs"
-    elif [[ "$boot" == "qemu" ]]; then
-        actual_boot="qemu+9p"
     else
-        actual_boot="$boot"
+        # Ask boot.sh what method it would use for this kernel
+        detected=$(boot_detect_method "$vmlinuz" 2>/dev/null || echo "unknown")
+        if [[ "$detected" == "qemu" ]]; then
+            actual_boot="qemu+9p"
+        else
+            actual_boot="$detected"
+        fi
     fi
 
     # Run test suite on this kernel
@@ -500,10 +504,13 @@ for entry in "${entries[@]}"; do
                 boot_kernel "$vmlinuz" "/test/guest-run-all.sh" > "$result_file" 2>&1 || rc=$?
         fi
     else
+        # Let boot.sh auto-detect the best method based on kernel version.
+        # Don't force BOOT_METHOD from kernels.conf — boot.sh knows the
+        # version boundaries (virtme >= 5.4, QEMU < 5.4).
         if [[ "$OPT_VERBOSE" == "1" ]]; then
-            BOOT_METHOD="$boot" boot_kernel "$vmlinuz" "$GUEST_CMD" 2>&1 | tee "$result_file" || rc=${PIPESTATUS[0]}
+            boot_kernel "$vmlinuz" "$GUEST_CMD" 2>&1 | tee "$result_file" || rc=${PIPESTATUS[0]}
         else
-            BOOT_METHOD="$boot" boot_kernel "$vmlinuz" "$GUEST_CMD" > "$result_file" 2>&1 || rc=$?
+            boot_kernel "$vmlinuz" "$GUEST_CMD" > "$result_file" 2>&1 || rc=$?
         fi
     fi
 

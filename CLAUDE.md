@@ -93,6 +93,33 @@ badges. Use for categorization where helpful.
 - **Never install system packages** (dnf, pip, npm, etc.) — tell the
   user what needs installing and let them do it
 
+## Minimal Dependencies
+
+**ENFORCED**: Every tool, command, or library used must justify its
+existence. Before reaching for any external command, ask: can this be
+done with what we already require?
+
+The test framework's dependency stack is deliberately minimal:
+- **bash** — test scripts, control flow, parsing
+- **python3** — required by virtme-ng (already a hard dep)
+- **busybox** — our own static binary, used by both initramfs and vng
+- **coreutils** — basic system tools (present on every Linux)
+- **qemu / vng** — VM infrastructure (the core requirement)
+
+When writing new code:
+1. **Reuse first.** If bash, python3, or busybox can do it, use them.
+   Don't add `jq` when python3 can parse JSON. Don't add `getent`
+   when bash can read `/etc/passwd` directly.
+2. **No gratuitous dependencies.** Every new tool is a portability
+   risk, a failure mode, and a thing the user must install. Future
+   distros will drop, rename, or split packages (cf. `script` on
+   Fedora).
+3. **Think cross-distro.** Don't assume package names, group names,
+   file paths, or tool availability. What works on Debian may not
+   exist on Fedora, and vice versa. Test on both.
+4. **Degrade gracefully.** If an optional tool is missing, skip or
+   warn — don't crash.
+
 ## Complex Bash Commands
 
 **ENFORCED**: Never run multi-step or complex bash commands directly via

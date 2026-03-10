@@ -3,7 +3,7 @@
 #
 # Boots a kernel in a lightweight VM and runs a command inside it.
 # Two code paths:
-#   - Modern (>=5.4): virtme-ng with --force-9p or virtiofs
+#   - Modern (>=5.4): virtme-ng with virtiofs
 #   - Legacy (<5.4): raw QEMU with -kernel, custom initramfs, 9p share
 #
 # This is a library — source it, don't execute it.
@@ -34,12 +34,15 @@ BOOT_VERBOSE="${BOOT_VERBOSE:-0}"
 BOOT_EXTRA_ARGS="${BOOT_EXTRA_ARGS:-}"
 BOOT_DISK="${BOOT_DISK:-}"
 
-# Minimum kernel version for virtme-ng with --force-9p.
-# Q4 result: vng works with --force-9p on >=4.9, hangs on <=4.4
-# (virtio-serial devices not supported on older kernels).
-# Kernels >= 5.4 use virtiofs (default), 4.9-5.3 use --force-9p.
+# Minimum kernel version for virtme-ng.
+# Kernels >= 5.4 use vng with virtiofs (default).
+# Kernels < 5.4 use raw QEMU with our own initramfs + 9p (msize=262144).
+#
+# Previously, 4.9-5.3 used vng --force-9p, but vng's initramfs mounts
+# 9p without msize, causing older kernels (default msize=8KB) to hang
+# on newer QEMU versions (confirmed: Fedora 43 / QEMU 9.x).
+# Our QEMU path sets msize=262144 in the 9p mount, avoiding this.
 _VIRTME_MIN_VERSION="5.4"
-_VIRTME_9P_MIN_VERSION="4.9"
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -134,7 +137,7 @@ _have_kvm() {
 #
 # Decision logic:
 #   1. If BOOT_METHOD is set to "virtme" or "qemu", honour it.
-#   2. If kernel >= 4.9 and vng available: virtme (with --force-9p for <5.4).
+#   2. If kernel >= 5.4 and vng available: virtme (virtiofs).
 #   3. If kernel < 4.9: raw qemu (vng hangs due to virtio-serial).
 #   4. If vng unavailable: qemu (if available).
 #   5. Nothing available: error.
@@ -169,18 +172,14 @@ _detect_boot_method() {
     local kver
     kver=$(_extract_kernel_version "$kernel_path") || kver="unknown"
 
-    if _have_virtme && { [[ "$kver" == "unknown" ]] || _version_ge "$kver" "$_VIRTME_9P_MIN_VERSION"; }; then
-        if _version_ge "$kver" "$_VIRTME_MIN_VERSION" 2>/dev/null; then
-            _boot_log "Auto-detected: virtme (kernel $kver >= $_VIRTME_MIN_VERSION)"
-        else
-            _boot_log "Auto-detected: virtme with --force-9p (kernel $kver)"
-        fi
+    if _have_virtme && { [[ "$kver" == "unknown" ]] || _version_ge "$kver" "$_VIRTME_MIN_VERSION"; }; then
+        _boot_log "Auto-detected: virtme (kernel $kver >= $_VIRTME_MIN_VERSION)"
         echo "virtme"
         return 0
     fi
 
     if _have_qemu; then
-        _boot_log "Auto-detected: qemu (kernel $kver < $_VIRTME_9P_MIN_VERSION or vng unavailable)"
+        _boot_log "Auto-detected: qemu (kernel $kver < $_VIRTME_MIN_VERSION or vng unavailable)"
         echo "qemu"
         return 0
     fi
@@ -198,7 +197,7 @@ _detect_boot_method() {
 # virtme-ng mounts the host filesystem as a CoW overlay inside the guest.
 # The guest runs as root. Exit code propagates to the host.
 #
-# For kernels < 5.4, --force-9p is used (virtiofs requires 5.4+).
+# Only called for kernels >= 5.4 (virtiofs). Older kernels use raw QEMU.
 #
 # Args:
 #   $1 — path to vmlinuz
@@ -227,12 +226,6 @@ _boot_virtme() {
 
     # CPU count
     vng_args+=(--cpus "$BOOT_CPUS")
-
-    # Force 9p for older kernels (no virtiofs before 5.4)
-    if [[ "$kver" != "unknown" ]] && ! _version_ge "$kver" "$_VIRTME_MIN_VERSION"; then
-        _boot_log "Kernel $kver < $_VIRTME_MIN_VERSION: using --force-9p"
-        vng_args+=(--force-9p)
-    fi
 
     # Extra disk for quota test filesystems
     if [[ -n "$BOOT_DISK" ]]; then
@@ -440,7 +433,10 @@ Run: test/kernels/initramfs/build.sh"
         _collect_module_deps "quota_v2"
         # Loop device (module on some Debian/CentOS kernels, built-in elsewhere)
         _collect_module_deps "loop"
-        # ext4 filesystem + implicit deps (module on Debian 7/8, CentOS 6/7)
+        # ext4 filesystem + implicit deps (module on Debian 7/8/9/10, CentOS 6/7)
+        # fscrypto: ext4 encryption support on Debian 9/10. modinfo doesn't
+        # report it as a dependency, but modules.dep does (symbol-level dep).
+        _collect_module_deps "fscrypto"
         _collect_module_deps "crc16"
         _collect_module_deps "mbcache"
         _collect_module_deps "jbd2"
