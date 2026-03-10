@@ -36,12 +36,12 @@ BOOT_DISK="${BOOT_DISK:-}"
 
 # Minimum kernel version for virtme-ng.
 # Kernels >= 5.4 use vng with virtiofs (default).
-# Kernels < 5.4 use raw QEMU with our own initramfs + 9p (msize=262144).
+# Kernels < 5.4 use raw QEMU with our own initramfs + 9p (msize=524288).
 #
 # Previously, 4.9-5.3 used vng --force-9p, but vng's initramfs mounts
 # 9p without msize, causing older kernels (default msize=8KB) to hang
 # on newer QEMU versions (confirmed: Fedora 43 / QEMU 9.x).
-# Our QEMU path sets msize=262144 in the 9p mount, avoiding this.
+# Our QEMU path sets msize=524288 in the 9p mount, avoiding this.
 _VIRTME_MIN_VERSION="5.4"
 
 # ---------------------------------------------------------------------------
@@ -138,7 +138,7 @@ _have_kvm() {
 # Decision logic:
 #   1. If BOOT_METHOD is set to "virtme" or "qemu", honour it.
 #   2. If kernel >= 5.4 and vng available: virtme (virtiofs).
-#   3. If kernel < 4.9: raw qemu (vng hangs due to virtio-serial).
+#   3. If kernel < 5.4: raw qemu (our initramfs with msize=524288).
 #   4. If vng unavailable: qemu (if available).
 #   5. Nothing available: error.
 _detect_boot_method() {
@@ -243,8 +243,7 @@ _boot_virtme() {
     fi
 
     # The command to execute inside the VM.
-    # Pass directly — pty.spawn preserves argument boundaries, so no
-    # shell escaping needed (unlike the old script -qec approach).
+    # Pass directly — vng -e handles argument boundaries cleanly.
     vng_args+=(-e "$command")
 
     # Point vng to our static busybox so it doesn't depend on the system
@@ -292,8 +291,8 @@ _boot_virtme() {
 
 # Boot a kernel using raw QEMU and run a command inside the VM.
 #
-# For kernels too old for virtme-ng (< 4.9, where vng's virtio-serial
-# devices hang). Uses:
+# For kernels below the virtme-ng boundary (< 5.4). Also used for
+# RHEL kernels without 9p (rootfs disk mode via virtio-blk). Uses:
 #   - qemu-system-x86_64 with -kernel flag (direct boot, no bootloader)
 #   - Custom initramfs (busybox + init script)
 #   - 9p filesystem sharing: host root (read-only) + results dir (writable)
@@ -534,7 +533,8 @@ Run: test/kernels/initramfs/build.sh"
     # Use --foreground so Ctrl-C (SIGINT) reaches the timeout+qemu process
     # group from an interactive terminal. Without it, timeout runs in its
     # own process group and SIGINT from the terminal never arrives.
-    # NOTE: Do NOT use `if ! cmd; then rc=$?` — see virtme path comment.
+    # NOTE: Do NOT use `if ! cmd; then rc=$?` — under set -e, the
+    # negation suppresses the error but $? is always 0 inside `if !`.
     timeout --foreground --signal=KILL "$BOOT_TIMEOUT" \
          qemu-system-x86_64 "${qemu_args[@]}" \
          > "$output_file" 2>&1 || qemu_exit=$?

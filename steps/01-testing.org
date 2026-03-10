@@ -67,9 +67,10 @@ A function that takes a kernel path and a test script, boots QEMU,
 runs the script inside the VM, returns exit code + stdout.
 
 Two code paths:
-- *Modern (≥5.4)*: virtme-ng with =--force-9p= or virtiofs
+- *Modern (≥5.4)*: virtme-ng with virtiofs
 - *Legacy (<5.4)*: raw QEMU with =-kernel=, custom initramfs,
-  9p filesystem sharing
+  9p filesystem sharing (msize=524288)
+- *RHEL (no 9p)*: raw QEMU with virtio-blk rootfs disk image
 
 /Subtasks/:
 - [ ] Detect virtme-ng availability, fall back to raw QEMU
@@ -252,7 +253,7 @@ test matrix. *Highly parallelizable* — each kernel is independent.
 ** DONE 3.1 Define kernel matrix (=test/kernels/kernels.conf=)
 Format: =name|version|boot_method|tier|source=
 
-26 kernels across 3 tiers. Definitive matrix in =research/kernel-matrix.org=,
+25 kernels across 3 tiers. Definitive matrix in =research/kernel-matrix.org=,
 operational config in =test/kernels/kernels.conf=.
 
 Sources:
@@ -394,38 +395,43 @@ Default =--jobs 1= (sequential, current behavior).
 ** DONE 4.4 Full matrix validation
 Run complete matrix: all kernels × all tests × both filesystems.
 
-Results (2026-03-09) — 20/25 kernels tested, 5 skipped (Q7):
+Results (2026-03-10, Fedora 43) — 25 kernels, 18 pass, 7 known fail:
 
-| Kernel          | Version | Boot   | Tier | ext4 | XFS | Notes                      |
-|-----------------+---------+--------+------+------+-----+----------------------------|
-| ubuntu-2404     |     6.8 | virtme |    1 | 16/16 | 15/15+1s | Clean                  |
-| ubuntu-2204     |    5.15 | virtme |    1 | 16/16 | 15/15+1s | Clean                  |
-| ubuntu-2004     |     5.4 | virtme |    1 | 16/16 | 15/15+1s | Clean                  |
-| debian-13       |    6.12 | virtme |    1 | 16/16 | 15/15+1s | Clean                  |
-| debian-12       |     6.1 | virtme |    1 | 16/16 | 15/15+1s | Clean                  |
-| debian-11       |    5.10 | virtme |    1 | 16/16 | 15/15+1s | Clean                  |
-| ubuntu-1804     |    4.15 | virtme |    2 | 16/16 | 15/15+1s | Clean                  |
-| debian-10       |    4.19 | virtme |    2 | 16/16 | 15/15+1s | Clean                  |
-| fedora-30       |     5.0 | virtme |    2 | 16/16 | 15/15+1s | Clean                  |
-| fedora-39       |     6.5 | virtme |    2 | 16/16 | 15/15+1s | Clean                  |
-| opensuse-156    |     6.4 | virtme |    2 | 16/16 | 15/15+1s | Clean                  |
-| opensuse-152    |     5.3 | virtme |    3 | 16/16 | 15/15+1s | Clean                  |
-| mainline-5.19   |    5.19 | virtme |    3 | 16/16 | 15/15+1s | Clean                  |
-| mainline-6.2    |     6.2 | virtme |    3 | 16/16 | 15/15+1s | Clean                  |
-| opensuse-151    |    4.12 | virtme |    2 | 15/16 | 15/15+1s | grace -r fail          |
-| debian-9        |     4.9 | virtme |    2 | 15/16 | 15/15+1s | grace -r fail          |
-| ubuntu-1604     |     4.4 | qemu   |    2 | 15/16 | 15/15+1s | grace -r fail          |
-| ubuntu-1404     |    3.13 | qemu   |    3 | 15/16 | 15/15+1s | grace -r fail          |
-| debian-8        |    3.16 | qemu   |    3 | 15/16 | 15/15+1s | grace -r fail          |
-| debian-7        |     3.2 | qemu   |    3 | 15/16 | 14/15+1s | grace -r + xfs blkacct |
-| alma10          |    6.12 | qemu*  |    1 | 16/16 | 16/16 | Clean (rootfs disk)    |
-| alma9           |    5.14 | qemu*  |    1 | 16/16 | 16/16 | Clean (rootfs disk)    |
-| alma8           |    4.18 | qemu*  |    1 | 16/16 | 16/16 | Clean (rootfs disk)    |
-| centos7         |    3.10 | qemu*  |    1 | 15/16 | 16/16 | grace -r (rootfs disk) |
-| centos6         |     2.6 | qemu*  |    1 |    — |   — | unsupported: no 9p fs, glibc floor |
-| amazon-2        |    4.14 | qemu*  |    3 |    — |   — | RPM module mismatch    |
+| Kernel          | Version | Boot      | Tier | ext4  | XFS      | Notes                    |
+|-----------------+---------+-----------+------+-------+----------+--------------------------|
+| ubuntu-2404     |     6.8 | virtme    |    1 | 16/16 | 15/15+1s | Clean                    |
+| ubuntu-2204     |    5.15 | virtme    |    1 | 16/16 | 15/15+1s | Clean                    |
+| ubuntu-2004     |     5.4 | virtme    |    1 | 16/16 | 15/15+1s | Clean                    |
+| debian-13       |    6.12 | virtme    |    1 | 16/16 | 15/15+1s | Clean                    |
+| debian-12       |     6.1 | virtme    |    1 | 16/16 | 15/15+1s | Clean                    |
+| debian-11       |    5.10 | virtme    |    1 | 16/16 | 15/15+1s | Clean                    |
+| fedora-39       |     6.5 | virtme    |    2 | 16/16 | 15/15+1s | Clean                    |
+| opensuse-156    |     6.4 | virtme    |    2 | 16/16 | 15/15+1s | Clean                    |
+| mainline-6.2    |     6.2 | virtme    |    3 | 16/16 | 15/15+1s | Clean                    |
+| mainline-5.19   |    5.19 | virtme    |    3 | 16/16 | 15/15+1s | Clean                    |
+| fedora-30       |     5.0 | qemu+9p   |    2 | 16/16 | 15/15+1s | Clean                    |
+| opensuse-152    |     5.3 | qemu+9p   |    3 | 16/16 | 15/15+1s | Clean                    |
+| debian-10       |    4.19 | qemu+9p   |    2 | 16/16 | 15/15+1s | Clean                    |
+| ubuntu-1804     |    4.15 | qemu+9p   |    2 | 16/16 | 15/15+1s | Clean                    |
+| alma10          |    6.12 | qemu+root |    1 | 16/16 | 16/16    | Clean (rootfs disk)      |
+| alma9           |    5.14 | qemu+root |    1 | 16/16 | 16/16    | Clean (rootfs disk)      |
+| alma8           |    4.18 | qemu+root |    1 | 16/16 | 16/16    | Clean (rootfs disk)      |
+| amazon-2        |    4.14 | qemu+root |    3 | 16/16 | 16/16    | Clean (QEMU ≥9.x only)  |
+| opensuse-151    |    4.12 | qemu+9p   |    2 | 15/16 | 15/15+1s | grace -r fail            |
+| debian-9        |     4.9 | qemu+9p   |    2 | 15/16 | 15/15+1s | grace -r fail            |
+| ubuntu-1604     |     4.4 | qemu+9p   |    2 | 15/16 | 15/15+1s | grace -r fail            |
+| ubuntu-1404     |    3.13 | qemu+9p   |    3 | 15/16 | 15/15+1s | grace -r fail            |
+| debian-8        |    3.16 | qemu+9p   |    3 | 15/16 | 15/15+1s | grace -r fail            |
+| centos7         |    3.10 | qemu+root |    1 | 15/16 | 16/16    | grace -r (rootfs disk)   |
+| debian-7        |     3.2 | qemu+9p   |    3 | 15/16 | 14/15+1s | grace -r + xfs blkacct   |
+| centos6         |     2.6 | —         |    — |     — | —        | dropped: no 9p, glibc floor |
 
 (+1s = XFS grace period skip, expected)
+
+Verified on two hosts:
+- =piano= (Linux Mint 21, QEMU 6.2): 17 pass, 8 fail (amazon-2
+  virtio.ko fails on QEMU 6.2)
+- =forte= (Fedora 43, QEMU 9.x): 18 pass, 7 fail
 
 Known failures:
 - *Grace -r restart* (5 kernels, <=4.12): quotatool =-r= flag sets
@@ -875,25 +881,26 @@ across architectures. But it hasn't been tested. Research:
 
 /Affects/: future architecture support
 
-** DONE Q4: virtme-ng --force-9p on 4.x kernels
-Resolved 2026-03-09. Results:
+** DONE Q4: virtme-ng kernel version boundary
+Resolved 2026-03-10. Investigation and iterations:
 - =vng --force-9p= works on kernels *>=4.9* (tested 4.9, 4.15)
 - Hangs on *<=4.4* (tested 3.12, 4.4) — virtio-serial devices
   not supported by these kernels
-- Split point: 4.9 (not 5.4 as originally assumed)
+- Initial boundary: 4.9 (three-tier: virtme+virtiofs ≥5.4,
+  virtme+force-9p 4.9-5.3, raw QEMU <4.9)
+- *Revised*: force-9p eliminated. vng's initramfs mounts 9p without
+  =msize=, old kernels default to 8KB → hang on Fedora 43 / QEMU 9.x.
+  Our QEMU initramfs sets =msize=524288=. Final boundary: *5.4*.
 
-*Solution*: two boot paths, both working:
-- Kernels >=4.9: virtme-ng with =--force-9p= (for 4.9-5.3)
-  or virtiofs (for >=5.4)
-- Kernels <4.9: raw QEMU + custom initramfs (busybox + init)
-  with 9p host filesystem sharing and automatic kernel module
-  detection (9p, quota modules loaded via insmod)
+*Solution*: two boot paths:
+- Kernels >=5.4: virtme-ng with virtiofs
+- Kernels <5.4: raw QEMU + custom initramfs (busybox + init)
+  with 9p (msize=524288) and automatic kernel module loading
 
-Task 3.4 NOT eliminated — raw QEMU path implemented and working.
 Additional findings:
 - Old kernels need legacy quota path (quotacheck+quotaon instead
   of =mkfs.ext4 -O quota=) — fs-setup.sh handles both automatically
-- Grace period restart (=-r=) broken on legacy quota path (<=4.9)
+- Grace period restart (=-r=) broken on kernels ≤4.12
 - =su= fails in chroot under old kernels (PAM issue) — replaced
   with =runuser= in all enforcement tests
 
@@ -920,11 +927,11 @@ Results:
 - centos6 (2.6): unsupported — busybox fixed (musl-static), but kernel
   2.6.32 has no 9p filesystem module and host glibc (>=2.35) requires
   kernel >=3.2 for rootfs path. EOL since 2020, dropped from matrix.
-- amazon-2 (4.14): blocked — RPM module/kernel symbol mismatch
-  (=virtio_break_device= not in vmlinuz). Likely needs companion
-  package. Tier 3, low priority.
+- amazon-2 (4.14): 32/32 pass on QEMU ≥9.x (Fedora 43). Fails on
+  QEMU 6.2 (Mint 21) — =virtio.ko= insmod "unknown symbol". QEMU
+  version–dependent; tier 3.
 
-/Affects/: resolved for centos7, alma8/9/10. centos6 dropped, amazon-2 pending.
+/Affects/: resolved for all. centos6 dropped.
 
 ** TODO Q8: Binary output location (=./quotatool= vs =src/quotatool=)
 Currently =make= places the binary at project root (=./quotatool=).

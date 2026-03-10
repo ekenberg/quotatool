@@ -490,20 +490,3 @@ fs_teardown_all() {
     return 0
 }
 
-# ---------------------------------------------------------------------------
-# fs_list — list currently tracked filesystems (for debugging)
-# ---------------------------------------------------------------------------
-
-fs_list() {
-    if [[ ${#_FS_REGISTRY[@]} -eq 0 ]]; then
-        echo "fs-setup: no tracked filesystems"
-        return 0
-    fi
-    echo "fs-setup: tracked filesystems:"
-    local mnt
-    for mnt in "${!_FS_REGISTRY[@]}"; do
-        local entry="${_FS_REGISTRY[$mnt]}"
-        IFS='|' read -r loop img fstype <<< "$entry"
-        echo "  $mnt  [$fstype]  loop=$loop  img=$img"
-    done
-}
