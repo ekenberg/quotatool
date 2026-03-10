@@ -415,6 +415,8 @@ skipped=0
 declare -a failed_names=()
 declare -a skipped_names=()
 
+_start_time=$SECONDS
+
 echo -e "${BOLD}quotatool multi-kernel test suite${NC}"
 echo -e "Kernels: ${#entries[@]} in matrix"
 echo -e "Tests: $(ls "$SCRIPT_DIR/tests"/t-*.sh 2>/dev/null | wc -l) test scripts × 2 filesystems"
@@ -533,9 +535,13 @@ for entry in "${entries[@]}"; do
     fi
 done
 
+_elapsed=$(( SECONDS - _start_time ))
+_min=$(( _elapsed / 60 ))
+_sec=$(( _elapsed % 60 ))
+
 echo ""
 echo "========================================================================"
-echo -e "Results: ${GREEN}${passed} passed${NC}, ${RED}${failed} failed${NC}, ${YELLOW}${skipped} skipped${NC}"
+echo -e "Results: ${GREEN}${passed} passed${NC}, ${RED}${failed} failed${NC}, ${YELLOW}${skipped} skipped${NC}  (${_min}m ${_sec}s)"
 [[ ${#failed_names[@]} -gt 0 ]] && echo -e "Failed: ${RED}${failed_names[*]}${NC}"
 [[ ${#skipped_names[@]} -gt 0 ]] && echo -e "Skipped: ${YELLOW}${skipped_names[*]}${NC}"
 echo ""
