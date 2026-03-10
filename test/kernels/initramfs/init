@@ -93,7 +93,7 @@ fi
 # Read-write to match vng behavior (CoW overlay). Tests only write to
 # /tmp and loop devices, so host files are not modified in practice.
 mkdir -p /mnt/host
-mount -t 9p -o trans=virtio,version=9p2000.L,msize=262144 hostroot /mnt/host
+mount -t 9p -o trans=virtio,version=9p2000.L,msize=524288 hostroot /mnt/host
 if [ $? -ne 0 ]; then
     # Try without msize (older kernels may not support it)
     mount -t 9p -o trans=virtio,version=9p2000.L hostroot /mnt/host
@@ -105,7 +105,7 @@ fi
 
 # Step 4: mount results share (writable)
 mkdir -p /mnt/results
-mount -t 9p -o trans=virtio,version=9p2000.L,msize=262144 results /mnt/results 2>/dev/null \
+mount -t 9p -o trans=virtio,version=9p2000.L,msize=524288 results /mnt/results 2>/dev/null \
     || mount -t 9p -o trans=virtio,version=9p2000.L results /mnt/results
 
 # Step 5: overlay writable areas on top of the read-only host mount
