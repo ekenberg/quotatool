@@ -7,6 +7,7 @@
 #
 # Usage:
 #   ./run-tests.sh                    # run all kernels
+#   ./run-tests.sh --jobs 4           # run 4 kernels in parallel
 #   ./run-tests.sh --tier 1           # run tier 1 only
 #   ./run-tests.sh --kernel alma8     # run one kernel
 #   ./run-tests.sh --host-only        # run on host kernel only (fast)
@@ -55,6 +56,27 @@ has_9p() {
     return 1
 }
 
+# Print result line for a completed kernel test.
+# Args: $1=name $2=version $3=boot_path $4=exit_code
+_print_result() {
+    local name="$1" version="$2" actual_boot="$3" rc="$4"
+    local result_file="$RESULTS_DIR/${name}.log"
+
+    printf "%-20s %-8s %-12s " "$name" "$version" "$actual_boot"
+    if [[ $rc -eq 0 ]]; then
+        local summary
+        summary=$(grep -E '^Results:' "$result_file" 2>/dev/null | tail -1 || true)
+        echo -e "${GREEN}PASS${NC} $summary"
+    elif [[ $rc -eq 124 || $rc -eq 137 ]]; then
+        echo -e "${RED}TIMEOUT${NC} (${OPT_TIMEOUT}s)"
+    else
+        local failures
+        failures=$(grep -E '^  FAIL:' "$result_file" 2>/dev/null | head -5 || true)
+        echo -e "${RED}FAIL${NC} (exit $rc)"
+        [[ -n "$failures" ]] && echo "$failures" | sed 's/^/    /'
+    fi
+}
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -73,12 +95,13 @@ Options:
                   per boot path (virtme, QEMU+9p, QEMU+rootfs) and
                   runs a minimal test on each. Use after --setup.
   --list          Show all kernels with boot method, tier, and status
+  --jobs N        Run N kernels in parallel (default: 1 = sequential)
   --tier N        Only run kernels of tier N (1, 2, or 3)
                   Tiers: 1=actively supported, 2=recently EOL, 3=historical
   --kernel NAME   Only run the named kernel
   --host-only     Run tests on the host kernel only (no VMs, fast)
-  --timeout SECS  Per-kernel timeout in seconds (default: 300)
-  -v, --verbose   Verbose boot output
+  --timeout SECS  Per-kernel timeout in seconds (default: 120)
+  -v, --verbose   Verbose boot output (forces --jobs 1)
   -h, --help      Show this help
 EOF
 }
@@ -91,12 +114,15 @@ OPT_SMOKE=0
 OPT_LIST=0
 OPT_TIMEOUT="120"
 OPT_VERBOSE="0"
+OPT_JOBS=1
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --setup)     OPT_SETUP=1; shift ;;
         --smoke)     OPT_SMOKE=1; shift ;;
         --list)      OPT_LIST=1; shift ;;
+        --jobs)      OPT_JOBS="$2"; shift 2 ;;
+        -j)          OPT_JOBS="$2"; shift 2 ;;
         --tier)      OPT_TIER="$2"; shift 2 ;;
         --kernel)    OPT_KERNEL="$2"; shift 2 ;;
         --host-only) OPT_HOST_ONLY=1; shift ;;
@@ -106,6 +132,11 @@ while [[ $# -gt 0 ]]; do
         *) echo "Unknown option: $1" >&2; exit 1 ;;
     esac
 done
+
+# Verbose forces sequential (interleaved output is useless)
+if [[ "$OPT_VERBOSE" == "1" && $OPT_JOBS -gt 1 ]]; then
+    OPT_JOBS=1
+fi
 
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 QUOTATOOL="$PROJECT_DIR/quotatool"
@@ -445,7 +476,18 @@ else
     echo -e "Kernels: ${#entries[@]} in matrix"
 fi
 echo -e "Tests: $(ls "$SCRIPT_DIR/tests"/t-*.sh 2>/dev/null | wc -l) test scripts × 2 filesystems"
+[[ $OPT_JOBS -gt 1 ]] && echo -e "Jobs: ${OPT_JOBS} parallel"
 echo ""
+
+# ---------------------------------------------------------------------------
+# Phase 1: Collect runnable kernels, handle skips
+# ---------------------------------------------------------------------------
+
+declare -a run_names=()
+declare -A run_version=()
+declare -A run_boot=()
+declare -A run_vmlinuz=()
+declare -A run_rootfs=()
 
 for entry in "${entries[@]}"; do
     IFS='|' read -r name version boot tier source <<< "$entry"
@@ -506,7 +548,6 @@ for entry in "${entries[@]}"; do
     if [[ $use_rootfs -eq 1 ]]; then
         actual_boot="qemu+rootfs"
     else
-        # Ask boot.sh what method it would use for this kernel
         detected=$(boot_detect_method "$vmlinuz" 2>/dev/null || echo "unknown")
         if [[ "$detected" == "qemu" ]]; then
             actual_boot="qemu+9p"
@@ -515,50 +556,123 @@ for entry in "${entries[@]}"; do
         fi
     fi
 
-    # Run test suite on this kernel
-    printf "%-20s %-8s %-12s " "$name" "$version" "$actual_boot"
-
-    result_file="$RESULTS_DIR/${name}.log"
-    rc=0
-    [[ "$OPT_VERBOSE" == "1" ]] && echo ""
-    if [[ $use_rootfs -eq 1 ]]; then
-        # Rootfs mode: force QEMU (virtme needs 9p), use rootfs command path
-        if [[ "$OPT_VERBOSE" == "1" ]]; then
-            BOOT_METHOD=qemu BOOT_ROOTFS="$rootfs_img" \
-                boot_kernel "$vmlinuz" "/test/guest-run-all.sh" 2>&1 | tee "$result_file" || rc=${PIPESTATUS[0]}
-        else
-            BOOT_METHOD=qemu BOOT_ROOTFS="$rootfs_img" \
-                boot_kernel "$vmlinuz" "/test/guest-run-all.sh" > "$result_file" 2>&1 || rc=$?
-        fi
-    else
-        # Let boot.sh auto-detect the best method based on kernel version.
-        # Don't force BOOT_METHOD from kernels.conf — boot.sh knows the
-        # version boundaries (virtme >= 5.4, QEMU < 5.4).
-        if [[ "$OPT_VERBOSE" == "1" ]]; then
-            boot_kernel "$vmlinuz" "$GUEST_CMD" 2>&1 | tee "$result_file" || rc=${PIPESTATUS[0]}
-        else
-            boot_kernel "$vmlinuz" "$GUEST_CMD" > "$result_file" 2>&1 || rc=$?
-        fi
-    fi
-
-    if [[ $rc -eq 0 ]]; then
-        # Extract pass/fail counts from guest output
-        summary=$(grep -E '^Results:' "$result_file" | tail -1 || true)
-        echo -e "${GREEN}PASS${NC} $summary"
-        passed=$((passed + 1))
-    elif [[ $rc -eq 124 ]]; then
-        echo -e "${RED}TIMEOUT${NC} (${OPT_TIMEOUT}s)"
-        failed=$((failed + 1))
-        failed_names+=("$name")
-    else
-        # Extract failure details
-        failures=$(grep -E '^  FAIL:' "$result_file" | head -5 || true)
-        echo -e "${RED}FAIL${NC} (exit $rc)"
-        [[ -n "$failures" ]] && echo "$failures" | sed 's/^/    /'
-        failed=$((failed + 1))
-        failed_names+=("$name")
-    fi
+    # Add to run list
+    run_names+=("$name")
+    run_version[$name]="$version"
+    run_boot[$name]="$actual_boot"
+    run_vmlinuz[$name]="$vmlinuz"
+    run_rootfs[$name]="$use_rootfs"
 done
+
+# ---------------------------------------------------------------------------
+# Phase 2: Run tests
+# ---------------------------------------------------------------------------
+
+# Run a single kernel test, writing output to .log and exit code to .rc
+_run_kernel() {
+    local name="$1"
+    local vmlinuz="${run_vmlinuz[$name]}"
+    local use_rootfs="${run_rootfs[$name]}"
+    local result_file="$RESULTS_DIR/${name}.log"
+    local rc=0
+
+    if [[ $use_rootfs -eq 1 ]]; then
+        BOOT_METHOD=qemu BOOT_ROOTFS="$rootfs_img" \
+            boot_kernel "$vmlinuz" "/test/guest-run-all.sh" > "$result_file" 2>&1 || rc=$?
+    else
+        boot_kernel "$vmlinuz" "$GUEST_CMD" > "$result_file" 2>&1 || rc=$?
+    fi
+    echo "$rc" > "$RESULTS_DIR/${name}.rc"
+}
+
+if [[ $OPT_JOBS -le 1 ]]; then
+    # --- Sequential mode: real-time output per kernel ---
+    for name in "${run_names[@]}"; do
+        result_file="$RESULTS_DIR/${name}.log"
+        rc=0
+        [[ "$OPT_VERBOSE" == "1" ]] && echo ""
+        if [[ ${run_rootfs[$name]} -eq 1 ]]; then
+            if [[ "$OPT_VERBOSE" == "1" ]]; then
+                BOOT_METHOD=qemu BOOT_ROOTFS="$rootfs_img" \
+                    boot_kernel "${run_vmlinuz[$name]}" "/test/guest-run-all.sh" 2>&1 | tee "$result_file" || rc=${PIPESTATUS[0]}
+            else
+                BOOT_METHOD=qemu BOOT_ROOTFS="$rootfs_img" \
+                    boot_kernel "${run_vmlinuz[$name]}" "/test/guest-run-all.sh" > "$result_file" 2>&1 || rc=$?
+            fi
+        else
+            if [[ "$OPT_VERBOSE" == "1" ]]; then
+                boot_kernel "${run_vmlinuz[$name]}" "$GUEST_CMD" 2>&1 | tee "$result_file" || rc=${PIPESTATUS[0]}
+            else
+                boot_kernel "${run_vmlinuz[$name]}" "$GUEST_CMD" > "$result_file" 2>&1 || rc=$?
+            fi
+        fi
+
+        _print_result "$name" "${run_version[$name]}" "${run_boot[$name]}" "$rc"
+
+        if [[ $rc -eq 0 ]]; then
+            passed=$((passed + 1))
+        else
+            failed=$((failed + 1))
+            failed_names+=("$name")
+        fi
+    done
+else
+    # --- Parallel mode: launch up to N jobs, collect results after ---
+    declare -A job_pids=()  # pid -> kernel_name
+    _completed=0
+    _total=${#run_names[@]}
+
+    # Clean up stale .rc files
+    rm -f "$RESULTS_DIR"/*.rc
+
+    for name in "${run_names[@]}"; do
+        # Throttle: wait for a slot if at job limit
+        while [[ $(jobs -rp | wc -l) -ge $OPT_JOBS ]]; do
+            # Wait for any one job to finish
+            wait -n 2>/dev/null || true
+            _completed=$(ls "$RESULTS_DIR"/*.rc 2>/dev/null | wc -l)
+            printf "\r  Running: %d/%d completed" "$_completed" "$_total"
+        done
+
+        # Launch in background subshell (set +e so the subshell doesn't
+        # exit on boot_kernel failure — we capture rc in .rc file)
+        ( set +e; _run_kernel "$name" ) &
+        job_pids[$!]="$name"
+    done
+
+    # Wait for all remaining jobs
+    while [[ $(ls "$RESULTS_DIR"/*.rc 2>/dev/null | wc -l) -lt $_total ]]; do
+        wait -n 2>/dev/null || true
+        _completed=$(ls "$RESULTS_DIR"/*.rc 2>/dev/null | wc -l)
+        printf "\r  Running: %d/%d completed" "$_completed" "$_total"
+    done
+    wait 2>/dev/null || true
+    printf "\r  Running: %d/%d completed\n\n" "$_total" "$_total"
+
+    # Print results in matrix order
+    for name in "${run_names[@]}"; do
+        rc=1
+        if [[ -f "$RESULTS_DIR/${name}.rc" ]]; then
+            rc=$(cat "$RESULTS_DIR/${name}.rc")
+        fi
+
+        _print_result "$name" "${run_version[$name]}" "${run_boot[$name]}" "$rc"
+
+        if [[ $rc -eq 0 ]]; then
+            passed=$((passed + 1))
+        else
+            failed=$((failed + 1))
+            failed_names+=("$name")
+        fi
+    done
+
+    # Clean up .rc files
+    rm -f "$RESULTS_DIR"/*.rc
+fi
+
+# ---------------------------------------------------------------------------
+# Summary
+# ---------------------------------------------------------------------------
 
 _elapsed=$(( SECONDS - _start_time ))
 _min=$(( _elapsed / 60 ))
