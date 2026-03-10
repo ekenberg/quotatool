@@ -113,14 +113,30 @@ Tasks:
 Result: same confidence level for BSD as we have for Linux.
 "Run one command, get results on FreeBSD and OpenBSD."
 
-*** M2b: Drop Dead Platforms (building — first code changes)
+*** M2b: Document Platform Decisions
 
-With test coverage on the survivors, safely remove the dead:
+Before removing code, document *why* each platform is dropped.
+quotatool is packaged in Homebrew and MacPorts — dropping macOS
+needs a clear public explanation, not just a commit message.
 
-Drop: macOS (APFS killed quotas), AIX (no users, can't test),
-Solaris (everyone uses ZFS), NetBSD (broke their own quotactl API).
+Write =PLATFORM-CHANGES.md= (or section in README) covering:
+- *macOS*: APFS replaced HFS+ as default (2017). APFS has no
+  traditional quota support. The quotactl() interface quotatool
+  uses doesn't work on APFS. No path forward — not a temporary gap.
+- *AIX*: no accessible test environment, no known users, IBM's
+  proprietary JFS2 quota API has diverged.
+- *Solaris/illumos*: ZFS is the standard filesystem. ZFS has its own
+  quota system (=zfs set quota==) that doesn't use quotactl().
+- *NetBSD*: broke their quotactl API (=__quotactl=) in a way that's
+  incompatible with quotatool's approach. Would need a full rewrite
+  of the NetBSD backend.
+- *FreeBSD, OpenBSD*: kept. Active projects, standard UFS quotas,
+  quotatool works.
 
-Keep: Linux, FreeBSD, OpenBSD.
+*** M2c: Drop Dead Platforms (building — first code changes)
+
+With test coverage on the survivors and rationale documented,
+safely remove the dead.
 
 For each drop:
 1. Remove =src/<platform>/= code
@@ -130,7 +146,7 @@ For each drop:
 
 Result: smaller, honest codebase. Updated README, configure, Makefile.
 
-*** M2c: CI Setup (scaffolding)
+*** M2d: CI Setup (scaffolding)
 
 Now that all surviving platforms have local tests, wrap them in CI:
 - GitHub Actions: Linux multi-kernel matrix
@@ -141,11 +157,16 @@ automatically tested on all platforms.
 
 Inputs: =research/other-os-relevance.org=
 
+-----
+
+*→ Release 1.7.0 after M2* — see Roadmap below.
+
+-----
+
 ** M3: Bug Fixes & Codebase Cleanup [step-plan: steps/03-cleanup.org]
 /Status: NOT STARTED/
 
-First real code changes beyond platform drops. The test framework
-catches any regressions.
+Bug fixes and cleanup, verified by the full test suite.
 
 Priority fixes:
 - *Grace period restart (-r)*: broken on kernels ≤4.12 — sets grace
@@ -181,11 +202,55 @@ container storage, web hosting docroots, CI build directories.
 
 Inputs: =research/linux-kernel-quota-api.org=
 
-** M6: Release and Documentation [step-plan: steps/06-release.org]
+-----
+
+*→ Release 1.8.0 after M5* — see Roadmap below.
+
+-----
+
+** M6: Release Mechanics [step-plan: steps/06-release.org]
 /Status: NOT STARTED/
 
-Tag releases, update README, man page, and any project documentation
-to reflect the new state. Announce if appropriate.
+Ongoing release process. Applied at each release point, not a
+one-time milestone. Covers:
+- Tagging, changelog, version bump
+- Man page updates
+- README updates (tested kernel matrix, platform support)
+- Notify downstream packagers (Debian, Fedora, Homebrew, etc.)
+
+* Roadmap
+
+** v1.7.0 — Platform Focus (after M2)
+
+The "honest codebase" release. Drops unsupported platforms,
+adds test infrastructure, CI.
+
+What's in it:
+- Multi-kernel test framework (25 Linux kernels, ext4 + XFS)
+- BSD test coverage (FreeBSD, OpenBSD)
+- CI: GitHub Actions (Linux), Cirrus CI (BSD)
+- Drop macOS, AIX, Solaris, NetBSD (with documented rationale)
+- Tested kernel matrix documented in README
+
+What's NOT in it: no functional changes to quotatool itself.
+Same features as 1.6.5, just fewer platforms and fully tested.
+
+Notify Homebrew/MacPorts maintainers *before* release.
+
+** v1.7.x — Patch releases (during M3)
+
+Bug fixes, each with its own patch release:
+- Grace period restart (-r) fix
+- XFS grace period display fix
+- Any regressions caught by the new test suite
+- Codebase cleanup (no user-visible changes)
+
+** v1.8.0 — Feature Release (after M5)
+
+New capabilities:
+- =quotactl_fd()= support — tmpfs and bcachefs quotas (kernel 5.14+)
+- =-p= flag for project quotas (directory tree quotas)
+- Updated kernel test matrix
 
 * Principles
 
