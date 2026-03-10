@@ -38,6 +38,16 @@ ok()   { echo -e "${GREEN}OK${NC} $*"; }
 warn() { echo -e "${YELLOW}WARN${NC} $*"; }
 skip() { echo -e "  ${YELLOW}SKIP${NC} $*"; }
 
+# Safe download: writes to .tmp, renames on success.
+# Partial downloads from timeouts/errors never get the final name.
+# Args: $1=URL, $2=destination file path
+safe_download() {
+    local url="$1" dest="$2"
+    curl -fSL --progress-bar -o "${dest}.tmp" "$url" \
+        || { rm -f "${dest}.tmp"; die "Failed to download $url"; }
+    mv "${dest}.tmp" "$dest"
+}
+
 # Parse kernels.conf, emit: name|version|boot_method|tier|source
 # Skips comments and blank lines.
 parse_conf() {
@@ -151,8 +161,7 @@ download_ppa() {
     local image_file="$dest/$image_basename"
     if [[ ! -f "$image_file" ]]; then
         info "  Downloading: $image_basename"
-        curl -fSL --progress-bar -o "$image_file" "$image_url" \
-            || die "Failed to download $image_url"
+        safe_download "$image_url" "$image_file"
     else
         skip "$image_basename (already downloaded)"
     fi
@@ -166,8 +175,7 @@ download_ppa() {
         modules_file="$dest/$modules_basename"
         if [[ ! -f "$modules_file" ]]; then
             info "  Downloading: $modules_basename"
-            curl -fSL --progress-bar -o "$modules_file" "$modules_url" \
-                || die "Failed to download $modules_url"
+            safe_download "$modules_url" "$modules_file"
         else
             skip "$modules_basename (already downloaded)"
         fi
@@ -235,8 +243,7 @@ download_rpm() {
         local filepath="$dest/$filename"
         if [[ ! -f "$filepath" ]]; then
             info "  Downloading: $filename"
-            curl -fSL --progress-bar -o "$filepath" "$url" \
-                || die "Failed to download $url"
+            safe_download "$url" "$filepath"
         else
             skip "$filename (already downloaded)"
         fi
@@ -284,8 +291,7 @@ download_deb() {
         local filepath="$dest/$filename"
         if [[ ! -f "$filepath" ]]; then
             info "  Downloading: $filename"
-            curl -fSL --progress-bar -o "$filepath" "$url" \
-                || die "Failed to download $url"
+            safe_download "$url" "$filepath"
         else
             skip "$filename (already downloaded)"
         fi
@@ -420,6 +426,8 @@ cmd_download() {
             downloaded=$((downloaded + 1))
         else
             warn "$name: download failed (exit $rc)"
+            # Clean up partial extraction so retry doesn't skip this kernel
+            rm -rf "$SCRIPT_DIR/$name/extracted"
             failed=$((failed + 1))
         fi
     done
