@@ -32,14 +32,30 @@ and low-effort.
 - Packaged in Debian, Ubuntu, Fedora, EPEL, Gentoo, openSUSE, Homebrew
 - Latest release: v1.6.5 (July 2024)
 
+* Strategy: Scaffolding Before Building
+
+Two phases of work, deliberately separated:
+
+*Scaffolding* (M1-M2a): build complete test coverage for every
+platform we're keeping. No quotatool code changes — only test
+infrastructure. When this is done, every future change is verified
+automatically. Invest here first.
+
+*Building* (M2b-M6): change actual quotatool code — drop platforms,
+fix bugs, add features, release. Every change is safe because the
+scaffolding catches regressions.
+
+The line between scaffolding and building is where we start touching
+=src/=. Everything before that is investment in confidence.
+
 * Milestones
 
 Each milestone is a discrete chunk of work that produces a
 concrete, verifiable result. Order matters — later milestones
 build on earlier ones.
 
-** M1: Multi-Kernel Test Framework [step-plan: steps/01-testing.org]
-/Status: PLANNING/
+** M1: Linux Test Framework [step-plan: steps/01-testing.org]
+/Status: ACTIVE — core done, polish remaining/
 
 The critical enabler for everything else. Without this, no change
 can be made with confidence.
@@ -51,42 +67,95 @@ Decisions made:
 - *Multi-kernel testing is the core*: kernel version differences
   (including vendor patches) are the primary bug source. This is
   the #1 testing dimension, not an afterthought.
-- *Two-tier boot*: virtme-ng (fast, automatic) for kernels ≥5.4;
-  raw QEMU + custom initramfs for legacy kernels (3.x, 4.x).
+- *Two-tier boot*: virtme-ng (virtiofs) for kernels ≥5.4;
+  raw QEMU + custom initramfs (9p, msize=524288) for <5.4.
+  RHEL kernels without 9p: virtio-blk rootfs disk image.
 - *Loopback filesystem pattern*: create image → format → mount
   with quotas → test → verify via repquota → teardown.
 
-Goals:
-- Achieve: "clone repo, run one command, get full test results
-  across 15-20 kernel versions"
-- Cover kernel versions from 3.10 (CentOS 7) through latest
-- Test both ext4 and XFS on each kernel
-- CI wrapper as optional convenience layer (GitHub Actions)
-- BSD testing via Cirrus CI (FreeBSD, OpenBSD)
+Achieved:
+- Clone repo → =run-tests.sh --setup= → full results across 25 kernels
+- Validated on 3 hosts (2× Mint 21, 1× Fedora 43)
+- 16 tests × 2 filesystems (ext4, XFS) × 25 kernels
+- All failures are known quotatool bugs, not framework issues
+
+Remaining (polish, not blocking M2):
+- Parallel execution (=--jobs N=, task 4.3)
+- Checkpoint/reentrance (task 4.2)
+- CI wrapper (Phase 5 — defer to after M2)
 
 Inputs: =research/testing-infrastructure.org=,
         =research/multi-kernel-testing.org=
 
-** M2: Drop Dead Platforms [step-plan: steps/02-platform-drops.org]
+** M2: Platform Testing & Cleanup [step-plan: steps/02-platforms.org]
 /Status: NOT STARTED/
 
-Remove support for platforms that are dead, broken, or irrelevant.
-This simplifies the codebase and reduces the test matrix.
+Two phases — scaffolding first, then building.
+
+*** M2a: BSD Test Coverage (scaffolding)
+
+Before dropping any platform, establish test coverage for the
+platforms we're *keeping*. You don't delete code you can't test.
+
+FreeBSD and OpenBSD use entirely different code paths (=src/freebsd/=,
+=src/openbsd/=), different syscalls (=quotactl()= on FreeBSD,
+=quota_set()= on OpenBSD), and UFS filesystem. None of this is
+currently tested.
+
+Tasks:
+- Research BSD quota APIs, filesystem setup, VM options
+- FreeBSD test path: QEMU + FreeBSD image, or Cirrus CI (free)
+- OpenBSD test path: QEMU + OpenBSD image, or Cirrus CI
+- Adapt test scripts: UFS quota setup, BSD-compatible commands
+- Reuse existing test logic where possible (limits, grace, etc.)
+- Verify: quotatool builds and passes basic tests on FreeBSD + OpenBSD
+
+Result: same confidence level for BSD as we have for Linux.
+"Run one command, get results on FreeBSD and OpenBSD."
+
+*** M2b: Drop Dead Platforms (building — first code changes)
+
+With test coverage on the survivors, safely remove the dead:
 
 Drop: macOS (APFS killed quotas), AIX (no users, can't test),
 Solaris (everyone uses ZFS), NetBSD (broke their own quotactl API).
 
 Keep: Linux, FreeBSD, OpenBSD.
 
+For each drop:
+1. Remove =src/<platform>/= code
+2. Update =configure.ac=, =Makefile.am=
+3. Run full test suite (Linux + BSD) — verify no regressions
+4. Commit per platform (atomic, revertible)
+
 Result: smaller, honest codebase. Updated README, configure, Makefile.
+
+*** M2c: CI Setup (scaffolding)
+
+Now that all surviving platforms have local tests, wrap them in CI:
+- GitHub Actions: Linux multi-kernel matrix
+- Cirrus CI: FreeBSD, OpenBSD
+
+This is the final scaffolding task. After this, every PR is
+automatically tested on all platforms.
 
 Inputs: =research/other-os-relevance.org=
 
-** M3: Codebase Cleanup [step-plan: steps/03-cleanup.org]
+** M3: Bug Fixes & Codebase Cleanup [step-plan: steps/03-cleanup.org]
 /Status: NOT STARTED/
 
-With dead platforms removed and tests in place, clean up what remains.
+First real code changes beyond platform drops. The test framework
+catches any regressions.
 
+Priority fixes:
+- *Grace period restart (-r)*: broken on kernels ≤4.12 — sets grace
+  to 0 instead of restarting. Confirmed quotatool bug, 7 kernels
+  affected. Fix and verify with the multi-kernel matrix.
+- *XFS grace period display*: =-d= reports =block_grace=0= after
+  setting grace on XFS. Possibly a display bug or =-t= not reaching
+  XFS properly (Q5 in =steps/01-testing.org=).
+
+Cleanup:
 - Remove dead code, commented debug blocks
 - Static analysis (cppcheck, scan-build)
 - Fix known issues (e.g. mixed indentation)
