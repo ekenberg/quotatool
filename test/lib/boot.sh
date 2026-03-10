@@ -40,7 +40,7 @@ BOOT_DISK="${BOOT_DISK:-}"
 #
 # Previously, 4.9-5.3 used vng --force-9p, but vng's initramfs mounts
 # 9p without msize, causing older kernels (default msize=8KB) to hang
-# on newer QEMU versions (confirmed: Fedora 43 / QEMU 9.x).
+# on newer QEMU versions (confirmed: Fedora 43).
 # Our QEMU path sets msize=524288 in the 9p mount, avoiding this.
 _VIRTME_MIN_VERSION="5.4"
 

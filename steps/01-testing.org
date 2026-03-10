@@ -395,7 +395,7 @@ Default =--jobs 1= (sequential, current behavior).
 ** DONE 4.4 Full matrix validation
 Run complete matrix: all kernels × all tests × both filesystems.
 
-Results (2026-03-10, Fedora 43) — 25 kernels, 18 pass, 7 known fail:
+Results (2026-03-10, verified on two hosts):
 
 | Kernel          | Version | Boot      | Tier | ext4  | XFS      | Notes                    |
 |-----------------+---------+-----------+------+-------+----------+--------------------------|
@@ -416,7 +416,7 @@ Results (2026-03-10, Fedora 43) — 25 kernels, 18 pass, 7 known fail:
 | alma10          |    6.12 | qemu+root |    1 | 16/16 | 16/16    | Clean (rootfs disk)      |
 | alma9           |    5.14 | qemu+root |    1 | 16/16 | 16/16    | Clean (rootfs disk)      |
 | alma8           |    4.18 | qemu+root |    1 | 16/16 | 16/16    | Clean (rootfs disk)      |
-| amazon-2        |    4.14 | qemu+root |    3 | 16/16 | 16/16    | Clean (QEMU ≥9.x only)  |
+| amazon-2        |    4.14 | qemu+root |    3 | 16/16 | 16/16    | QEMU version–dependent   |
 | opensuse-151    |    4.12 | qemu+9p   |    2 | 15/16 | 15/15+1s | grace -r fail            |
 | debian-9        |     4.9 | qemu+9p   |    2 | 15/16 | 15/15+1s | grace -r fail            |
 | ubuntu-1604     |     4.4 | qemu+9p   |    2 | 15/16 | 15/15+1s | grace -r fail            |
@@ -429,9 +429,11 @@ Results (2026-03-10, Fedora 43) — 25 kernels, 18 pass, 7 known fail:
 (+1s = XFS grace period skip, expected)
 
 Verified on two hosts:
-- =piano= (Linux Mint 21, QEMU 6.2): 17 pass, 8 fail (amazon-2
-  virtio.ko fails on QEMU 6.2)
-- =forte= (Fedora 43, QEMU 9.x): 18 pass, 7 fail
+- =piano= (Linux Mint 21, QEMU 6.2)
+- =forte= (Fedora 43, QEMU 10.x)
+
+All failures are known issues (grace -r on ≤4.12, XFS blkacct on
+3.2, amazon-2 QEMU version). No unknown regressions.
 
 Known failures:
 - *Grace -r restart* (5 kernels, <=4.12): quotatool =-r= flag sets
@@ -889,7 +891,7 @@ Resolved 2026-03-10. Investigation and iterations:
 - Initial boundary: 4.9 (three-tier: virtme+virtiofs ≥5.4,
   virtme+force-9p 4.9-5.3, raw QEMU <4.9)
 - *Revised*: force-9p eliminated. vng's initramfs mounts 9p without
-  =msize=, old kernels default to 8KB → hang on Fedora 43 / QEMU 9.x.
+  =msize=, old kernels default to 8KB → hang on Fedora 43.
   Our QEMU initramfs sets =msize=524288=. Final boundary: *5.4*.
 
 *Solution*: two boot paths:
@@ -927,9 +929,9 @@ Results:
 - centos6 (2.6): unsupported — busybox fixed (musl-static), but kernel
   2.6.32 has no 9p filesystem module and host glibc (>=2.35) requires
   kernel >=3.2 for rootfs path. EOL since 2020, dropped from matrix.
-- amazon-2 (4.14): 32/32 pass on QEMU ≥9.x (Fedora 43). Fails on
-  QEMU 6.2 (Mint 21) — =virtio.ko= insmod "unknown symbol". QEMU
-  version–dependent; tier 3.
+- amazon-2 (4.14): passes on Fedora 43 (QEMU 10.x), fails on Mint 21
+  (QEMU 6.2) — =virtio.ko= insmod "unknown symbol". Exact QEMU
+  version boundary unknown. Tier 3.
 
 /Affects/: resolved for all. centos6 dropped.
 
