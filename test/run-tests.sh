@@ -56,6 +56,15 @@ has_9p() {
     return 1
 }
 
+# Check if a kernel has a cached pass result from a previous run.
+# Returns 0 (true) if results/<name>.log exists and shows 0 failures.
+_is_cached_pass() {
+    local name="$1"
+    local result_file="$RESULTS_DIR/${name}.log"
+    [[ -f "$result_file" ]] \
+        && grep -qE '^Results:.*0 failed' "$result_file" 2>/dev/null
+}
+
 # Print result line for a completed kernel test.
 # Args: $1=name $2=version $3=boot_path $4=exit_code
 _print_result() {
@@ -96,6 +105,7 @@ Options:
                   runs a minimal test on each. Use after --setup.
   --list          Show all kernels with boot method, tier, and status
   --jobs N        Run N kernels in parallel (default: 1 = sequential)
+  --rerun-all     Ignore cached results, re-run every kernel
   --tier N        Only run kernels of tier N (1, 2, or 3)
                   Tiers: 1=actively supported, 2=recently EOL, 3=historical
   --kernel NAME   Only run the named kernel
@@ -115,6 +125,7 @@ OPT_LIST=0
 OPT_TIMEOUT="120"
 OPT_VERBOSE="0"
 OPT_JOBS=1
+OPT_RERUN_ALL=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -123,6 +134,7 @@ while [[ $# -gt 0 ]]; do
         --list)      OPT_LIST=1; shift ;;
         --jobs)      OPT_JOBS="$2"; shift 2 ;;
         -j)          OPT_JOBS="$2"; shift 2 ;;
+        --rerun-all) OPT_RERUN_ALL=1; shift ;;
         --tier)      OPT_TIER="$2"; shift 2 ;;
         --kernel)    OPT_KERNEL="$2"; shift 2 ;;
         --host-only) OPT_HOST_ONLY=1; shift ;;
@@ -443,6 +455,7 @@ mapfile -t entries < <(grep -v '^\s*#' "$CONF" | grep -v '^\s*$')
 passed=0
 failed=0
 skipped=0
+cached=0
 declare -a failed_names=()
 declare -a skipped_names=()
 
@@ -554,6 +567,16 @@ for entry in "${entries[@]}"; do
         else
             actual_boot="$detected"
         fi
+    fi
+
+    # Check for cached pass (skip unless --rerun-all)
+    if [[ $OPT_RERUN_ALL -eq 0 ]] && _is_cached_pass "$name"; then
+        _cached_summary=$(grep -E '^Results:' "$RESULTS_DIR/${name}.log" | tail -1 || true)
+        printf "%-20s %-8s %-12s " "$name" "$version" "$actual_boot"
+        echo -e "${GREEN}PASS${NC} $_cached_summary ${BLUE}(cached)${NC}"
+        cached=$((cached + 1))
+        passed=$((passed + 1))
+        continue
     fi
 
     # Add to run list
@@ -680,7 +703,11 @@ _sec=$(( _elapsed % 60 ))
 
 echo ""
 echo "========================================================================"
-echo -e "Results: ${GREEN}${passed} passed${NC}, ${RED}${failed} failed${NC}, ${YELLOW}${skipped} skipped${NC}  (${_min}m ${_sec}s)"
+_summary="Results: ${GREEN}${passed} passed${NC}, ${RED}${failed} failed${NC}"
+[[ $cached -gt 0 ]] && _summary+=", ${BLUE}${cached} cached${NC}"
+[[ $skipped -gt 0 ]] && _summary+=", ${YELLOW}${skipped} skipped${NC}"
+_summary+="  (${_min}m ${_sec}s)"
+echo -e "$_summary"
 [[ ${#failed_names[@]} -gt 0 ]] && echo -e "Failed: ${RED}${failed_names[*]}${NC}"
 [[ ${#skipped_names[@]} -gt 0 ]] && echo -e "Skipped: ${YELLOW}${skipped_names[*]}${NC}"
 echo ""
