@@ -417,8 +417,33 @@ declare -a skipped_names=()
 
 _start_time=$SECONDS
 
+# Pre-flight: check how many kernels are actually downloaded
+_ready=0
+_not_ready=0
+for _entry in "${entries[@]}"; do
+    IFS='|' read -r _n _v _b _t _s <<< "$_entry"
+    _n=$(echo "$_n" | xargs)
+    [[ -z "$_n" ]] && continue
+    _stype="${_s%%:*}"
+    [[ "$_stype" == "unavailable" ]] && continue
+    if [[ -n "$(find_vmlinuz "$_n" 2>/dev/null)" ]]; then
+        _ready=$((_ready + 1))
+    else
+        _not_ready=$((_not_ready + 1))
+    fi
+done
+
+if [[ $_ready -eq 0 ]]; then
+    echo -e "${RED}No kernels downloaded.${NC} Run: ${BOLD}test/run-tests.sh --setup${NC}"
+    exit 1
+fi
+
 echo -e "${BOLD}quotatool multi-kernel test suite${NC}"
-echo -e "Kernels: ${#entries[@]} in matrix"
+if [[ $_not_ready -gt 0 ]]; then
+    echo -e "Kernels: ${_ready}/${#entries[@]} ready (${YELLOW}${_not_ready} not downloaded — run --setup to fetch${NC})"
+else
+    echo -e "Kernels: ${#entries[@]} in matrix"
+fi
 echo -e "Tests: $(ls "$SCRIPT_DIR/tests"/t-*.sh 2>/dev/null | wc -l) test scripts × 2 filesystems"
 echo ""
 
@@ -471,9 +496,9 @@ for entry in "${entries[@]}"; do
     vmlinuz=$(find_vmlinuz "$name")
     if [[ -z "$vmlinuz" ]]; then
         printf "%-20s %-8s %-12s " "$name" "$version" "$boot"
-        echo -e "${RED}FAIL${NC} vmlinuz not found"
-        failed=$((failed + 1))
-        failed_names+=("$name")
+        echo -e "${YELLOW}SKIP${NC} (not downloaded)"
+        skipped=$((skipped + 1))
+        skipped_names+=("$name(missing)")
         continue
     fi
 
