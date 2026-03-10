@@ -528,9 +528,13 @@ production.
 * Phase 7: Reproducible Cold-Start [4/5]
 
 The test framework must be usable from a fresh =git clone= with
-minimal manual steps. Currently 5 manual steps with undocumented
-sequencing and cryptic failures. Goal: one command after deps are
-installed.
+minimal manual steps. Goal: one command after deps are installed.
+
+*Validated 2026-03-10*: clean clone → =./configure && make= →
+=run-tests.sh --setup= → full matrix, on three hosts:
+- =piano= (Linux Mint 21.3): 17 pass, 8 fail (known)
+- =forte= (Fedora 43): 18 pass, 7 fail (known)
+- =banjo= (Linux Mint 21.3): 17 pass, 8 fail (known)
 
 Priority: this phase comes before CI (Phase 5) and before any
 quotatool code changes. A test framework that only works on one
