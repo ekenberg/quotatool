@@ -74,13 +74,13 @@ _print_result() {
     printf "%-20s %-8s %-12s " "$name" "$version" "$actual_boot"
     if [[ $rc -eq 0 ]]; then
         local summary
-        summary=$(grep -E '^Results:' "$result_file" 2>/dev/null | tail -1 || true)
+        summary=$(grep -E '^Results:' "$result_file" 2>/dev/null | tail -1 | tr -d '\r' || true)
         echo -e "${GREEN}PASS${NC} $summary"
     elif [[ $rc -eq 124 || $rc -eq 137 ]]; then
         echo -e "${RED}TIMEOUT${NC} (${OPT_TIMEOUT}s)"
     else
         local failures
-        failures=$(grep -E '^  FAIL:' "$result_file" 2>/dev/null | head -5 || true)
+        failures=$(grep -E '^  FAIL:' "$result_file" 2>/dev/null | head -5 | tr -d '\r' || true)
         echo -e "${RED}FAIL${NC} (exit $rc)"
         [[ -n "$failures" ]] && echo "$failures" | sed 's/^/    /'
     fi
@@ -567,7 +567,7 @@ for entry in "${entries[@]}"; do
 
     # Skip previously passed kernels (only with --only-failed)
     if [[ $OPT_ONLY_FAILED -eq 1 ]] && _is_cached_pass "$name"; then
-        _cached_summary=$(grep -E '^Results:' "$RESULTS_DIR/${name}.log" | tail -1 || true)
+        _cached_summary=$(grep -E '^Results:' "$RESULTS_DIR/${name}.log" | tail -1 | tr -d '\r' || true)
         printf "%-20s %-8s %-12s " "$name" "$version" "$actual_boot"
         echo -e "${GREEN}PASS${NC} $_cached_summary ${BLUE}(cached)${NC}"
         cached=$((cached + 1))
