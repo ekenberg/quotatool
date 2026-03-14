@@ -480,7 +480,7 @@ else
 fi
 echo -e "Tests: $(ls "$SCRIPT_DIR/tests"/t-*.sh 2>/dev/null | wc -l) test scripts × 2 filesystems"
 [[ $OPT_JOBS -gt 1 ]] && echo -e "Jobs: ${OPT_JOBS} parallel"
-echo ""
+[[ -n "$OPT_KERNEL" ]] && echo -e "\nRunning tests for kernel ${BOLD}${OPT_KERNEL}${NC}...\n" || echo ""
 
 # Clear previous results unless --only-failed (which needs them to
 # know what passed last time).
