@@ -553,8 +553,9 @@ Run: test/kernels/initramfs/build.sh"
         marker=$(grep -o '===QUOTATOOL_EXIT:[0-9]*===' "$output_file" | tail -1 || true)
         if [[ -n "$marker" ]]; then
             guest_exit=$(echo "$marker" | grep -o '[0-9]*')
-            # Print output without the marker line
-            grep -v '===QUOTATOOL_EXIT:' "$output_file" || true
+            # Print output without the marker line.
+            # Strip \r from serial console output (QEMU serial produces \r\n).
+            grep -v '===QUOTATOOL_EXIT:' "$output_file" | tr -d '\r' || true
         else
             _boot_log "No exit marker — guest may have crashed"
             cat "$output_file" >&2
