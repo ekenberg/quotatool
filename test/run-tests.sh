@@ -217,9 +217,9 @@ if [[ $OPT_SETUP -eq 1 ]]; then
     fi
 
     echo -e "${GREEN}Setup complete.${NC}"
-    echo "  Verify:  ${BOLD}test/run-tests.sh --smoke${NC}"
-    echo "  Run:     ${BOLD}test/run-tests.sh${NC}"
-    echo "  Options: ${BOLD}test/run-tests.sh --help${NC}"
+    echo -e "  Verify:  ${BOLD}test/run-tests.sh --smoke${NC}"
+    echo -e "  Run:     ${BOLD}test/run-tests.sh${NC}"
+    echo -e "  Options: ${BOLD}test/run-tests.sh --help${NC}"
     exit 0
 fi
 
