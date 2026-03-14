@@ -153,7 +153,7 @@ build_static_quotatool() {
             . /etc/os-release
             case "${ID:-}${ID_LIKE:-}" in
                 *debian*|*ubuntu*) hint="apt install musl-tools" ;;
-                *fedora*|*rhel*|*centos*|*alma*|*rocky*) hint="dnf install musl-gcc musl-libc-static" ;;
+                *fedora*|*rhel*|*centos*|*alma*|*rocky*) hint="dnf install musl-gcc" ;;
                 *arch*) hint="pacman -S musl" ;;
             esac
         fi
