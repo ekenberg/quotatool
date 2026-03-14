@@ -373,12 +373,13 @@ Implemented features:
 /Dependencies/: 1.2, 1.3, 2.5, 3.5
 
 ** DONE 4.2 Checkpoint/reentrance
-Simpler than planned: uses existing =results/<name>.log= files as
-checkpoints. No separate checkpoint file needed. A kernel is cached
-if its log exists and contains =Results:.*0 failed=. Failed and
-incomplete kernels always re-run. =--rerun-all= forces fresh run.
+Uses =results/<name>.log= files as checkpoints. A kernel is cached
+if its log exists and contains =Results:.*0 failed=. Opt-in via
+=--only-failed= (re-run only kernels that failed last time). Default
+runs clear all logs first so =--only-failed= never finds stale data.
 
-Tested: tier-1 re-run drops from ~90s to ~5s (9 cached, 1 re-run).
+Tested: tier-1 =--only-failed= drops from ~90s to ~5s (9 cached,
+1 re-run).
 
 /Dependencies/: 4.1
 
