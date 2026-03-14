@@ -720,16 +720,18 @@ Add build target for =musl-gcc -static= quotatool. This binary goes
 into the Alpine rootfs — our code under test, statically linked,
 no glibc dependency.
 
-Approach: =CC=musl-gcc CFLAGS="-static -I/usr/include"= override.
-=musl-gcc= strips =/usr/include= to avoid glibc contamination, but
-quotatool only needs =linux/types.h= (kernel UAPI — stable ABI,
-arch-specific but not host-specific). No glibc headers pulled in.
+Actual approach (=-I/usr/include= causes glibc contamination):
+- Copy kernel UAPI headers (=linux/=, =asm/=, =asm-generic/=) to
+  isolated tmpdir. =asm/= path varies: =/usr/include/asm= (Fedora)
+  or =/usr/include/$(gcc -dumpmachine)/asm= (Debian multiarch).
+- Provide empty =sys/cdefs.h= stub: =src/linux/linux_quota.h:17=
+  includes =<sys/cdefs.h>= (glibc-ism) but uses nothing from it.
+  *M3 cleanup candidate*: remove the include from quotatool source.
+- Reuse =config.h= from normal =./configure=. No configure with
+  musl-gcc (its cross-compile check fails).
+- =CC=musl-gcc CFLAGS="-static -I$KINCLUDE"=
 Test-only — normal users never do this. =build-alpine-rootfs.sh=
-handles the build automatically.
-
-Note: if =-I/usr/include= ever causes issues on other distros
-(glibc header contamination), revisit with a narrower include
-path (=-I/usr/include/linux -I/usr/include/asm -I/usr/include/asm-generic=).
+handles all of this automatically.
 
 New test deps: =musl-gcc= (=musl-tools= on Debian, =musl-gcc= on
 Fedora), =linux-libc-dev= / =kernel-headers= (kernel UAPI headers,
@@ -755,7 +757,7 @@ scripts present at expected paths.
 
 /Dependencies/: 8.2, 8.3
 
-*** TODO 8.5 Integrate into boot paths
+*** DONE 8.5 Integrate into boot paths
 Wire Alpine rootfs into =boot.sh= and =run-tests.sh=.
 
 Boot path selection:

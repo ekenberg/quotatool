@@ -56,6 +56,25 @@ has_9p() {
     return 1
 }
 
+# Check if a kernel version is below the host glibc floor.
+# Returns 0 (true) if kernel_version < GLIBC_MIN_KVER.
+_below_glibc_floor() {
+    local version="$1"
+    [[ -n "$GLIBC_MIN_KVER" ]] || return 1  # no floor detected = not below
+    # sort -V: if kernel comes first, it's lower than floor
+    [[ "$(printf '%s\n' "$version" "$GLIBC_MIN_KVER" | sort -V | head -1)" == "$version" \
+       && "$version" != "$GLIBC_MIN_KVER" ]]
+}
+
+# Check if a kernel needs the Alpine rootfs (below glibc floor OR no 9p).
+# Returns 0 (true) if Alpine rootfs should be used.
+_needs_alpine_rootfs() {
+    local name="$1" version="$2"
+    _below_glibc_floor "$version" && return 0
+    ! has_9p "$name" && return 0
+    return 1
+}
+
 # Check if a kernel has a cached pass result from a previous run.
 # Returns 0 (true) if results/<name>.log exists and shows 0 failures.
 _is_cached_pass() {
@@ -200,19 +219,19 @@ if [[ $OPT_SETUP -eq 1 ]]; then
     "$KERNELS_DIR/download.sh"
     echo ""
 
-    # Step 5: build rootfs (for RHEL kernels without 9p)
-    local_rootfs="$KERNELS_DIR/rootfs.img"
-    if [[ ! -f "$local_rootfs" ]]; then
-        if [[ -x "$KERNELS_DIR/build-rootfs.sh" ]]; then
-            _setup_step "Building rootfs disk image (for RHEL kernels)..."
-            if ! "$KERNELS_DIR/build-rootfs.sh"; then
-                echo -e "${YELLOW}WARNING: rootfs build failed. RHEL kernel tests (alma/centos) will be skipped.${NC}"
+    # Step 5: build Alpine rootfs (musl-based, for RHEL + glibc-floor kernels)
+    local_alpine="$KERNELS_DIR/alpine-rootfs.img"
+    if [[ ! -f "$local_alpine" ]]; then
+        if [[ -x "$KERNELS_DIR/build-alpine-rootfs.sh" ]]; then
+            _setup_step "Building Alpine rootfs (musl-based, for old/RHEL kernels)..."
+            if ! "$KERNELS_DIR/build-alpine-rootfs.sh"; then
+                echo -e "${YELLOW}WARNING: Alpine rootfs build failed. Old/RHEL kernel tests will be skipped.${NC}"
             fi
             echo ""
         fi
-    elif [[ "$QUOTATOOL" -nt "$local_rootfs" ]]; then
-        _setup_step "Rebuilding rootfs (quotatool binary is newer)..."
-        "$KERNELS_DIR/build-rootfs.sh" --force || true
+    elif [[ "$QUOTATOOL" -nt "$local_alpine" ]]; then
+        _setup_step "Rebuilding Alpine rootfs (quotatool binary is newer)..."
+        "$KERNELS_DIR/build-alpine-rootfs.sh" --force || true
         echo ""
     fi
 
@@ -263,12 +282,12 @@ fi
 # Post-make maintenance
 # ---------------------------------------------------------------------------
 
-# Auto-rebuild rootfs if quotatool binary is newer (keeps tests in sync)
-local_rootfs="$KERNELS_DIR/rootfs.img"
-if [[ -f "$local_rootfs" && "$QUOTATOOL" -nt "$local_rootfs" ]]; then
-    if [[ -x "$KERNELS_DIR/build-rootfs.sh" ]]; then
-        _setup_step "Rebuilding rootfs (quotatool binary is newer)..."
-        "$KERNELS_DIR/build-rootfs.sh" --force || true
+# Auto-rebuild Alpine rootfs if quotatool binary is newer (keeps tests in sync)
+alpine_rootfs="$KERNELS_DIR/alpine-rootfs.img"
+if [[ -f "$alpine_rootfs" && "$QUOTATOOL" -nt "$alpine_rootfs" ]]; then
+    if [[ -x "$KERNELS_DIR/build-alpine-rootfs.sh" ]]; then
+        _setup_step "Rebuilding Alpine rootfs (quotatool binary is newer)..."
+        "$KERNELS_DIR/build-alpine-rootfs.sh" --force || true
     fi
 fi
 
@@ -304,14 +323,19 @@ if [[ $OPT_LIST -eq 1 ]]; then
         tier=$(echo "$tier" | xargs)
         local_status="" notes=""
 
-        # Determine boot path
-        boot_path="$boot"
-        if [[ "$boot" == "qemu" ]]; then
+        # Determine boot path (Alpine rootfs overrides normal path)
+        if _needs_alpine_rootfs "$name" "$version"; then
+            boot_path="qemu+alpine"
+        elif [[ "$boot" == "qemu" ]]; then
             if has_9p "$name" 2>/dev/null; then
                 boot_path="qemu+9p"
             else
-                boot_path="qemu+rootfs"
+                boot_path="qemu+alpine"
             fi
+        elif [[ "$boot" == "virtme" ]]; then
+            boot_path="virtme"
+        else
+            boot_path="$boot"
         fi
 
         # Check download/extraction status
@@ -322,11 +346,11 @@ if [[ $OPT_LIST -eq 1 ]]; then
             local_status="${RED}not downloaded${NC}"
         fi
 
-        # Check glibc compatibility for 9p path
-        if [[ -n "$GLIBC_MIN_KVER" && "$boot_path" == "qemu+9p" ]]; then
-            if [[ "$(printf '%s\n' "$GLIBC_MIN_KVER" "$version" | sort -V | head -1)" != "$GLIBC_MIN_KVER" ]]; then
-                notes="glibc needs kernel >=$GLIBC_MIN_KVER"
-            fi
+        # Note glibc floor impact
+        if _below_glibc_floor "$version"; then
+            notes="alpine rootfs (glibc floor >=$GLIBC_MIN_KVER)"
+        elif ! has_9p "$name" 2>/dev/null; then
+            notes="alpine rootfs (no 9p)"
         fi
 
         printf "%-18s %-8s %-12s %-5s " "$name" "$version" "$boot_path" "$tier"
@@ -380,13 +404,12 @@ if [[ $OPT_SMOKE -eq 1 ]]; then
 
         local rc=0 out=""
         if [[ "$method" == "rootfs" ]]; then
-            local rootfs_img="$KERNELS_DIR/rootfs.img"
-            if [[ ! -f "$rootfs_img" ]]; then
-                echo -e "${YELLOW}SKIP${NC} (rootfs.img not built)"
+            if [[ ! -f "$alpine_rootfs" ]]; then
+                echo -e "${YELLOW}SKIP${NC} (alpine-rootfs.img not built)"
                 smoke_skip=$((smoke_skip + 1))
                 return
             fi
-            out=$(BOOT_METHOD=qemu BOOT_ROOTFS="$rootfs_img" BOOT_TIMEOUT=60 \
+            out=$(BOOT_METHOD=qemu BOOT_ROOTFS="$alpine_rootfs" BOOT_TIMEOUT=60 \
                 boot_kernel "$vmlinuz" "/test/guest-run-all.sh ext4 1" 2>&1) || rc=$?
         else
             out=$(BOOT_METHOD="$method" BOOT_TIMEOUT=60 \
@@ -429,10 +452,10 @@ if [[ $OPT_SMOKE -eq 1 ]]; then
         fi
     done
 
-    # QEMU+rootfs path — try alma9, then centos7, then alma8
+    # QEMU+alpine path — try alma9, then centos7, then alma8
     for k in alma9 centos7 alma8; do
         if [[ -n "$(find_vmlinuz "$k" 2>/dev/null)" ]] && ! has_9p "$k"; then
-            _smoke_run "qemu+rootfs" "$k" "rootfs"
+            _smoke_run "qemu+alpine" "$k" "rootfs"
             break
         fi
     done
@@ -528,17 +551,16 @@ for entry in "${entries[@]}"; do
         continue
     fi
 
-    # Check 9p support; if missing, use rootfs disk image (RHEL kernels)
+    # Check if this kernel needs Alpine rootfs (no 9p, or below glibc floor)
     use_rootfs=0
-    if ! has_9p "$name"; then
-        rootfs_img="$SCRIPT_DIR/kernels/rootfs.img"
-        if [[ -f "$rootfs_img" ]]; then
+    if _needs_alpine_rootfs "$name" "$version"; then
+        if [[ -f "$alpine_rootfs" ]]; then
             use_rootfs=1
         else
-            printf "%-20s %-8s %-12s " "$name" "$version" "qemu+rootfs"
-            echo -e "${YELLOW}SKIP${NC} (no 9p — build rootfs: test/kernels/build-rootfs.sh)"
+            printf "%-20s %-8s %-12s " "$name" "$version" "qemu+alpine"
+            echo -e "${YELLOW}SKIP${NC} (needs Alpine rootfs — run --setup)"
             skipped=$((skipped + 1))
-            skipped_names+=("$name(no-9p)")
+            skipped_names+=("$name(no-rootfs)")
             continue
         fi
     fi
@@ -555,7 +577,7 @@ for entry in "${entries[@]}"; do
 
     # Determine actual boot path for display (matches boot.sh auto-detection)
     if [[ $use_rootfs -eq 1 ]]; then
-        actual_boot="qemu+rootfs"
+        actual_boot="qemu+alpine"
     else
         detected=$(boot_detect_method "$vmlinuz" 2>/dev/null || echo "unknown")
         if [[ "$detected" == "qemu" ]]; then
@@ -596,7 +618,7 @@ _run_kernel() {
     local rc=0
 
     if [[ $use_rootfs -eq 1 ]]; then
-        BOOT_METHOD=qemu BOOT_ROOTFS="$rootfs_img" \
+        BOOT_METHOD=qemu BOOT_ROOTFS="$alpine_rootfs" \
             boot_kernel "$vmlinuz" "/test/guest-run-all.sh" > "$result_file" 2>&1 || rc=$?
     else
         boot_kernel "$vmlinuz" "$GUEST_CMD" > "$result_file" 2>&1 || rc=$?
@@ -612,10 +634,10 @@ if [[ $OPT_JOBS -le 1 ]]; then
         [[ "$OPT_VERBOSE" == "1" ]] && echo ""
         if [[ ${run_rootfs[$name]} -eq 1 ]]; then
             if [[ "$OPT_VERBOSE" == "1" ]]; then
-                BOOT_METHOD=qemu BOOT_ROOTFS="$rootfs_img" \
+                BOOT_METHOD=qemu BOOT_ROOTFS="$alpine_rootfs" \
                     boot_kernel "${run_vmlinuz[$name]}" "/test/guest-run-all.sh" 2>&1 | tee "$result_file" || rc=${PIPESTATUS[0]}
             else
-                BOOT_METHOD=qemu BOOT_ROOTFS="$rootfs_img" \
+                BOOT_METHOD=qemu BOOT_ROOTFS="$alpine_rootfs" \
                     boot_kernel "${run_vmlinuz[$name]}" "/test/guest-run-all.sh" > "$result_file" 2>&1 || rc=$?
             fi
         else

@@ -182,6 +182,9 @@ Cleanup:
 - Fix known issues (e.g. mixed indentation)
 - Evaluate whether shipping custom kernel quota headers is still needed
 - Ensure clean compile with =-Wall -Wextra= on gcc and clang
+- Remove unused =#include <sys/cdefs.h>= from =src/linux/linux_quota.h=
+  (glibc-only header, included but nothing from it used — discovered
+  during M1 musl static build, currently worked around with empty stub)
 
 ** M4: quotactl_fd() Support [step-plan: steps/04-quotactl-fd.org]
 /Status: NOT STARTED/
