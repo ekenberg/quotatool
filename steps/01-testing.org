@@ -643,16 +643,23 @@ Document the "add a new kernel" procedure step by step.
 
 *Branch: =m1-alpine-rootfs= (off =m1-testing=)*
 
-** Problem
+** Problem & Motivation
 
-The test framework runs host-compiled binaries (glibc) inside old
-kernels. glibc enforces a minimum kernel version at runtime. As host
-distros update glibc, old kernels become untestable: =FATAL: kernel
-too old=. This defeats the purpose of legacy kernel coverage.
+Two issues solved by one rootfs:
 
-Discovered 2026-03-09 on Fedora 43 (glibc 2.41, floor = 4.4):
-debian-7, debian-8, ubuntu-1404, centos7 all fail. centos7 is tier 1.
-See =research/glibc-kernel-floor.org= for full analysis and options.
+1. *RHEL rootfs complexity*: =build-rootfs.sh= copies host binaries +
+   shared libs via =ldd= introspection into a disk image. Fragile,
+   host-dependent, breaks when paths change (merged-usr, multiarch).
+
+2. *Future glibc kernel floor*: glibc upstream defaults to
+   =--enable-kernel=4.4= since 2.40. Current distros (Fedora 43,
+   Mint 21) still build with floor=3.2, but future distros may stop
+   overriding this. When that happens, old test kernels break with
+   =FATAL: kernel too old=. See =research/glibc-kernel-floor.org=.
+
+Alpine rootfs (musl-based) solves both: no host introspection, no
+kernel version floor, one image for all kernels that can't use the
+host filesystem directly.
 
 ** Approach: Option C (Hybrid)
 
