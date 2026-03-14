@@ -97,12 +97,11 @@ Usage: run-tests.sh [OPTIONS]
 Run the quotatool test suite across multiple kernels.
 
 Options:
-  --setup         Bootstrap everything: check deps, download kernels,
-                  build initramfs/rootfs, build quotatool, then run tests.
-                  This is the single command for a fresh git clone.
+  --setup         Bootstrap test infrastructure: check deps, download
+                  kernels, build initramfs/rootfs. Does not run tests.
   --smoke         Quick infrastructure check (~30s). Boots one kernel
                   per boot path (virtme, QEMU+9p, QEMU+rootfs) and
-                  runs a minimal test on each. Use after --setup.
+                  runs a minimal test on each.
   --list          Show all kernels with boot method, tier, and status
   --jobs N        Run N kernels in parallel (default: 1 = sequential)
   --only-failed   Only re-run kernels that failed in the previous run
@@ -217,7 +216,10 @@ if [[ $OPT_SETUP -eq 1 ]]; then
         echo ""
     fi
 
-    echo -e "${GREEN}Setup complete.${NC} Run ${BOLD}test/run-tests.sh${NC} to test, ${BOLD}--help${NC} for options."
+    echo -e "${GREEN}Setup complete.${NC}"
+    echo "  Verify:  ${BOLD}test/run-tests.sh --smoke${NC}"
+    echo "  Run:     ${BOLD}test/run-tests.sh${NC}"
+    echo "  Options: ${BOLD}test/run-tests.sh --help${NC}"
     exit 0
 fi
 
