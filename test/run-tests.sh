@@ -277,7 +277,7 @@ if [[ $OPT_LIST -eq 1 ]]; then
         echo "No kernels.conf found. Run --setup first." >&2
         exit 1
     fi
-    printf "${BOLD}%-18s %-8s %-10s %-5s %-10s %s${NC}\n" \
+    printf "${BOLD}%-18s %-8s %-12s %-5s %-10s %s${NC}\n" \
         "KERNEL" "VERSION" "BOOT" "TIER" "STATUS" "NOTES"
     echo "------------------------------------------------------------------------"
     while IFS='|' read -r name version boot tier source; do
@@ -312,7 +312,7 @@ if [[ $OPT_LIST -eq 1 ]]; then
             fi
         fi
 
-        printf "%-18s %-8s %-10s %-5s " "$name" "$version" "$boot_path" "$tier"
+        printf "%-18s %-8s %-12s %-5s " "$name" "$version" "$boot_path" "$tier"
         echo -ne "$local_status"
         [[ -n "$notes" ]] && echo -ne "  ${YELLOW}$notes${NC}"
         echo ""
@@ -491,6 +491,12 @@ fi
 echo -e "Tests: $(ls "$SCRIPT_DIR/tests"/t-*.sh 2>/dev/null | wc -l) test scripts × 2 filesystems"
 [[ $OPT_JOBS -gt 1 ]] && echo -e "Jobs: ${OPT_JOBS} parallel"
 echo ""
+
+# Clear cached results on fresh runs so --cache-results in a later run
+# never finds stale data from a previous development cycle.
+if [[ $OPT_CACHE_RESULTS -eq 0 ]]; then
+    rm -f "$RESULTS_DIR"/*.log
+fi
 
 # ---------------------------------------------------------------------------
 # Phase 1: Collect runnable kernels, handle skips
