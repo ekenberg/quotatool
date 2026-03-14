@@ -163,19 +163,10 @@ _setup_step() {
     echo -e "${BLUE}==> $1${NC}"
 }
 
-# Always check: quotatool binary
+# Check quotatool binary exists (we don't build it — that's the user's job)
 if [[ ! -x "$QUOTATOOL" ]]; then
-    _setup_step "Building quotatool..."
-    if [[ -f "$PROJECT_DIR/Makefile" ]]; then
-        make -C "$PROJECT_DIR" -j"$(nproc)" >/dev/null 2>&1 \
-            || { echo -e "${RED}Build failed. Run ./configure first?${NC}"; exit 1; }
-    elif [[ -f "$PROJECT_DIR/configure" ]]; then
-        (cd "$PROJECT_DIR" && ./configure >/dev/null 2>&1 && make -j"$(nproc)" >/dev/null 2>&1) \
-            || { echo -e "${RED}Build failed${NC}"; exit 1; }
-    else
-        echo -e "${RED}No Makefile or configure script found${NC}" >&2
-        exit 1
-    fi
+    echo -e "${RED}quotatool binary not found.${NC} Run: ${BOLD}./configure && make${NC}"
+    exit 1
 fi
 
 if [[ $OPT_SETUP -eq 1 ]]; then
@@ -230,14 +221,47 @@ if [[ $OPT_SETUP -eq 1 ]]; then
     echo ""
 fi
 
-# Pre-flight: bail early if infrastructure is missing (needs --setup)
+# ---------------------------------------------------------------------------
+# Pre-flight: bail if --setup hasn't been run
+# ---------------------------------------------------------------------------
+
 if [[ ! -f "$INITRAMFS_DIR/initramfs.cpio.gz" ]]; then
     echo -e "${RED}Test infrastructure not set up.${NC} Run: ${BOLD}test/run-tests.sh --setup${NC}"
     exit 1
 fi
 
-# Auto-rebuild rootfs if quotatool binary is newer (keeps tests in sync
-# after recompile — this is the only post-make maintenance needed).
+if [[ ! -f "$CONF" ]]; then
+    echo -e "${RED}No kernels.conf found.${NC} Run: ${BOLD}test/run-tests.sh --setup${NC}"
+    exit 1
+fi
+
+# Check how many kernels are actually downloaded
+mapfile -t _preflight_entries < <(grep -v '^\s*#' "$CONF" | grep -v '^\s*$')
+_ready=0
+_not_ready=0
+for _entry in "${_preflight_entries[@]}"; do
+    IFS='|' read -r _n _v _b _t _s <<< "$_entry"
+    _n=$(echo "$_n" | xargs)
+    [[ -z "$_n" ]] && continue
+    _stype="${_s%%:*}"
+    [[ "$_stype" == "unavailable" ]] && continue
+    if [[ -n "$(find_vmlinuz "$_n" 2>/dev/null)" ]]; then
+        _ready=$((_ready + 1))
+    else
+        _not_ready=$((_not_ready + 1))
+    fi
+done
+
+if [[ $_ready -eq 0 ]]; then
+    echo -e "${RED}No kernels downloaded.${NC} Run: ${BOLD}test/run-tests.sh --setup${NC}"
+    exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# Post-make maintenance
+# ---------------------------------------------------------------------------
+
+# Auto-rebuild rootfs if quotatool binary is newer (keeps tests in sync)
 local_rootfs="$KERNELS_DIR/rootfs.img"
 if [[ -f "$local_rootfs" && "$QUOTATOOL" -nt "$local_rootfs" ]]; then
     if [[ -x "$KERNELS_DIR/build-rootfs.sh" ]]; then
@@ -268,10 +292,6 @@ GUEST_CMD="$SCRIPT_DIR/guest-run-all.sh"
 # ---------------------------------------------------------------------------
 
 if [[ $OPT_LIST -eq 1 ]]; then
-    if [[ ! -f "$CONF" ]]; then
-        echo "No kernels.conf found. Run --setup first." >&2
-        exit 1
-    fi
     printf "${BOLD}%-18s %-8s %-12s %-5s %-10s %s${NC}\n" \
         "KERNEL" "VERSION" "BOOT" "TIER" "STATUS" "NOTES"
     echo "------------------------------------------------------------------------"
@@ -438,14 +458,8 @@ fi
 # Multi-kernel mode
 # ---------------------------------------------------------------------------
 
-if [[ ! -f "$CONF" ]]; then
-    echo "ERROR: kernels.conf not found at $CONF" >&2
-    echo "Run: test/kernels/download.sh (or run-tests.sh --setup)" >&2
-    exit 1
-fi
-
-# Read kernels.conf
-mapfile -t entries < <(grep -v '^\s*#' "$CONF" | grep -v '^\s*$')
+# Re-use pre-flight data (kernels.conf already parsed, _ready/_not_ready set)
+entries=("${_preflight_entries[@]}")
 
 passed=0
 failed=0
@@ -455,27 +469,6 @@ declare -a failed_names=()
 declare -a skipped_names=()
 
 _start_time=$SECONDS
-
-# Pre-flight: check how many kernels are actually downloaded
-_ready=0
-_not_ready=0
-for _entry in "${entries[@]}"; do
-    IFS='|' read -r _n _v _b _t _s <<< "$_entry"
-    _n=$(echo "$_n" | xargs)
-    [[ -z "$_n" ]] && continue
-    _stype="${_s%%:*}"
-    [[ "$_stype" == "unavailable" ]] && continue
-    if [[ -n "$(find_vmlinuz "$_n" 2>/dev/null)" ]]; then
-        _ready=$((_ready + 1))
-    else
-        _not_ready=$((_not_ready + 1))
-    fi
-done
-
-if [[ $_ready -eq 0 ]]; then
-    echo -e "${RED}No kernels downloaded.${NC} Run: ${BOLD}test/run-tests.sh --setup${NC}"
-    exit 1
-fi
 
 echo -e "${BOLD}quotatool multi-kernel test suite${NC}"
 if [[ $_not_ready -gt 0 ]]; then
