@@ -105,7 +105,7 @@ Options:
                   runs a minimal test on each. Use after --setup.
   --list          Show all kernels with boot method, tier, and status
   --jobs N        Run N kernels in parallel (default: 1 = sequential)
-  --cache-results Skip kernels that passed on a previous run (use cached .log)
+  --only-failed   Only re-run kernels that failed in the previous run
   --tier N        Only run kernels of tier N (1, 2, or 3)
                   Tiers: 1=actively supported, 2=recently EOL, 3=historical
   --kernel NAME   Only run the named kernel
@@ -125,7 +125,7 @@ OPT_LIST=0
 OPT_TIMEOUT="120"
 OPT_VERBOSE="0"
 OPT_JOBS=1
-OPT_CACHE_RESULTS=0
+OPT_ONLY_FAILED=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -134,7 +134,7 @@ while [[ $# -gt 0 ]]; do
         --list)      OPT_LIST=1; shift ;;
         --jobs)      OPT_JOBS="$2"; shift 2 ;;
         -j)          OPT_JOBS="$2"; shift 2 ;;
-        --cache-results) OPT_CACHE_RESULTS=1; shift ;;
+        --only-failed) OPT_ONLY_FAILED=1; shift ;;
         --tier)      OPT_TIER="$2"; shift 2 ;;
         --kernel)    OPT_KERNEL="$2"; shift 2 ;;
         --host-only) OPT_HOST_ONLY=1; shift ;;
@@ -492,9 +492,9 @@ echo -e "Tests: $(ls "$SCRIPT_DIR/tests"/t-*.sh 2>/dev/null | wc -l) test script
 [[ $OPT_JOBS -gt 1 ]] && echo -e "Jobs: ${OPT_JOBS} parallel"
 echo ""
 
-# Clear cached results on fresh runs so --cache-results in a later run
-# never finds stale data from a previous development cycle.
-if [[ $OPT_CACHE_RESULTS -eq 0 ]]; then
+# Clear previous results unless --only-failed (which needs them to
+# know what passed last time).
+if [[ $OPT_ONLY_FAILED -eq 0 ]]; then
     rm -f "$RESULTS_DIR"/*.log
 fi
 
@@ -575,8 +575,8 @@ for entry in "${entries[@]}"; do
         fi
     fi
 
-    # Check for cached pass (only with --cache-results)
-    if [[ $OPT_CACHE_RESULTS -eq 1 ]] && _is_cached_pass "$name"; then
+    # Skip previously passed kernels (only with --only-failed)
+    if [[ $OPT_ONLY_FAILED -eq 1 ]] && _is_cached_pass "$name"; then
         _cached_summary=$(grep -E '^Results:' "$RESULTS_DIR/${name}.log" | tail -1 || true)
         printf "%-20s %-8s %-12s " "$name" "$version" "$actual_boot"
         echo -e "${GREEN}PASS${NC} $_cached_summary ${BLUE}(cached)${NC}"
