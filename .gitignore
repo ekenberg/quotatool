@@ -21,5 +21,7 @@ test/kernels/*/
 test/kernels/initramfs/initramfs.cpio.gz
 test/kernels/initramfs/busybox-musl
 test/kernels/rootfs.img
+test/kernels/alpine-rootfs.img
+test/kernels/.alpine-cache/
 test/results/
 test/tmp_run.sh

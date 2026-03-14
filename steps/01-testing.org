@@ -639,7 +639,11 @@ Document the "add a new kernel" procedure step by step.
 
 /Dependencies/: 6.1 (design), 7.3
 
-* Phase 8: Host-Independent Test Rootfs [0/5]
+* Phase 8: Alpine Rootfs — Host-Independent Testing [0/6]
+
+*Branch: =m1-alpine-rootfs= (off =m1-testing=)*
+
+** Problem
 
 The test framework runs host-compiled binaries (glibc) inside old
 kernels. glibc enforces a minimum kernel version at runtime. As host
@@ -650,59 +654,139 @@ Discovered 2026-03-09 on Fedora 43 (glibc 2.41, floor = 4.4):
 debian-7, debian-8, ubuntu-1404, centos7 all fail. centos7 is tier 1.
 See =research/glibc-kernel-floor.org= for full analysis and options.
 
-Goal: replace host-dependent rootfs with a musl-based rootfs that has
-*no kernel version floor*. The musl-static busybox in the initramfs
-already proves this works — extend the approach to all test tools.
+** Approach: Option C (Hybrid)
 
-Recommended path: Option C (hybrid) — static musl quotatool + Alpine
-minirootfs for tools. Only new test dep: =musl-gcc= (one package).
+Static musl quotatool (our code, our build) + Alpine minirootfs for
+all other tools. Only new test dep: =musl-gcc= (one package).
 
-** TODO 8.1 Prototype Alpine minirootfs download
-Download official Alpine Linux minirootfs (musl-based, ~3.5 MB).
-SHA256-verify like busybox. Script: =test/kernels/build-alpine-rootfs.sh=.
-Extract to staging dir, verify basic shell works.
+Goal: *one Alpine rootfs replaces both* the glibc-floor workaround
+AND the existing RHEL rootfs path (=build-rootfs.sh=). If Alpine
+works for RHEL kernels too, we retire =build-rootfs.sh= entirely.
 
-/Verification/: Alpine rootfs extracted, =/bin/sh= runs, =uname= works.
+** Key Design Decisions
 
-** TODO 8.2 Install test tool packages into Alpine rootfs
-Use =apk= (Alpine's package manager) to install: bash, e2fsprogs,
-xfsprogs, quota-tools, util-linux (runuser, losetup, mount).
-Pin package versions for reproducibility.
+- Alpine rootfs downloaded during =--setup=, not shipped in repo.
+  Same pattern as busybox and kernels: download + SHA256-verify.
+- Pin Alpine *3.23* (latest stable, Dec 2025, EOL Nov 2027). Exact
+  point release + SHA256 hardcoded in script. Bump when needed.
+- No per-kernel glibc mapping needed. Runtime detection already
+  exists: =GLIBC_MIN_KVER= from =file /bin/sh=, compared with
+  =sort -V=. Works automatically as glibc raises floor in future.
+- Build-time (=build-alpine-rootfs.sh=) must work *without sudo*.
+  Strategies: =fakeroot=, =unshare --user --map-root-user=, or
+  apk v3 =--usermode=. Prototype will determine best path.
+- Run-time (inside VM) is always root — no issue there.
+- For =runuser=: Alpine's =runuser= pulls PAM. Alternatives:
+  busybox =su -c=, or =setpriv= (no PAM dep). Decide during
+  prototyping based on what actually works for enforcement tests.
 
-/Verification/: =mkfs.ext4=, =quotacheck=, =repquota=, =runuser= all
-present and executable inside the rootfs.
+** Tasks
 
-** TODO 8.3 Build static musl quotatool for tests
-Add =make static-test= or similar target that builds quotatool with
-=musl-gcc -static=. This is the binary that goes into the Alpine
-rootfs — our code, statically linked, no glibc dependency.
+*** DONE 8.1 Download and verify Alpine minirootfs
+Script: =test/kernels/build-alpine-rootfs.sh=.
+Download Alpine 3.23 minirootfs (~3.8 MB) from
+=dl-cdn.alpinelinux.org=. SHA256-verify. Extract to staging dir.
+Follow same pattern as =build-busybox.sh=.
 
-/Verification/: =file quotatool-musl= shows =statically linked=.
-=./quotatool-musl -V= works. Binary runs inside Alpine rootfs on
-old kernel.
+URL pattern:
+=https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/x86_64/alpine-minirootfs-3.23.N-x86_64.tar.gz=
+
+/Verification/: tarball downloaded, checksum passes, extracts to
+staging dir, =/bin/sh= present.
+
+*** DONE 8.2 Install packages into Alpine rootfs (without sudo)
+Install into staging dir: bash, e2fsprogs, xfsprogs, quota-tools,
+util-linux (mount, losetup, runuser or setpriv).
+
+Challenge: =apk --root= wants to chown files. Options to try:
+1. =fakeroot apk --root /staging --initdb add ...=
+2. =unshare --user --map-root-user -- apk ...=
+3. apk v3 =--usermode= (Alpine 3.23 ships apk v3)
+4. Download =apk.static= from Alpine, use it directly
+
+Determine whether =runuser= or busybox =su= or =setpriv= works
+best for enforcement tests (running commands as non-root user).
+
+Minimal PAM config needed if using =runuser= (pam_rootok +
+pam_permit, same as existing RHEL rootfs).
+
+/Verification/: =mkfs.ext4=, =mkfs.xfs=, =quotacheck=, =repquota=,
+=mount=, =losetup=, and user-switch tool all present and executable.
 
 /Dependencies/: 8.1
 
-** TODO 8.4 Integrate Alpine rootfs into boot paths
-When kernel version < host glibc floor, use Alpine rootfs instead of
-host filesystem. This replaces both the qemu+9p and qemu+rootfs
-paths for affected kernels. Existing paths stay unchanged for
-compatible kernels (zero regression).
+*** DONE 8.3 Build static musl quotatool
+Add build target for =musl-gcc -static= quotatool. This binary goes
+into the Alpine rootfs — our code under test, statically linked,
+no glibc dependency.
 
-Boot path selection becomes:
-#+begin_example
-kernel >= glibc_floor → current path (unchanged)
-kernel < glibc_floor  → qemu + alpine rootfs (musl, no floor)
-#+end_example
+Approach: =CC=musl-gcc CFLAGS="-static -I/usr/include"= override.
+=musl-gcc= strips =/usr/include= to avoid glibc contamination, but
+quotatool only needs =linux/types.h= (kernel UAPI — stable ABI,
+arch-specific but not host-specific). No glibc headers pulled in.
+Test-only — normal users never do this. =build-alpine-rootfs.sh=
+handles the build automatically.
+
+Note: if =-I/usr/include= ever causes issues on other distros
+(glibc header contamination), revisit with a narrower include
+path (=-I/usr/include/linux -I/usr/include/asm -I/usr/include/asm-generic=).
+
+New test deps: =musl-gcc= (=musl-tools= on Debian, =musl-gcc= on
+Fedora), =linux-libc-dev= / =kernel-headers= (kernel UAPI headers,
+usually already installed). =check-deps.sh= updated to check.
+
+/Verification/: =file quotatool-musl= shows =statically linked=.
+=./quotatool-musl -V= works on host.
+
+/Dependencies/: none (parallel with 8.1/8.2)
+
+*** DONE 8.4 Create Alpine rootfs disk image
+Package the staging dir (Alpine + packages + static quotatool +
+test scripts) into an ext4 disk image using =mke2fs -d= (no sudo).
+Same approach as current =build-rootfs.sh= for the final image
+step, but contents are musl-based instead of host-copied.
+
+Include: test scripts (=guest-run-all.sh=, =tests/=, =lib/=),
+=/etc/passwd= + =/etc/group= for test user IDs, minimal PAM
+config if needed.
+
+/Verification/: image mounts, contains all needed binaries, test
+scripts present at expected paths.
 
 /Dependencies/: 8.2, 8.3
 
-** TODO 8.5 Validate old kernels from modern host
-Run full test suite on debian-7, debian-8, ubuntu-1404, centos7 from
-a Fedora 43+ host (glibc >= 2.40). All must pass using the Alpine
-rootfs path. Compare results with Mint 21 (glibc 2.35) baseline.
+*** TODO 8.5 Integrate into boot paths
+Wire Alpine rootfs into =boot.sh= and =run-tests.sh=.
+
+Boot path selection:
+#+begin_example
+kernel >= glibc_floor && has 9p   → qemu+9p (host fs, unchanged)
+kernel >= glibc_floor && virtme   → virtme (host fs, unchanged)
+kernel < glibc_floor  OR  no 9p  → qemu + alpine rootfs
+#+end_example
+
+If Alpine rootfs works for RHEL kernels (no 9p), retire
+=build-rootfs.sh= and unify to one rootfs path. If not, keep
+both (Alpine for glibc-floor, host rootfs for RHEL).
+
+Update =--setup= to call =build-alpine-rootfs.sh=.
+Update =--list= display to show =qemu+alpine= boot path.
+Update =check-deps.sh= for =musl-gcc= dependency.
 
 /Dependencies/: 8.4
+
+*** TODO 8.6 Validate on modern host
+Run full test suite on all kernels from a Fedora 43+ host
+(glibc >= 2.40). Specifically verify the 4 glibc-floor kernels:
+debian-7 (3.2), centos7 (3.10), ubuntu-1404 (3.13), debian-8 (3.16).
+
+Also verify RHEL kernels (alma8, alma9, alma10, centos7) work via
+Alpine rootfs — if yes, retire =build-rootfs.sh=.
+
+Compare results with Mint 21 (glibc 2.35) baseline to confirm
+no regressions.
+
+/Dependencies/: 8.5
 
 * Phase 9: Dependency Audit & Minimization [0/3]
 
