@@ -217,7 +217,7 @@ if [[ $OPT_SETUP -eq 1 ]]; then
         echo ""
     fi
 
-    echo -e "${GREEN}Setup complete.${NC} Run ${BOLD}test/run-tests.sh${NC} to test."
+    echo -e "${GREEN}Setup complete.${NC} Run ${BOLD}test/run-tests.sh${NC} to test, ${BOLD}--help${NC} for options."
     exit 0
 fi
 
