@@ -105,7 +105,7 @@ Options:
                   runs a minimal test on each. Use after --setup.
   --list          Show all kernels with boot method, tier, and status
   --jobs N        Run N kernels in parallel (default: 1 = sequential)
-  --rerun-all     Ignore cached results, re-run every kernel
+  --cache-results Skip kernels that passed on a previous run (use cached .log)
   --tier N        Only run kernels of tier N (1, 2, or 3)
                   Tiers: 1=actively supported, 2=recently EOL, 3=historical
   --kernel NAME   Only run the named kernel
@@ -125,7 +125,7 @@ OPT_LIST=0
 OPT_TIMEOUT="120"
 OPT_VERBOSE="0"
 OPT_JOBS=1
-OPT_RERUN_ALL=0
+OPT_CACHE_RESULTS=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -134,7 +134,7 @@ while [[ $# -gt 0 ]]; do
         --list)      OPT_LIST=1; shift ;;
         --jobs)      OPT_JOBS="$2"; shift 2 ;;
         -j)          OPT_JOBS="$2"; shift 2 ;;
-        --rerun-all) OPT_RERUN_ALL=1; shift ;;
+        --cache-results) OPT_CACHE_RESULTS=1; shift ;;
         --tier)      OPT_TIER="$2"; shift 2 ;;
         --kernel)    OPT_KERNEL="$2"; shift 2 ;;
         --host-only) OPT_HOST_ONLY=1; shift ;;
@@ -569,8 +569,8 @@ for entry in "${entries[@]}"; do
         fi
     fi
 
-    # Check for cached pass (skip unless --rerun-all)
-    if [[ $OPT_RERUN_ALL -eq 0 ]] && _is_cached_pass "$name"; then
+    # Check for cached pass (only with --cache-results)
+    if [[ $OPT_CACHE_RESULTS -eq 1 ]] && _is_cached_pass "$name"; then
         _cached_summary=$(grep -E '^Results:' "$RESULTS_DIR/${name}.log" | tail -1 || true)
         printf "%-20s %-8s %-12s " "$name" "$version" "$actual_boot"
         echo -e "${GREEN}PASS${NC} $_cached_summary ${BLUE}(cached)${NC}"
