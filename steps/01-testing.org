@@ -787,7 +787,7 @@ TODO (minor): update =check-deps.sh= to check for =musl-gcc=.
 
 /Dependencies/: 8.4
 
-*** TODO 8.6 Validate on modern host
+*** DONE 8.6 Validate on modern host
 Run full test suite on all kernels from a Fedora 43+ host
 (glibc >= 2.40). Specifically verify the 4 glibc-floor kernels:
 debian-7 (3.2), centos7 (3.10), ubuntu-1404 (3.13), debian-8 (3.16).
