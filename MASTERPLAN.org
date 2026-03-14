@@ -80,8 +80,9 @@ Achieved:
 - All failures are known quotatool bugs, not framework issues
 
 Remaining (polish, not blocking M2):
-- Alpine rootfs for glibc kernel floor (Phase 8) — *nearly done*,
-  tasks 8.1-8.5 complete, awaiting validation on Fedora 43 (8.6)
+- Phase 8 (Alpine rootfs) — *DONE*. Replaces host-dependent rootfs
+  for RHEL kernels, future-proofs against glibc floor changes.
+  Validated on piano + forte. Branch: =m1-alpine-rootfs=.
 - Dependency audit (Phase 9)
 - CI wrapper (Phase 5 — defer to after M2)
 
