@@ -293,7 +293,7 @@ fi
 
 # Detect glibc minimum kernel version (affects which kernels can use 9p path)
 GLIBC_MIN_KVER=""
-_glibc_min=$(file /bin/sh 2>/dev/null | grep -oP 'for GNU/Linux \K[0-9.]+' || true)
+_glibc_min=$(file -L /bin/sh 2>/dev/null | grep -oP 'for GNU/Linux \K[0-9.]+' || true)
 if [[ -n "$_glibc_min" ]]; then
     GLIBC_MIN_KVER="$_glibc_min"
 fi
