@@ -230,19 +230,14 @@ if [[ $OPT_SETUP -eq 1 ]]; then
     echo ""
 fi
 
-# Auto-build initramfs if missing (fast, <5s, always safe to do)
+# Pre-flight: bail early if infrastructure is missing (needs --setup)
 if [[ ! -f "$INITRAMFS_DIR/initramfs.cpio.gz" ]]; then
-    if [[ ! -f "$INITRAMFS_DIR/busybox-musl" ]]; then
-        _setup_step "Downloading busybox (musl-static)..."
-        "$INITRAMFS_DIR/build-busybox.sh" \
-            || { echo -e "${RED}Failed to obtain busybox. Run: test/kernels/initramfs/build-busybox.sh${NC}"; exit 1; }
-    fi
-    _setup_step "Building initramfs..."
-    "$INITRAMFS_DIR/build.sh" \
-        || { echo -e "${RED}Failed to build initramfs${NC}"; exit 1; }
+    echo -e "${RED}Test infrastructure not set up.${NC} Run: ${BOLD}test/run-tests.sh --setup${NC}"
+    exit 1
 fi
 
-# Auto-rebuild rootfs if quotatool binary is newer (keeps tests in sync)
+# Auto-rebuild rootfs if quotatool binary is newer (keeps tests in sync
+# after recompile — this is the only post-make maintenance needed).
 local_rootfs="$KERNELS_DIR/rootfs.img"
 if [[ -f "$local_rootfs" && "$QUOTATOOL" -nt "$local_rootfs" ]]; then
     if [[ -x "$KERNELS_DIR/build-rootfs.sh" ]]; then
