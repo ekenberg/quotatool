@@ -291,7 +291,9 @@ if [[ -f "$alpine_rootfs" && "$QUOTATOOL" -nt "$alpine_rootfs" ]]; then
     fi
 fi
 
-# Detect glibc minimum kernel version (affects which kernels can use 9p path)
+# Detect glibc minimum kernel version (affects which kernels can use host paths)
+# The ELF "for GNU/Linux X.Y.Z" tag matches glibc's compiled-in floor.
+# Use file -L to follow symlinks (/bin/sh is often a symlink).
 GLIBC_MIN_KVER=""
 _glibc_min=$(file -L /bin/sh 2>/dev/null | grep -oP 'for GNU/Linux \K[0-9.]+' || true)
 if [[ -n "$_glibc_min" ]]; then
