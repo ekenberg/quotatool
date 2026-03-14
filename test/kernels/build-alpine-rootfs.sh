@@ -148,7 +148,16 @@ build_static_quotatool() {
     local output="$1"
 
     if ! command -v musl-gcc >/dev/null 2>&1; then
-        err "musl-gcc not found. Install: musl-tools (Debian/Ubuntu) or musl-gcc (Fedora)"
+        local hint="musl-tools (apt) or musl-gcc (dnf)"
+        if [ -f /etc/os-release ]; then
+            . /etc/os-release
+            case "${ID:-}${ID_LIKE:-}" in
+                *debian*|*ubuntu*) hint="apt install musl-tools" ;;
+                *fedora*|*rhel*|*centos*|*alma*|*rocky*) hint="dnf install musl-gcc musl-libc-static" ;;
+                *arch*) hint="pacman -S musl" ;;
+            esac
+        fi
+        err "musl-gcc not found. Install: $hint"
         return 1
     fi
 

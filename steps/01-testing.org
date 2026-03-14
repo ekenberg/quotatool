@@ -672,13 +672,11 @@ works for RHEL kernels too, we retire =build-rootfs.sh= entirely.
 - No per-kernel glibc mapping needed. Runtime detection already
   exists: =GLIBC_MIN_KVER= from =file /bin/sh=, compared with
   =sort -V=. Works automatically as glibc raises floor in future.
-- Build-time (=build-alpine-rootfs.sh=) must work *without sudo*.
-  Strategies: =fakeroot=, =unshare --user --map-root-user=, or
-  apk v3 =--usermode=. Prototype will determine best path.
+- Build-time (=build-alpine-rootfs.sh=) works *without sudo*:
+  =apk.static --usermode= (apk v3, Alpine 3.23+). No fakeroot needed.
 - Run-time (inside VM) is always root — no issue there.
-- For =runuser=: Alpine's =runuser= pulls PAM. Alternatives:
-  busybox =su -c=, or =setpriv= (no PAM dep). Decide during
-  prototyping based on what actually works for enforcement tests.
+- =runuser= works. Alpine's package pulls =linux-pam= as dep.
+  Minimal PAM config (pam_rootok + pam_permit). At =/sbin/runuser=.
 
 ** Tasks
 
@@ -696,19 +694,15 @@ staging dir, =/bin/sh= present.
 
 *** DONE 8.2 Install packages into Alpine rootfs (without sudo)
 Install into staging dir: bash, e2fsprogs, xfsprogs, quota-tools,
-util-linux (mount, losetup, runuser or setpriv).
+util-linux (mount, losetup, runuser).
 
-Challenge: =apk --root= wants to chown files. Options to try:
-1. =fakeroot apk --root /staging --initdb add ...=
-2. =unshare --user --map-root-user -- apk ...=
-3. apk v3 =--usermode= (Alpine 3.23 ships apk v3)
-4. Download =apk.static= from Alpine, use it directly
+*Resolved*: =apk.static= from Alpine 3.23 + =--usermode= (apk v3).
+No fakeroot, no unshare needed. =apk.static= downloaded and cached
+alongside the minirootfs. 56 packages, 21 MB installed.
 
-Determine whether =runuser= or busybox =su= or =setpriv= works
-best for enforcement tests (running commands as non-root user).
-
-Minimal PAM config needed if using =runuser= (pam_rootok +
-pam_permit, same as existing RHEL rootfs).
+=runuser= works — Alpine's package pulls =linux-pam= as dep.
+Minimal PAM config (pam_rootok + pam_permit) same as old RHEL rootfs.
+=runuser= at =/sbin/runuser= (not =/usr/bin/= — Alpine layout).
 
 /Verification/: =mkfs.ext4=, =mkfs.xfs=, =quotacheck=, =repquota=,
 =mount=, =losetup=, and user-switch tool all present and executable.
@@ -733,9 +727,11 @@ Actual approach (=-I/usr/include= causes glibc contamination):
 Test-only — normal users never do this. =build-alpine-rootfs.sh=
 handles all of this automatically.
 
-New test deps: =musl-gcc= (=musl-tools= on Debian, =musl-gcc= on
-Fedora), =linux-libc-dev= / =kernel-headers= (kernel UAPI headers,
-usually already installed). =check-deps.sh= updated to check.
+New test deps: =musl-gcc= (=musl-tools= on Debian/Ubuntu,
+=musl-gcc musl-libc-static= on Fedora/RHEL, =musl= on Arch).
+Not available on openSUSE base repos. =linux-libc-dev= /
+=kernel-headers= (kernel UAPI headers, usually already installed).
+=check-deps.sh= not yet updated to check (minor TODO).
 
 /Verification/: =file quotatool-musl= shows =statically linked=.
 =./quotatool-musl -V= works on host.
@@ -771,9 +767,16 @@ If Alpine rootfs works for RHEL kernels (no 9p), retire
 =build-rootfs.sh= and unify to one rootfs path. If not, keep
 both (Alpine for glibc-floor, host rootfs for RHEL).
 
-Update =--setup= to call =build-alpine-rootfs.sh=.
-Update =--list= display to show =qemu+alpine= boot path.
-Update =check-deps.sh= for =musl-gcc= dependency.
+Done:
+- =--setup= calls =build-alpine-rootfs.sh=
+- =--list= shows =qemu+alpine= with reason (glibc floor / no 9p)
+- =--smoke= tests the Alpine rootfs path
+- Auto-rebuild when quotatool binary is newer
+- Added =_needs_alpine_rootfs()= and =_below_glibc_floor()= helpers
+- Fixed pre-existing cosmetic bug: =--list= now shows correct boot
+  path for RHEL kernels (was showing =virtme= from kernels.conf)
+
+TODO (minor): update =check-deps.sh= to check for =musl-gcc=.
 
 /Dependencies/: 8.4
 
