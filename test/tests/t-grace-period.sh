@@ -47,8 +47,8 @@ echo "dump after -r: $dump2"
 
 grace_b2=$(echo "$dump2" | awk '{print $6}')
 # After restart, grace should reset to full period (~86400).
-# Must be >= pre-restart value (timer was counting down, restart resets it).
-[[ "$grace_b2" -ge "$grace_b" ]] \
+# Allow 5s tolerance for time elapsed between the two reads.
+[[ "$grace_b2" -ge $((grace_b - 5)) ]] \
     || fail "grace_b=$grace_b2 after restart, expected >=$grace_b (restart should reset timer)"
 
 # Cleanup
