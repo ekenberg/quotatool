@@ -18,6 +18,9 @@ modprobe loop 2>/dev/null || true
 modprobe quota_v2 2>/dev/null || true
 modprobe quota_tree 2>/dev/null || true
 
+# Export test IDs so sub-scripts can use them instead of hardcoding
+export TEST_USER_UID TEST_GROUP_GID TEST_NOEXIST_UID
+
 MNT="/tmp/test-host-ext4"
 PASS=0
 FAIL=0
@@ -25,12 +28,10 @@ FAIL=0
 # Create ext4 filesystem for the value tests
 fs_create_ext4 "$MNT" 200M
 
-# Run each host value test
+# Run each host value test (sub-scripts print their own headers)
 for test_script in "$SCRIPT_DIR"/t-parse-*.sh "$SCRIPT_DIR"/t-dump-*.sh; do
     [[ -f "$test_script" ]] || continue
-    test_name="$(basename "$test_script" .sh)"
 
-    echo "--- $test_name (ext4) ---"
     if bash "$test_script" ext4 "$MNT"; then
         PASS=$((PASS + 1))
     else

@@ -30,11 +30,11 @@ _check() {
 echo "--- t-dump-format ($FSTYPE) ---"
 
 # Set a known state
-"$QUOTATOOL" -u :65534 -b -q 50M -l 100M "$MNT" 2>/dev/null || true
-"$QUOTATOOL" -u :65534 -i -q 100 -l 200 "$MNT" 2>/dev/null || true
+"$QUOTATOOL" -u :${TEST_USER_UID:-65534} -b -q 50M -l 100M "$MNT" 2>/dev/null || true
+"$QUOTATOOL" -u :${TEST_USER_UID:-65534} -i -q 100 -l 200 "$MNT" 2>/dev/null || true
 
 # Get dump
-dump=$("$QUOTATOOL" -d -u :65534 "$MNT" 2>/dev/null)
+dump=$("$QUOTATOOL" -d -u :${TEST_USER_UID:-65534} "$MNT" 2>/dev/null)
 echo "  dump: $dump"
 
 # Field count must be exactly 10

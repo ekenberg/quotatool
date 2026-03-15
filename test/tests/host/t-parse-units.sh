@@ -19,12 +19,12 @@ _set_and_check() {
     local desc="$1" flag="$2" value="$3" field="$4" expected="$5"
 
     # Reset all limits first
-    "$QUOTATOOL" -u :65534 -b -q 0 -l 0 "$MNT" 2>/dev/null || true
-    "$QUOTATOOL" -u :65534 -i -q 0 -l 0 "$MNT" 2>/dev/null || true
+    "$QUOTATOOL" -u :${TEST_USER_UID:-65534} -b -q 0 -l 0 "$MNT" 2>/dev/null || true
+    "$QUOTATOOL" -u :${TEST_USER_UID:-65534} -i -q 0 -l 0 "$MNT" 2>/dev/null || true
 
     # Set the value
     local rc=0
-    "$QUOTATOOL" -u :65534 $flag "$value" "$MNT" 2>/dev/null || rc=$?
+    "$QUOTATOOL" -u :${TEST_USER_UID:-65534} $flag "$value" "$MNT" 2>/dev/null || rc=$?
     if [[ $rc -ne 0 ]]; then
         echo "  FAIL - $desc (quotatool exit $rc)"
         FAIL=$((FAIL + 1))
@@ -33,7 +33,7 @@ _set_and_check() {
 
     # Read back via -d
     local dump
-    dump=$("$QUOTATOOL" -d -u :65534 "$MNT" 2>/dev/null) || {
+    dump=$("$QUOTATOOL" -d -u :${TEST_USER_UID:-65534} "$MNT" 2>/dev/null) || {
         echo "  FAIL - $desc (dump failed)"
         FAIL=$((FAIL + 1))
         return
@@ -95,8 +95,8 @@ echo "Relative adjustment edge cases:"
 # This SHOULD stay at 102400 but returns 0. M3 fix candidate.
 _set_and_check "100M then +0M (known bug)" "-b -l" "100M" 5 102400
 # Now apply +0M on top
-"$QUOTATOOL" -u :65534 -b -l +0M "$MNT" 2>/dev/null || true
-dump=$("$QUOTATOOL" -d -u :65534 "$MNT" 2>/dev/null)
+"$QUOTATOOL" -u :${TEST_USER_UID:-65534} -b -l +0M "$MNT" 2>/dev/null || true
+dump=$("$QUOTATOOL" -d -u :${TEST_USER_UID:-65534} "$MNT" 2>/dev/null)
 got=$(echo "$dump" | awk '{print $5}')
 if [[ "$got" -eq 102400 ]]; then
     echo "  ok - +0M is no-op (got $got)"
