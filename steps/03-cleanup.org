@@ -99,7 +99,7 @@ run (that's the whole point), so grace restarts naturally.
 after =-r= before checking grace, matching real-world usage.
 No code change to =quota_reset_grace()=. GitHub #35 closed.
 
-** TODO 3.6 Investigate + fix: XFS quota issues
+** DOING 3.6 Investigate + fix: XFS quota issues
 
 Two known XFS-specific issues:
 
