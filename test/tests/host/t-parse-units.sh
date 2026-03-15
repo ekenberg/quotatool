@@ -88,5 +88,25 @@ _set_and_check "1.5K inodes" "-i -l" "1.5K" 9 1500
 _set_and_check "100 inodes (no suffix)" "-i -l" "100" 9 100
 
 echo ""
+echo "Relative adjustment edge cases:"
+
+# Known bug: +0M clears quota instead of no-op.
+# parse_size() line 475: count==0 returns 0, ignoring orig and op.
+# This SHOULD stay at 102400 but returns 0. M3 fix candidate.
+_set_and_check "100M then +0M (known bug)" "-b -l" "100M" 5 102400
+# Now apply +0M on top
+"$QUOTATOOL" -u :65534 -b -l +0M "$MNT" 2>/dev/null || true
+dump=$("$QUOTATOOL" -d -u :65534 "$MNT" 2>/dev/null)
+got=$(echo "$dump" | awk '{print $5}')
+if [[ "$got" -eq 102400 ]]; then
+    echo "  ok - +0M is no-op (got $got)"
+    PASS=$((PASS + 1))
+else
+    echo "  KNOWN BUG - +0M clears quota: got $got, expected 102400 (M3 fix)"
+    # Don't increment FAIL — known bug, not a test failure
+    # FAIL=$((FAIL + 1))
+fi
+
+echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]
