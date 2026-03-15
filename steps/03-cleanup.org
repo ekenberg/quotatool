@@ -22,7 +22,7 @@ The test suite (M1) exists to verify these fixes. For each bug:
 
 * Tasks
 
-** TODO 3.1 Fix: +0M clears quota instead of no-op
+** DONE 3.1 Fix: +0M clears quota instead of no-op
 
 *File*: =src/parse.c= line 475
 *Bug*: =parse_size()= returns 0 when =count==0=, ignoring =orig=
@@ -35,7 +35,7 @@ or handle it inside the switch (return =orig= for add/sub with 0).
 /Verification/: =run-tests.sh --host-only= — known bug line disappears.
 Full matrix not needed (parse_size is kernel-independent).
 
-** TODO 3.2 Fix: "5m" timespan ambiguity passes -1 to quotactl
+** DONE 3.2 Fix: "5m" timespan ambiguity passes -1 to quotactl
 
 *Files*: =src/parse.c= =parse_timespan()= + =src/main.c= lines 139,146
 *Bug*: =parse_timespan()= returns -1 on error (ambiguous "m", invalid
@@ -142,13 +142,17 @@ Do LAST. Cosmetic, no functional changes.
 /Verification/: Full matrix run after all cleanup to confirm
 no regressions from cosmetic changes.
 
-** TODO 3.9 CLI UX: run-tests.sh flag review
+** TODO 3.9 CLI UX: run-tests.sh flag review + timespan clarity
 
 Revisit before v1.7.0 release:
 - No-args behavior (help vs full run?)
 - Flag naming (=--quick= → something clearer?)
 - Should full matrix require explicit flag?
 - General idiom check for developer CLI tools
+- Timespan parsing: unclear and undocumented. "5d" parses as 5 days
+  (same as "5day" or "5days"), but this is opaque to users. Help/man
+  page should list accepted suffixes with examples. Consider whether
+  the "mi"/"mo" disambiguation is user-friendly enough.
 
 ** TODO 3.10 Release prep: v1.7.0
 
