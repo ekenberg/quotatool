@@ -60,19 +60,35 @@ if [[ "$WANT_FS" == "xfs" || "$WANT_FS" == "both" ]]; then
     echo "  XFS:  $XFS_MNT"
 fi
 
+if [[ -d "$EXT4_MNT/data" ]]; then
+    echo "  ext4 writable dir: $EXT4_MNT/data (chmod 777, for runuser)"
+fi
+if [[ -d "$XFS_MNT/data" ]]; then
+    echo "  XFS writable dir:  $XFS_MNT/data (chmod 777, for runuser)"
+fi
+
 cat <<'EOF'
 
   Examples:
     quotatool -u nobody -b -q 50M -l 100M /tmp/test-ext4
     quotatool -d -u nobody /tmp/test-ext4
     repquota /tmp/test-ext4
-    runuser -u nobody -- dd if=/dev/zero of=/tmp/test-ext4/test bs=1K count=200
+    runuser -u nobody -- dd if=/dev/zero of=/tmp/test-ext4/data/fill bs=1K count=200
 
-  Type 'exit' to tear down and shut down the VM.
-  Note: no job control (no PTY). Ctrl-C kills the VM.
-  stdin redirection (cat >, here-docs) unavailable.
+  Type 'exit' to shut down the VM.
+  Note: no PTY — no job control, no Ctrl-Z. Ctrl-C kills the VM.
 
 EOF
+
+# Make test dirs writable for runuser -u nobody
+if [[ -d "$EXT4_MNT" ]]; then
+    mkdir -p "$EXT4_MNT/data"
+    chmod 777 "$EXT4_MNT/data"
+fi
+if [[ -d "$XFS_MNT" ]]; then
+    mkdir -p "$XFS_MNT/data"
+    chmod 777 "$XFS_MNT/data"
+fi
 
 # Drop to interactive shell.
 # Note: when using vng -e, there's no proper PTY — job control and
@@ -81,7 +97,9 @@ EOF
 # Type 'exit' or 'poweroff' to shut down the VM.
 export PS1="quotatool-test# "
 export PATH="/bin:/sbin:/usr/bin:/usr/sbin:$SCRIPT_DIR/.."
-bash --norc --noprofile -i 2>&1
+# Suppress bash startup warnings about missing PTY (job control, tcsetpgrp).
+# These are harmless — everything works except job control and Ctrl-Z.
+exec bash --norc --noprofile -i 2> >(grep -v 'no job control\|cannot set terminal' >&2)
 
 # If bash exits, tear down (fs-setup EXIT trap handles cleanup)
 echo ""
