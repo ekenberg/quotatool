@@ -926,6 +926,5 @@ _boot_qemu_interactive() {
     qemu_args+=(-net none)
 
     _boot_log "Running interactive: qemu-system-x86_64 ${qemu_args[*]}"
-    _boot_log "Running interactive: qemu-system-x86_64 ${qemu_args[*]}"
     qemu-system-x86_64 "${qemu_args[@]}"
 }

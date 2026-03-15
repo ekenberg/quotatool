@@ -37,7 +37,7 @@ fi
 # Find quotatool
 QT=""
 for p in "$SCRIPT_DIR/../quotatool" /usr/bin/quotatool; do
-    [[ -x "$p" ]] && QT="$p" && break
+    [[ -x "$p" ]] && QT="$(readlink -f "$p")" && break
 done
 
 # Banner
@@ -89,7 +89,7 @@ fi
 # commands (quotatool, repquota, dd, runuser) all work fine.
 # Type 'exit' or 'poweroff' to shut down the VM.
 export PS1="quotatool-test# "
-export PATH="/bin:/sbin:/usr/bin:/usr/sbin:$SCRIPT_DIR/.."
+export PATH="/bin:/sbin:/usr/bin:/usr/sbin:$(readlink -f "$SCRIPT_DIR/..")"
 # If sourced (from vng wrapper), return — caller provides the shell.
 # If executed directly (QEMU), drop to bash.
 (return 0 2>/dev/null) && return 0
