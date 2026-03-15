@@ -98,11 +98,11 @@ _extract_kernel_version() {
     if command -v strings >/dev/null 2>&1; then
         local ver
         ver=$(strings "$kernel_path" 2>/dev/null \
-              | grep -oP '^[0-9]+\.[0-9]+\.[0-9]+' \
+              | sed -n 's/^\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p' \
               | head -n1 || true)
         if [[ -n "$ver" ]]; then
             # Return just major.minor
-            echo "$ver" | grep -oP '^[0-9]+\.[0-9]+'
+            echo "$ver" | sed 's/^\([0-9]\+\.[0-9]\+\).*/\1/'
             return 0
         fi
     fi

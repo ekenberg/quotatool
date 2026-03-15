@@ -295,7 +295,7 @@ fi
 # The ELF "for GNU/Linux X.Y.Z" tag matches glibc's compiled-in floor.
 # Use file -L to follow symlinks (/bin/sh is often a symlink).
 GLIBC_MIN_KVER=""
-_glibc_min=$(file -L /bin/sh 2>/dev/null | grep -oP 'for GNU/Linux \K[0-9.]+' || true)
+_glibc_min=$(file -L /bin/sh 2>/dev/null | sed -n 's/.*for GNU\/Linux \([0-9.]\+\).*/\1/p' || true)
 if [[ -n "$_glibc_min" ]]; then
     GLIBC_MIN_KVER="$_glibc_min"
 fi

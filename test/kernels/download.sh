@@ -125,8 +125,7 @@ download_ppa() {
     #   Old (pre-5.x):  files in root dir, href="linux-image-*.deb"
     #   New (5.x+):     files in amd64/ subdir, href="amd64/linux-image-*.deb"
     local all_debs
-    all_debs=$(echo "$index" | grep -oP 'href="[^"]*_amd64\.deb"' \
-               | sed 's/href="//; s/"//' | sort -u)
+    all_debs=$(echo "$index" | sed -n 's/.*href="\([^"]*_amd64\.deb\)".*/\1/p' | sort -u)
 
     if [[ -z "$all_debs" ]]; then
         die "No amd64 .deb files found at $url"

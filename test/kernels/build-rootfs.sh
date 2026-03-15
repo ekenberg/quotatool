@@ -218,7 +218,7 @@ done
 # Copy the dynamic linker — discover it, don't hardcode paths.
 # The linker is whatever the ELF INTERP header of /bin/sh points to.
 _interp=$(readelf -l "$(readlink -f /bin/sh)" 2>/dev/null \
-    | grep -oP '(?<=interpreter: )\S+(?=\])' || true)
+    | sed -n 's/.*interpreter: \([^ ]*\)\].*/\1/p' || true)
 if [[ -n "$_interp" && -e "$_interp" ]]; then
     copy_with_path "$_interp" "$STAGING"
     # Some binaries reference /lib64/ld-linux-x86-64.so.2 regardless

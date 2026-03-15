@@ -114,7 +114,7 @@ download_apk_static() {
 
     # Find the apk-tools-static package URL
     local pkg_name
-    pkg_name=$(curl -fsSL "$apk_url" | grep -oP 'apk-tools-static-[^"]+\.apk' | head -1)
+    pkg_name=$(curl -fsSL "$apk_url" | sed -n 's/.*\(apk-tools-static-[^"]*\.apk\).*/\1/p' | head -1)
     if [[ -z "$pkg_name" ]]; then
         err "Could not find apk-tools-static package"
         return 1
