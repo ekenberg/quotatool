@@ -86,7 +86,10 @@ wrapper sources setup then execs bash with proper PTY.
 - =test/run-tests.sh= — added =--interactive= flag
 - =test/kernels/initramfs/init= — added =__INTERACTIVE__= detection
 
-* TODO
+* Status: DONE
+
+All 4 cases verified. Merged to =m1-testing=. Audited by 2 review
+agents — findings fixed (duplicate log, readlink paths, build guard).
 
 ** DONE Case 1: =--interactive= (host kernel, virtme)
 Proper PTY via =vng --user root= (no =-e=). Setup via
@@ -107,6 +110,5 @@ may need to handle XFS block size differences in display/set.
 Serial console (no PTY). Init auto-runs setup via =setup_path= file.
 Verified working. QEMU multidevs warning fixed.
 
-** TODO Commit and merge
-Squash the iteration commits into clean history before merging
-to =m1-testing=. Current git log has broken intermediate commits.
+** DONE Commit and merge
+Merged to =m1-testing= (fast-forward). Pushed.
