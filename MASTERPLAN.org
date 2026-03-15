@@ -1,6 +1,6 @@
 #+TITLE: quotatool — Masterplan
 #+AUTHOR: Johan Ekenberg
-#+DATE: 2026-03-08
+#+DATE: 2026-03-08 (revised 2026-03-15)
 
 * Purpose
 
@@ -22,87 +22,131 @@ well-tested Linux (+BSD) utility with modern kernel API support.
 Establish automated testing that makes ongoing maintenance confident
 and low-effort.
 
-* Current State
+* Current State (2026-03-15)
 
 - Working tool, ~5,500 LOC of clean C, no dependencies
 - Supports Linux, FreeBSD, OpenBSD, NetBSD, macOS, Solaris, AIX
-- No test suite, no CI — changes are untested
+- *Test suite complete for Linux* — 25 kernels, 3 hosts, 2 filesystems
 - Several supported platforms are dead or broken
 - Missing support for newer kernel APIs (quotactl_fd, project quotas)
 - Packaged in Debian, Ubuntu, Fedora, EPEL, Gentoo, openSUSE, Homebrew
 - Latest release: v1.6.5 (July 2024)
+- Known bugs: grace -r (≤4.12), +0M, XFS grace display, -d operator
+  precedence, "5m" timespan ambiguity
 
-* Strategy: Scaffolding Before Building
+* Strategy
 
-Two phases of work, deliberately separated:
+*Revised 2026-03-15*: Original plan was "all scaffolding, then all
+building." Revised to ship bug fixes earlier — the Linux test
+framework is ready, users benefit from fixes now. BSD scaffolding
+and platform drops are a separate, later release.
 
-*Scaffolding* (M1-M2a): build complete test coverage for every
-platform we're keeping. No quotatool code changes — only test
-infrastructure. When this is done, every future change is verified
-automatically. Invest here first.
+Order of work:
 
-*Building* (M2b-M6): change actual quotatool code — drop platforms,
-fix bugs, add features, release. Every change is safe because the
-scaffolding catches regressions.
+1. *M1 (DONE)*: Linux test framework — the foundation
+2. *M3 (NEXT)*: Bug fixes + cleanup → *release v1.7.0*
+3. *M2*: BSD testing + platform drops (+possibly M4/M5) → *release v1.8.0*
+4. *M4/M5*: New features (if not bundled with M2)
 
-The line between scaffolding and building is where we start touching
-=src/=. Everything before that is investment in confidence.
+The key change: M3 before M2. Rationale:
+- Bug fixes benefit users immediately (grace -r affects 7 kernels)
+- The test framework to verify fixes is ready (M1)
+- BSD testing is unbounded effort for low user base
+- Platform drops deserve their own release with advance notice
+- v1.7.0 as a "quality release" (fixes + tests) is a positive message;
+  "we deleted your platform" is not
 
 * Milestones
 
-Each milestone is a discrete chunk of work that produces a
-concrete, verifiable result. Order matters — later milestones
-build on earlier ones.
-
-** M1: Linux Test Framework [step-plan: steps/01-testing.org]
-/Status: ACTIVE — core done, polish remaining/
+** DONE M1: Linux Test Framework [step-plan: steps/01-testing.org]
 
 The critical enabler for everything else. Without this, no change
-can be made with confidence.
+can be made with confidence. *Complete as of 2026-03-15.*
 
-Decisions made:
-- *Local-first*: test framework is a self-contained script.
-  No dependency on any CI platform. GitHub Actions is an optional
-  thin wrapper on top.
-- *Multi-kernel testing is the core*: kernel version differences
-  (including vendor patches) are the primary bug source. This is
-  the #1 testing dimension, not an afterthought.
-- *Two-tier boot*: virtme-ng (virtiofs) for kernels ≥5.4;
-  raw QEMU + custom initramfs (9p, msize=524288) for <5.4.
-  RHEL kernels without 9p: virtio-blk rootfs disk image.
-- *Loopback filesystem pattern*: create image → format → mount
-  with quotas → test → verify via repquota → teardown.
-
-Achieved:
+Delivered:
 - Clone repo → =run-tests.sh --setup= → full results across 25 kernels
 - Validated on 3 hosts (2× Mint 21, 1× Fedora 43)
-- 16 tests × 2 filesystems (ext4, XFS) × 25 kernels
+- 16 kernel-matrix tests × 2 filesystems × 25 kernels
+- 53 host-side test checks (arg validation, unit parsing, timespan, dump format)
+- =--quick= (no VM, instant), =--host-only= (one VM), full matrix
+- Alpine rootfs for RHEL kernels (musl-based, no host dependency)
+- Dependency audit complete (dep stack lean, grep -oP → POSIX sed)
+- All test assertions reviewed for false positives by 4 audit agents
 - All failures are known quotatool bugs, not framework issues
 
-Remaining (polish, not blocking M2):
-- Phase 8 (Alpine rootfs) — *DONE*. Replaces host-dependent rootfs
-  for RHEL kernels, future-proofs against glibc floor changes.
-  Validated on piano + forte. Branch: =m1-alpine-rootfs=.
-- Dependency audit (Phase 9)
-- CI wrapper (Phase 5 — defer to after M2)
+Branch: =m1-testing= (pushed, not yet merged to master)
 
 Inputs: =research/testing-infrastructure.org=,
         =research/multi-kernel-testing.org=
 
-** M2: Platform Testing & Cleanup [step-plan: steps/02-platforms.org]
-/Status: NOT STARTED/
+-----
 
-Two phases — scaffolding first, then building.
+*→ Release v1.7.0 after M3*
+
+-----
+
+** TODO M3: Bug Fixes & Codebase Cleanup [step-plan: steps/03-cleanup.org]
+/Status: NEXT/
+
+Bug fixes and cleanup, verified by the full test suite.
+This is the first milestone that touches =src/=.
+
+*** Priority fixes
+
+- *Grace period restart (-r)*: broken on kernels ≤4.12 — sets grace
+  to 0 instead of restarting. Confirmed quotatool bug, 7 kernels
+  affected. Fix and verify with the multi-kernel matrix.
+- *+0M clears quota*: =parse_size()= returns 0 when =count==0=,
+  ignoring =orig= and =op=. So =+0M= applied to 100M → 0 instead
+  of being a no-op. Discovered and confirmed during M1 testing.
+- *XFS grace period display*: =-d= reports =block_grace=0= after
+  setting grace on XFS. Possibly a display bug or =-t= not reaching
+  XFS properly (Q5 in =steps/01-testing.org=).
+- *-d grace field operator precedence*: Linux code path in =main.c=
+  line 109/123 has wrong C operator precedence on the cast.
+  BSD code path (lines 101-107) is correct. The cast applies only
+  to =block_time=, not to the ternary result.
+- *"5m" timespan ambiguity*: =parse_timespan()= returns -1 for bare
+  "m" (ambiguous: minutes or months), but =main.c= doesn't check
+  the return value. The -1 reaches =quotactl()= unchecked.
+
+*** Cleanup
+
+- Remove dead code, commented debug blocks
+- Static analysis (cppcheck, scan-build)
+- Fix known issues (e.g. mixed indentation)
+- Evaluate whether shipping custom kernel quota headers is still needed
+- Ensure clean compile with =-Wall -Wextra= on gcc and clang
+- Remove unused =#include <sys/cdefs.h>= from =src/linux/linux_quota.h=
+
+*** Branch strategy
+
+Work on branch off =m1-testing=. When complete: merge =m1-testing=
+→ =master=, tag =v1.7.0=. Create =release-1.7= branch for future
+1.7.x maintenance.
+
+-----
+
+*→ Release v1.7.0 here*
+
+-----
+
+** TODO M2: Platform Testing & Cleanup [step-plan: steps/02-platforms.org]
+/Status: NOT STARTED — after M3/
 
 *** M2a: BSD Test Coverage (scaffolding)
 
 Before dropping any platform, establish test coverage for the
 platforms we're *keeping*. You don't delete code you can't test.
 
-FreeBSD and OpenBSD use entirely different code paths (=src/freebsd/=,
-=src/openbsd/=), different syscalls (=quotactl()= on FreeBSD,
-=quota_set()= on OpenBSD), and UFS filesystem. None of this is
+FreeBSD and OpenBSD share =src/bsd/quota.c= (181 LOC) — completely
+different code path from Linux. Uses =quotactl()= on FreeBSD,
+UFS filesystem, =quota.user=/=quota.group= files. None of this is
 currently tested.
+
+Note: there is no =src/openbsd/= — FreeBSD, OpenBSD, and NetBSD
+all use =src/bsd/= via the =ANY_BSD= macro in =quotatool.h=.
+=configure.ac= maps all three to =PLATFORM=bsd=.
 
 Tasks:
 - Research BSD quota APIs, filesystem setup, VM options
@@ -113,7 +157,6 @@ Tasks:
 - Verify: quotatool builds and passes basic tests on FreeBSD + OpenBSD
 
 Result: same confidence level for BSD as we have for Linux.
-"Run one command, get results on FreeBSD and OpenBSD."
 
 *** M2b: Document Platform Decisions
 
@@ -135,7 +178,10 @@ Write =PLATFORM-CHANGES.md= (or section in README) covering:
 - *FreeBSD, OpenBSD*: kept. Active projects, standard UFS quotas,
   quotatool works.
 
-*** M2c: Drop Dead Platforms (building — first code changes)
+Note: v1.7.0 already announces these drops in its ROADMAP section.
+Stakeholders (Homebrew, MacPorts) have advance notice.
+
+*** M2c: Drop Dead Platforms
 
 With test coverage on the survivors and rationale documented,
 safely remove the dead.
@@ -148,48 +194,29 @@ For each drop:
 
 Result: smaller, honest codebase. Updated README, configure, Makefile.
 
-*** M2d: CI Setup (scaffolding)
-
-Now that all surviving platforms have local tests, wrap them in CI:
-- GitHub Actions: Linux multi-kernel matrix
-- Cirrus CI: FreeBSD, OpenBSD
-
-This is the final scaffolding task. After this, every PR is
-automatically tested on all platforms.
-
 Inputs: =research/other-os-relevance.org=
 
+*** Possibly: bundle M4/M5 into v1.8.0
+
+Decision deferred until after v1.7.0 release. Options:
+- *v1.8.0 = M2 + M4 + M5*: one big release with platform changes
+  AND new features. Gives distro maintainers a reason to repackage
+  (quotactl_fd + project quotas are real value-adds).
+- *v1.8.0 = M2 only, v1.9.0 = M4+M5*: smaller releases in quick
+  succession. Less risk per release but more packaging churn.
+
+The distro-maintainer argument favors bundling: they won't rush
+to package a release that only removes platforms. Adding quotactl_fd
+(tmpfs/bcachefs quotas) and project quotas gives them actual value.
+
 -----
 
-*→ Release 1.7.0 after M2* — see Roadmap below.
+*→ Release v1.8.0 here*
 
 -----
 
-** M3: Bug Fixes & Codebase Cleanup [step-plan: steps/03-cleanup.org]
-/Status: NOT STARTED/
-
-Bug fixes and cleanup, verified by the full test suite.
-
-Priority fixes:
-- *Grace period restart (-r)*: broken on kernels ≤4.12 — sets grace
-  to 0 instead of restarting. Confirmed quotatool bug, 7 kernels
-  affected. Fix and verify with the multi-kernel matrix.
-- *XFS grace period display*: =-d= reports =block_grace=0= after
-  setting grace on XFS. Possibly a display bug or =-t= not reaching
-  XFS properly (Q5 in =steps/01-testing.org=).
-
-Cleanup:
-- Remove dead code, commented debug blocks
-- Static analysis (cppcheck, scan-build)
-- Fix known issues (e.g. mixed indentation)
-- Evaluate whether shipping custom kernel quota headers is still needed
-- Ensure clean compile with =-Wall -Wextra= on gcc and clang
-- Remove unused =#include <sys/cdefs.h>= from =src/linux/linux_quota.h=
-  (glibc-only header, included but nothing from it used — discovered
-  during M1 musl static build, currently worked around with empty stub)
-
-** M4: quotactl_fd() Support [step-plan: steps/04-quotactl-fd.org]
-/Status: NOT STARTED/
+** TODO M4: quotactl_fd() Support [step-plan: steps/04-quotactl-fd.org]
+/Status: NOT STARTED — possibly bundled with M2 in v1.8.0/
 
 Add support for the quotactl_fd() syscall (kernel 5.14+). This
 enables quota management on tmpfs (kernel 6.6+) and bcachefs —
@@ -198,8 +225,8 @@ the original quotactl().
 
 Inputs: =research/linux-kernel-quota-api.org=
 
-** M5: Project Quota Support [step-plan: steps/05-project-quotas.org]
-/Status: NOT STARTED/
+** TODO M5: Project Quota Support [step-plan: steps/05-project-quotas.org]
+/Status: NOT STARTED — possibly bundled with M2 in v1.8.0/
 
 Add =-p= flag for project quotas (quotas on directory trees).
 Supported by XFS (always) and ext4 (since kernel 4.4). Useful for
@@ -207,14 +234,8 @@ container storage, web hosting docroots, CI build directories.
 
 Inputs: =research/linux-kernel-quota-api.org=
 
------
-
-*→ Release 1.8.0 after M5* — see Roadmap below.
-
------
-
 ** M6: Release Mechanics [step-plan: steps/06-release.org]
-/Status: NOT STARTED/
+/Status: NOT STARTED — applied at each release point/
 
 Ongoing release process. Applied at each release point, not a
 one-time milestone. Covers:
@@ -225,37 +246,58 @@ one-time milestone. Covers:
 
 * Roadmap
 
-** v1.7.0 — Platform Focus (after M2)
+** v1.7.0 — Quality Release (M1 + M3)
 
-The "honest codebase" release. Drops unsupported platforms,
-adds test infrastructure, CI.
+The "everything works better" release. Bug fixes verified by a
+comprehensive new test suite. *No platform changes* — all existing
+platforms continue to be supported. Non-destructive upgrade from 1.6.5.
 
 What's in it:
 - Multi-kernel test framework (25 Linux kernels, ext4 + XFS)
-- BSD test coverage (FreeBSD, OpenBSD)
-- CI: GitHub Actions (Linux), Cirrus CI (BSD)
-- Drop macOS, AIX, Solaris, NetBSD (with documented rationale)
+- Bug fixes: grace -r, +0M, XFS grace display, operator precedence
+- Codebase cleanup: dead code removal, clean -Wall -Wextra compile
 - Tested kernel matrix documented in README
+- ROADMAP section announcing v1.8.0 platform changes (advance notice)
 
-What's NOT in it: no functional changes to quotatool itself.
-Same features as 1.6.5, just fewer platforms and fully tested.
+What's NOT in it:
+- No platform drops (that's v1.8.0)
+- No new features (quotactl_fd, project quotas — that's v1.8.0+)
+- No CI (local testing is the workflow for a one-person project)
 
-Notify Homebrew/MacPorts maintainers *before* release.
+Branch strategy:
+- M3 work branches off =m1-testing=
+- When done: merge to =master=, tag =v1.7.0=
+- Create =release-1.7= branch for maintenance
 
-** v1.7.x — Patch releases (during M3)
+** v1.7.x — Maintenance releases
 
-Bug fixes, each with its own patch release:
-- Grace period restart (-r) fix
-- XFS grace period display fix
-- Any regressions caught by the new test suite
-- Codebase cleanup (no user-visible changes)
+Bug fixes backported from master to =release-1.7= branch.
+Maintained in parallel with v1.8.x development.
 
-** v1.8.0 — Feature Release (after M5)
+Purpose: macOS users on older OS versions (pre-APFS) and anyone
+who can't upgrade to v1.8.0 (which drops platforms) can still
+receive bug fixes.
 
-New capabilities:
-- =quotactl_fd()= support — tmpfs and bcachefs quotas (kernel 5.14+)
-- =-p= flag for project quotas (directory tree quotas)
+** v1.8.0 — Platform Focus (M2, possibly +M4/M5)
+
+The "honest codebase" release. Drops unsupported platforms, adds
+BSD test coverage, possibly adds new features.
+
+What's in it:
+- BSD test coverage (FreeBSD, OpenBSD)
+- Drop macOS, AIX, Solaris, NetBSD (with documented rationale)
+- *Possibly*: quotactl_fd() support (M4) — tmpfs/bcachefs quotas
+- *Possibly*: project quotas =-p= flag (M5)
 - Updated kernel test matrix
+
+Decision on M4/M5 inclusion made after v1.7.0 ships.
+
+Notify Homebrew/MacPorts maintainers *before* release (they got
+advance notice in v1.7.0's ROADMAP section).
+
+** v1.9.0 or v2.0.0 — Feature Release (if M4/M5 not in v1.8.0)
+
+Only needed if M4/M5 are not bundled with v1.8.0.
 
 * Principles
 
@@ -266,3 +308,6 @@ New capabilities:
 - *Milestone focus*: Work on one milestone at a time. Don't mix.
 - *Masterplan is mutable*: Milestones can be reordered, split, merged,
   or added as understanding grows. But changes are deliberate, not drift.
+- *Release early, release often*: Ship improvements to users. Don't
+  block fixes behind unrelated work. Separate positive changes
+  (bug fixes) from disruptive changes (platform drops).
