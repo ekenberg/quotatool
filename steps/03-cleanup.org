@@ -1,0 +1,166 @@
+#+TITLE: M3: Bug Fixes & Codebase Cleanup — Step Plan
+#+DATE: 2026-03-15
+
+*Branch: =m3-bugfixes= (off =m1-testing=)*
+
+This is the first milestone that modifies =src/=. Every change runs
+on production servers — work carefully, self-review, human review
+on every commit. One bug at a time, verified by the test suite.
+
+* Approach
+
+Order: self-contained fixes first (build confidence, prove the test
+suite catches things), then investigation-heavy bugs, then cosmetic
+cleanup last. Each fix is one commit, tested, reviewed.
+
+The test suite (M1) exists to verify these fixes. For each bug:
+1. Confirm the test currently shows the bug (or write a test first)
+2. Fix the code
+3. Run tests — confirm the fix, confirm no regressions
+4. Self-review the diff
+5. Commit, push, human review
+
+* Tasks
+
+** TODO 3.1 Fix: +0M clears quota instead of no-op
+
+*File*: =src/parse.c= line 475
+*Bug*: =parse_size()= returns 0 when =count==0=, ignoring =orig=
+and =op=. So =+0M= applied to 100M → 0 instead of staying at 100M.
+*Test*: =test/tests/host/t-parse-units.sh= — currently shows
+=KNOWN BUG - +0M clears quota=. After fix, should flip to =ok=.
+*Fix*: Move the =count==0= early return after the =switch(op)=,
+or handle it inside the switch (return =orig= for add/sub with 0).
+
+/Verification/: =run-tests.sh --host-only= — known bug line disappears.
+Full matrix not needed (parse_size is kernel-independent).
+
+** TODO 3.2 Fix: "5m" timespan ambiguity passes -1 to quotactl
+
+*Files*: =src/parse.c= =parse_timespan()= + =src/main.c= lines 139,146
+*Bug*: =parse_timespan()= returns -1 on error (ambiguous "m", invalid
+format), but =main.c= stores the return value directly into
+=quota->block_grace= without checking for -1. The bad value reaches
+=quotactl()=.
+*Fix*: Check =parse_timespan()= return value in =main.c=. If -1,
+print error and exit. Optionally: make bare "m" resolve to minutes
+(more intuitive than error) — but that's a behavior change, discuss.
+*Test*: Add a test case to =t-parse-timespan.sh= or =t-error-args.sh=
+for the "5m" case once the behavior is decided.
+
+/Verification/: =run-tests.sh --host-only=.
+
+** TODO 3.3 Fix: -d grace field operator precedence
+
+*File*: =src/main.c= lines 109, 123
+*Bug*: =(unsigned long) quota->block_time ? ...= — cast binds only
+to =block_time=, not to the ternary result. When grace has expired,
+=block_time - now= is negative, but =%lu= prints it as a huge
+unsigned number. BSD code path (lines 101-107) is correct.
+*Fix*: Add parentheses: =(unsigned long)(quota->block_time ? ... : 0)=
+Match the BSD code path's style.
+*Test*: =t-dump-format.sh= checks field types. Could add an
+expired-grace test (set grace very short, wait, verify -d output).
+
+/Verification/: =run-tests.sh --host-only=.
+
+** TODO 3.4 Remove: unused sys/cdefs.h include
+
+*File*: =src/linux/linux_quota.h= line 17
+*Bug*: =#include <sys/cdefs.h>= — glibc-only header. Nothing from
+it is used. Breaks musl-gcc build (we work around with empty stub
+in =build-alpine-rootfs.sh=).
+*Fix*: Delete the include line. Remove the stub from
+=build-alpine-rootfs.sh=.
+*Test*: Normal =make= succeeds. =build-alpine-rootfs.sh= still works
+without the stub.
+
+/Verification/: =./configure && make= clean. =run-tests.sh --quick=.
+
+** TODO 3.5 Investigate + fix: grace -r restart (≤4.12)
+
+*File*: =src/linux/quota.c= — =quota_reset_grace()= and/or
+=xfs_reset_grace()=
+*Bug*: =-r= flag sets grace to 0 instead of restarting on kernels
+≤4.12. Passes on 4.15+. 7 kernels affected in the test matrix.
+*Investigation needed*: What changed between 4.12 and 4.15?
+Likely a kernel-side quotactl behavior change that the current
+code doesn't account for. May need to probe kernel version or
+try alternative quotactl commands.
+*Test*: =t-grace-period.sh= already tests this. Currently fails
+on ≤4.12 (known). After fix, those 7 kernels should pass.
+
+/Verification/: Full 25-kernel matrix required. This is THE test.
+The fix must pass on modern kernels (no regression) AND on ≤4.12.
+
+** TODO 3.6 Investigate + fix: XFS grace period display
+
+*Bug*: =-d= reports =block_grace=0= on XFS after setting grace with
+=-t= and exceeding soft limit. Works on ext4. (Q5 in step-plan 01.)
+*Investigation needed*: Read =src/linux/quota.c= XFS path.
+Check if =-t= reaches XFS correctly. Check if =d_btimer= is
+populated. May be related to 3.3 (operator precedence) or may
+be a separate issue in the XFS grace set/get path.
+*Test*: =t-grace-period.sh= skips XFS. =t-enforce-block-soft.sh=
+skips grace check on XFS. After fix, both should work on XFS.
+
+/Verification/: =run-tests.sh --host-only= with XFS grace test enabled.
+
+** TODO 3.7 Compiler warnings: -Wall -Wextra clean build
+
+Do AFTER bug fixes (fixes change code that may trigger warnings).
+
+- Build with =CFLAGS="-Wall -Wextra"= on gcc
+- Build with clang (=CC=clang=) if available
+- Fix all warnings — no new warnings allowed after this
+- Consider adding =-Werror= to CI/test builds (not default)
+
+/Verification/: =./configure && make CFLAGS="-Wall -Wextra"= clean.
+
+** TODO 3.8 Codebase cleanup
+
+Do LAST. Cosmetic, no functional changes.
+
+- Remove dead code, commented-out debug blocks (=// FIXME: remote debug=)
+- Fix mixed indentation (tabs vs spaces)
+- Evaluate whether shipping custom kernel quota headers is still needed
+  (=linux_quota.h=, =xfs_quota.h=, =dqblk_old.h=, =dqblk_v0.h=)
+- Review and clean up =TODO= file
+
+/Verification/: Full matrix run after all cleanup to confirm
+no regressions from cosmetic changes.
+
+** TODO 3.9 CLI UX: run-tests.sh flag review
+
+Revisit before v1.7.0 release:
+- No-args behavior (help vs full run?)
+- Flag naming (=--quick= → something clearer?)
+- Should full matrix require explicit flag?
+- General idiom check for developer CLI tools
+
+** TODO 3.10 Release prep: v1.7.0
+
+- Version bump in =configure.ac= (1.6.5 → 1.7.0)
+- Update =ChangeLog=
+- Update =README.md= (tested kernel matrix, test suite docs)
+- Add ROADMAP section announcing v1.8.0 platform changes
+- Update man page if any user-visible behavior changed
+- Merge =m1-testing= → =master= (includes all M1 + M3 work)
+- Tag =v1.7.0=
+- Create =release-1.7= branch
+- Notify downstream packagers
+
+* Dependency Order
+
+#+begin_example
+3.1 (parse_size +0)     ──→ independent, do first
+3.2 (timespan -1)       ──→ independent
+3.3 (operator prec)     ──→ independent, may inform 3.6
+3.4 (sys/cdefs.h)       ──→ independent
+3.5 (grace -r ≤4.12)    ──→ needs investigation, full matrix
+3.6 (XFS grace)         ──→ needs investigation, may depend on 3.3
+3.7 (-Wall -Wextra)     ──→ after 3.1-3.6
+3.8 (cleanup)           ──→ after 3.7
+3.9 (CLI UX)            ──→ before 3.10
+3.10 (release)          ──→ after everything
+#+end_example
