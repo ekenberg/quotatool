@@ -127,7 +127,8 @@ Options:
   --tier N        Only run kernels of tier N (1, 2, or 3)
                   Tiers: 1=actively supported, 2=recently EOL, 3=historical
   --kernel NAME   Only run the named kernel
-  --host-only     Run tests on the host kernel only (no VMs, fast)
+  --quick         Argument validation tests only (no root, no VM, instant)
+  --host-only     Run tests on the host kernel only (no kernel matrix)
   --timeout SECS  Per-kernel timeout in seconds (default: 120)
   -v, --verbose   Verbose boot output (forces --jobs 1)
   -h, --help      Show this help
@@ -137,6 +138,7 @@ EOF
 OPT_TIER=""
 OPT_KERNEL=""
 OPT_HOST_ONLY=0
+OPT_QUICK=0
 OPT_SETUP=0
 OPT_SMOKE=0
 OPT_LIST=0
@@ -155,6 +157,7 @@ while [[ $# -gt 0 ]]; do
         --only-failed) OPT_ONLY_FAILED=1; shift ;;
         --tier)      OPT_TIER="$2"; shift 2 ;;
         --kernel)    OPT_KERNEL="$2"; shift 2 ;;
+        --quick)     OPT_QUICK=1; shift ;;
         --host-only) OPT_HOST_ONLY=1; shift ;;
         --timeout)   OPT_TIMEOUT="$2"; shift 2 ;;
         -v|--verbose) OPT_VERBOSE="1"; shift ;;
@@ -172,6 +175,24 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 QUOTATOOL="$PROJECT_DIR/quotatool"
 INITRAMFS_DIR="$SCRIPT_DIR/kernels/initramfs"
 KERNELS_DIR="$SCRIPT_DIR/kernels"
+GUEST_CMD="$SCRIPT_DIR/guest-run-all.sh"
+
+# ---------------------------------------------------------------------------
+# Quick tests (no root, no VM — argument validation only)
+# ---------------------------------------------------------------------------
+
+HOST_TESTS_DIR="$SCRIPT_DIR/tests/host"
+
+_run_quick_tests() {
+    echo -e "${BOLD}Quick tests (argument validation, no VM)${NC}"
+    echo ""
+    if [[ -x "$HOST_TESTS_DIR/t-error-args.sh" ]]; then
+        "$HOST_TESTS_DIR/t-error-args.sh" "$QUOTATOOL"
+    else
+        echo -e "${YELLOW}SKIP${NC}: $HOST_TESTS_DIR/t-error-args.sh not found"
+        return 0
+    fi
+}
 
 # ---------------------------------------------------------------------------
 # Setup / bootstrap
@@ -243,7 +264,40 @@ if [[ $OPT_SETUP -eq 1 ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Pre-flight: bail if --setup hasn't been run
+# Quick mode: no infrastructure needed, run and exit
+# ---------------------------------------------------------------------------
+
+if [[ $OPT_QUICK -eq 1 ]]; then
+    _run_quick_tests
+    exit $?
+fi
+
+# ---------------------------------------------------------------------------
+# Host-only mode: only needs host kernel, not full infrastructure
+# ---------------------------------------------------------------------------
+
+if [[ $OPT_HOST_ONLY -eq 1 ]]; then
+    # Quick tests first (no VM)
+    _run_quick_tests || { echo -e "\n${RED}Quick tests failed — aborting.${NC}"; exit 1; }
+    echo ""
+
+    # Host value tests (VM, host kernel)
+    if [[ -x "$HOST_TESTS_DIR/guest-run-host-tests.sh" ]]; then
+        echo -e "${BOLD}Host value tests (VM, host kernel $(uname -r))${NC}"
+        echo ""
+        boot_host_kernel "$HOST_TESTS_DIR/guest-run-host-tests.sh" || exit $?
+        echo ""
+    fi
+
+    # Full test suite on host kernel
+    echo -e "${BOLD}Full test suite (host kernel $(uname -r))${NC}"
+    echo ""
+    boot_host_kernel "$GUEST_CMD"
+    exit $?
+fi
+
+# ---------------------------------------------------------------------------
+# Pre-flight: bail if --setup hasn't been run (needed for kernel matrix)
 # ---------------------------------------------------------------------------
 
 if [[ ! -f "$INITRAMFS_DIR/initramfs.cpio.gz" ]]; then
@@ -307,9 +361,6 @@ export BOOT_VERBOSE="$OPT_VERBOSE"
 # Create results directory
 mkdir -p "$RESULTS_DIR"
 
-# The command to run inside each VM
-GUEST_CMD="$SCRIPT_DIR/guest-run-all.sh"
-
 # ---------------------------------------------------------------------------
 # List mode
 # ---------------------------------------------------------------------------
@@ -361,17 +412,6 @@ if [[ $OPT_LIST -eq 1 ]]; then
         echo ""
     done < <(grep -v '^\s*#' "$CONF" | grep -v '^\s*$')
     exit 0
-fi
-
-# ---------------------------------------------------------------------------
-# Host-only mode
-# ---------------------------------------------------------------------------
-
-if [[ $OPT_HOST_ONLY -eq 1 ]]; then
-    echo -e "${BOLD}Running tests on host kernel $(uname -r)${NC}"
-    echo ""
-    boot_host_kernel "$GUEST_CMD"
-    exit $?
 fi
 
 # ---------------------------------------------------------------------------
@@ -484,6 +524,10 @@ fi
 # ---------------------------------------------------------------------------
 # Multi-kernel mode
 # ---------------------------------------------------------------------------
+
+# Run quick tests first — bail if basic arg parsing is broken
+_run_quick_tests || { echo -e "\n${RED}Quick tests failed — aborting kernel matrix.${NC}"; exit 1; }
+echo ""
 
 # Re-use pre-flight data (kernels.conf already parsed, _ready/_not_ready set)
 entries=("${_preflight_entries[@]}")
