@@ -50,7 +50,7 @@ for the "5m" case once the behavior is decided.
 
 /Verification/: =run-tests.sh --host-only=.
 
-** TODO 3.3 Fix: -d grace field operator precedence
+** DONE 3.3 Fix: -d grace field operator precedence
 
 *File*: =src/main.c= lines 109, 123
 *Bug*: =(unsigned long) quota->block_time ? ...= — cast binds only

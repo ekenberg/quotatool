@@ -158,6 +158,7 @@ all use =src/bsd/= via the =ANY_BSD= macro in =quotatool.h=.
 =configure.ac= maps all three to =PLATFORM=bsd=.
 
 Tasks:
+- Fix BSD expired-grace display bug (#36, found during M3 #33 fix)
 - Research BSD quota APIs, filesystem setup, VM options
 - FreeBSD test path: QEMU + FreeBSD image, or Cirrus CI (free)
 - OpenBSD test path: QEMU + OpenBSD image, or Cirrus CI

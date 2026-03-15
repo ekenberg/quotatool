@@ -76,6 +76,33 @@ _check "block hard = 102400 (100M)" "102400" "$blk_hard"
 _check "inode soft = 100" "100" "$ino_soft"
 _check "inode hard = 200" "200" "$ino_hard"
 
+# Expired grace: -d field 6 must be 0, not a huge unsigned number.
+# Bug: (unsigned long) cast binds to block_time only, not the ternary
+# result, so negative (block_time - now) prints as huge %lu value.
+: "${TEST_USER_NAME:=nobody}"
+: "${TEST_USER_UID:=65534}"
+
+# Set 1-second grace, soft=1 block, exceed, wait for expiry
+"$QUOTATOOL" -u -b -t "1 second" "$MNT" 2>/dev/null || true
+"$QUOTATOOL" -u :${TEST_USER_UID} -b -q 1 -l 0 "$MNT" 2>/dev/null || true
+mkdir -p "$MNT/grace-dump-test" && chmod 777 "$MNT/grace-dump-test"
+runuser -u "$TEST_USER_NAME" -- sh -c \
+    "dd if=/dev/zero of=$MNT/grace-dump-test/fill bs=1K count=100 2>/dev/null" || true
+sleep 2
+grace_dump=$("$QUOTATOOL" -d -u :${TEST_USER_UID} "$MNT" 2>/dev/null)
+grace_field=$(echo "$grace_dump" | awk '{print $6}')
+# Clean up
+rm -rf "$MNT/grace-dump-test" 2>/dev/null || true
+"$QUOTATOOL" -u :${TEST_USER_UID} -b -q 0 -l 0 "$MNT" 2>/dev/null || true
+
+# Sane grace value: numeric, at most 9 digits (~3 years in seconds).
+# The bug produces 18446744073709551615 (20 digits) from unsigned wrap.
+if [[ "$grace_field" =~ ^[0-9]+$ ]] && [[ ${#grace_field} -le 9 ]]; then
+    _check "expired grace field is sane (got $grace_field)" "yes" "yes"
+else
+    _check "expired grace field is sane (got $grace_field)" "yes" "no"
+fi
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]
