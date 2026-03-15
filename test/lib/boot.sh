@@ -509,7 +509,7 @@ Run: test/kernels/initramfs/build.sh"
         # Read-write to match vng behavior. Tests write only to /tmp and
         # loop devices inside the VM, so host files are safe in practice.
         qemu_args+=(
-            -fsdev "local,id=hostroot,path=/,security_model=none"
+            -fsdev "local,id=hostroot,path=/,security_model=none,multidevs=remap"
             -device "virtio-9p-pci,fsdev=hostroot,mount_tag=hostroot"
         )
 
@@ -800,27 +800,35 @@ _boot_qemu_interactive() {
     local kernel_path="$1"
     local command="$2"
 
-    # Reuse _boot_qemu's module/initramfs setup by calling it with
-    # the interactive marker. But we need to change QEMU flags:
-    # no timeout, terminal connected to serial console.
+    # QEMU interactive: always send __INTERACTIVE__ to init so it
+    # drops to a shell instead of running a command and powering off.
+    # Setup instructions printed by caller (run-tests.sh).
 
     if ! _have_qemu; then
         _boot_die "qemu-system-x86_64 not found in PATH"; return 1
     fi
 
+    local kver
+    kver=$(_extract_kernel_version "$kernel_path") || kver="unknown"
+
+    echo "  Booting kernel $kver (serial console, no PTY)..."
+    echo ""
     local lib_dir
     lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     local initramfs="$lib_dir/../kernels/initramfs/initramfs.cpio.gz"
     [[ -f "$initramfs" ]] || { _boot_die "Initramfs not found"; return 1; }
 
-    # Build initramfs with modules (same as _boot_qemu)
     local work_dir
     work_dir=$(mktemp -d "${TMPDIR:-/tmp}/qemu-work.XXXXXX")
     trap "rm -rf '$work_dir'" RETURN
 
     local results_dir="$work_dir/results"
     mkdir -p "$results_dir"
-    echo "$command" > "$results_dir/cmd"
+    echo "__INTERACTIVE__" > "$results_dir/cmd"
+    # Write the setup script path so init can display it
+    local real_cmd
+    real_cmd=$(readlink -f "$command")
+    echo "$real_cmd" > "$results_dir/setup_path"
 
     local boot_initramfs="$work_dir/initramfs.cpio.gz"
     cp "$initramfs" "$boot_initramfs"
@@ -889,7 +897,7 @@ _boot_qemu_interactive() {
         rootfs_mode=1
         local cmd_overlay="$work_dir/cmd_overlay"
         mkdir -p "$cmd_overlay"
-        echo "$command" > "$cmd_overlay/cmd"
+        echo "__INTERACTIVE__" > "$cmd_overlay/cmd"
         (cd "$cmd_overlay" && echo cmd | cpio -o -H newc --quiet | gzip -9) >> "$boot_initramfs"
     fi
 
@@ -909,7 +917,7 @@ _boot_qemu_interactive() {
         qemu_args+=(-drive "file=$BOOT_ROOTFS,if=virtio,format=raw,readonly=on")
     else
         qemu_args+=(
-            -fsdev "local,id=hostroot,path=/,security_model=none"
+            -fsdev "local,id=hostroot,path=/,security_model=none,multidevs=remap"
             -device "virtio-9p-pci,fsdev=hostroot,mount_tag=hostroot"
             -fsdev "local,id=results,path=$results_dir,security_model=none"
             -device "virtio-9p-pci,fsdev=results,mount_tag=results"
@@ -917,6 +925,7 @@ _boot_qemu_interactive() {
     fi
     qemu_args+=(-net none)
 
+    _boot_log "Running interactive: qemu-system-x86_64 ${qemu_args[*]}"
     _boot_log "Running interactive: qemu-system-x86_64 ${qemu_args[*]}"
     qemu-system-x86_64 "${qemu_args[@]}"
 }

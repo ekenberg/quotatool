@@ -90,13 +90,14 @@ fi
 # Type 'exit' or 'poweroff' to shut down the VM.
 export PS1="quotatool-test# "
 export PATH="/bin:/sbin:/usr/bin:/usr/sbin:$SCRIPT_DIR/.."
-# If sourced (from shell wrapper or PROMPT_COMMAND), just set
-# PS1 and return — caller provides the interactive shell.
-# If executed directly (vng -e, or QEMU), drop to bash.
-export PS1="quotatool-test# "
+# If sourced (from vng wrapper), return — caller provides the shell.
+# If executed directly (QEMU), drop to bash.
 (return 0 2>/dev/null) && return 0
 
-echo "  Note: no PTY — two warnings above are harmless."
+# Set terminal size for serial console (no auto-negotiation)
+stty columns "${COLUMNS:-120}" rows "${LINES:-40}" 2>/dev/null || true
+
+echo "  Note: no PTY — two warnings below are harmless."
 echo "  No job control, no Ctrl-Z. Ctrl-C kills the VM."
 echo ""
 

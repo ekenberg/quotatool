@@ -88,19 +88,24 @@ wrapper sources setup then execs bash with proper PTY.
 
 * TODO
 
-** DOING Case 1: =--interactive= (host kernel, virtme)
-Works with no-PTY limitations. Investigating =vng --shell= for PTY.
+** DONE Case 1: =--interactive= (host kernel, virtme)
+Proper PTY via =vng --user root= (no =-e=). Setup via
+=source /tmp/.quotatool-setup.sh= (one command after login).
 
-** TODO Case 2: =--interactive --kernel debian-12= (virtme)
-Same path as case 1. Test after PTY question resolved.
+** DONE Case 2: =--interactive --kernel debian-12= (virtme)
+Same path as case 1. Verified working.
 
-** TODO Case 3: =--interactive --kernel alma9= (qemu+alpine)
-Serial console. Test that =__INTERACTIVE__= marker works with
-Alpine rootfs. Expect no PTY (serial limitation).
+** DONE Case 3: =--interactive --kernel alma9= (qemu+alpine)
+Serial console (no PTY). Init auto-runs =guest-interactive.sh=.
+Filesystems created, banner shown, drops to bash. Verified working.
 
-** TODO Case 4: =--interactive --kernel debian-8= (qemu+9p)
-Serial console. Test that =__INTERACTIVE__= marker works with
-9p init path. Expect no PTY (serial limitation).
+*Note for M3*: XFS soft block limit shows 52 when set to 50k,
+while ext4 shows 50. XFS uses different block accounting — quotatool
+may need to handle XFS block size differences in display/set.
+
+** DONE Case 4: =--interactive --kernel debian-8= (qemu+9p)
+Serial console (no PTY). Init auto-runs setup via =setup_path= file.
+Verified working. QEMU multidevs warning fixed.
 
 ** TODO Commit and merge
 Squash the iteration commits into clean history before merging

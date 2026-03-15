@@ -319,6 +319,7 @@ log "Installed static quotatool"
 # Step 8: Install test scripts
 mkdir -p "$STAGING/test"
 cp -a "$TEST_DIR/guest-run-all.sh" "$STAGING/test/"
+cp -a "$TEST_DIR/guest-interactive.sh" "$STAGING/test/" 2>/dev/null || true
 cp -a "$TEST_DIR/lib" "$STAGING/test/"
 cp -a "$TEST_DIR/tests" "$STAGING/test/"
 # Symlinks for test scripts that reference quotatool by relative path

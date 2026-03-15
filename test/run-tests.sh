@@ -19,8 +19,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONF="$SCRIPT_DIR/kernels/kernels.conf"
 RESULTS_DIR="$SCRIPT_DIR/results"
 
-# Source boot layer
+# Source boot layer (boot.sh enables set -e which we don't want —
+# run-tests.sh needs to continue after test failures)
 source "$SCRIPT_DIR/lib/boot.sh"
+set +e
 
 # Colors (if terminal)
 if [[ -t 1 ]]; then
@@ -327,7 +329,7 @@ if [[ $OPT_INTERACTIVE -eq 1 ]]; then
         exit $?
     else
         # --kernel NAME: find and boot that kernel
-        vmlinuz=$(find_vmlinuz "$OPT_KERNEL")
+        vmlinuz=$(find_vmlinuz "$OPT_KERNEL" || true)
         if [[ -z "$vmlinuz" ]]; then
             echo -e "${RED}Kernel '$OPT_KERNEL' not found. Run --setup or check --list.${NC}"
             exit 1

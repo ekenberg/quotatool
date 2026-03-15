@@ -78,8 +78,7 @@ if [ -b /dev/vda ]; then
 
     # Run it inside the chroot (output goes to serial console)
     if [ "$CMD" = "__INTERACTIVE__" ]; then
-        echo "[init] interactive shell — type 'exit' to shut down"
-        chroot /mnt/rootfs /bin/bash -l 2>&1
+        chroot /mnt/rootfs /test/guest-interactive.sh 2>&1
         echo "===QUOTATOOL_EXIT:0==="
     else
         echo "[init] chroot: running $CMD"
@@ -134,9 +133,13 @@ CMD=$(cat /mnt/results/cmd)
 
 # Step 7: run it inside the chroot
 if [ "$CMD" = "__INTERACTIVE__" ]; then
-    # Interactive mode: connect directly to serial console (no redirect)
-    echo "[init] interactive shell — type 'exit' to shut down"
-    chroot /mnt/host /bin/bash -l 2>&1
+    # Interactive mode: run setup, then drop to shell on serial console
+    SETUP_PATH=$(cat /mnt/results/setup_path 2>/dev/null || true)
+    if [ -n "$SETUP_PATH" ]; then
+        chroot /mnt/host "$SETUP_PATH" 2>&1
+    else
+        chroot /mnt/host /bin/bash --norc --noprofile -i 2>&1
+    fi
     echo "0" > /mnt/results/exit_code
 else
     # Normal mode: capture output to files
