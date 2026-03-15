@@ -784,6 +784,10 @@ _boot_virtme_interactive() {
         echo ""
     fi
 
+    local kver
+    kver=$(_extract_kernel_version "$kernel_path") || kver="unknown"
+    echo "  Booting kernel $kver..."
+    echo ""
     _boot_log "Running interactive: vng ${vng_args[*]}"
     vng "${vng_args[@]}"
 

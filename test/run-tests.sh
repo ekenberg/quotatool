@@ -188,6 +188,11 @@ HOST_TESTS_DIR="$SCRIPT_DIR/tests/host"
 export BOOT_TIMEOUT="$OPT_TIMEOUT"
 export BOOT_VERBOSE="$OPT_VERBOSE"
 
+# Detect glibc floor early — needed by --interactive which runs before pre-flight.
+GLIBC_MIN_KVER=""
+_glibc_min=$(file -L /bin/sh 2>/dev/null | sed -n 's/.*for GNU\/Linux \([0-9.]\+\).*/\1/p' || true)
+[[ -n "$_glibc_min" ]] && GLIBC_MIN_KVER="$_glibc_min"
+
 # ---------------------------------------------------------------------------
 # Quick tests (no root, no VM — argument validation only)
 # ---------------------------------------------------------------------------
@@ -395,14 +400,7 @@ if [[ -f "$alpine_rootfs" && "$QUOTATOOL" -nt "$alpine_rootfs" ]]; then
     fi
 fi
 
-# Detect glibc minimum kernel version (affects which kernels can use host paths)
-# The ELF "for GNU/Linux X.Y.Z" tag matches glibc's compiled-in floor.
-# Use file -L to follow symlinks (/bin/sh is often a symlink).
-GLIBC_MIN_KVER=""
-_glibc_min=$(file -L /bin/sh 2>/dev/null | sed -n 's/.*for GNU\/Linux \([0-9.]\+\).*/\1/p' || true)
-if [[ -n "$_glibc_min" ]]; then
-    GLIBC_MIN_KVER="$_glibc_min"
-fi
+# GLIBC_MIN_KVER already detected early (before --interactive).
 
 # Create results directory
 mkdir -p "$RESULTS_DIR"
