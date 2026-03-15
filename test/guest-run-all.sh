@@ -13,6 +13,17 @@ TEST_DIR="$SCRIPT_DIR/tests"
 source "$SCRIPT_DIR/lib/fs-setup.sh"
 source "$SCRIPT_DIR/lib/test-ids.sh"
 
+# fs-setup.sh enables set -e which leaks into us via source.
+# Restore our deliberate no-e. Tests run as subprocesses (bash $script)
+# so they get their own -e setting.
+set +e
+
+# Guard: test-ids.sh must find a non-root user for quota tests to be meaningful
+if [[ "$TEST_USER_UID" -eq 0 ]]; then
+    echo "FATAL: no non-root test user found. Quota enforcement tests need a real user." >&2
+    exit 1
+fi
+
 # Ensure required modules are loaded (may be modules in vendor kernels)
 modprobe loop 2>/dev/null || true
 modprobe quota_v2 2>/dev/null || true
@@ -55,6 +66,11 @@ done
 
 echo ""
 echo "==============================="
+total=$((PASS + FAIL))
+if [[ $total -eq 0 ]]; then
+    echo "ERROR: no tests found in $TEST_DIR"
+    exit 1
+fi
 echo "Results: $PASS passed, $FAIL failed"
 if [[ $FAIL -gt 0 ]]; then
     echo ""
