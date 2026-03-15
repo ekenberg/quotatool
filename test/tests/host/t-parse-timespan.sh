@@ -96,6 +96,23 @@ _set_grace_and_verify "5min" "5min" 300
 _set_grace_and_verify "7d" "7d" 604800
 _set_grace_and_verify "3600 (no unit = seconds)" "3600" 3600
 
+# Error cases: ambiguous or invalid timespan must be rejected
+_check_timespan_rejected() {
+    local desc="$1" time_str="$2"
+    local rc=0
+    "$QUOTATOOL" -u -b -t "$time_str" "$MNT" 2>/dev/null || rc=$?
+    if [[ $rc -ne 0 ]]; then
+        echo "  ok - $desc (rejected, exit $rc)"
+        PASS=$((PASS + 1))
+    else
+        echo "  FAIL - $desc: expected error, got exit 0"
+        FAIL=$((FAIL + 1))
+    fi
+}
+
+_check_timespan_rejected "5m rejected (ambiguous: minutes or months)" "5m"
+_check_timespan_rejected "1m rejected (ambiguous)" "1m"
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]

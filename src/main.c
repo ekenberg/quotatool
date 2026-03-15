@@ -137,6 +137,9 @@ int main (int argc, char **argv) {
   if ( argdata->block_grace ) {
     old_grace = quota->block_grace;
     quota->block_grace = parse_timespan (old_grace, argdata->block_grace);
+    if (quota->block_grace == (time_t) -1) {
+      exit (ERR_ARG);
+    }
     quota->_do_set_global_block_gracetime = 1;
     output_info ("%-14s %-16d %-16d", "block grace:", old_grace, quota->block_grace);
   }
@@ -144,6 +147,9 @@ int main (int argc, char **argv) {
   if ( argdata->inode_grace ) {
     old_grace = quota->inode_grace;
     quota->inode_grace = parse_timespan (old_grace, argdata->inode_grace);
+    if (quota->inode_grace == (time_t) -1) {
+      exit (ERR_ARG);
+    }
     quota->_do_set_global_inode_gracetime = 1;
     output_info ("%-14s %-16d %-16d", "inode grace:", old_grace, quota->inode_grace);
   }
