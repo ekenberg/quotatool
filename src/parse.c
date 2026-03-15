@@ -471,13 +471,11 @@ u_int64_t parse_size (u_int64_t orig, char *string, int parse_type) {
     multiplier = (parse_type == PARSE_BLOCKS ? BLOCK_SIZE : 1);
   }
 
-  /* avoid a DIV0 */
-  if (count == 0) {
-    return 0;
-  }
-
   /* calculate size (blocks or inodes) */
-  if (parse_type == PARSE_BLOCKS) {
+  if (count == 0) {
+      size = 0;
+  }
+  else if (parse_type == PARSE_BLOCKS) {
       size = (u_int64_t) (((double) count * multiplier - 1) / BLOCK_SIZE) + 1;
   }
   else { // inodes
