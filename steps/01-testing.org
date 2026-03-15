@@ -1,9 +1,8 @@
 #+TITLE: M1: Multi-Kernel Test Framework — Step Plan
-#+DATE: 2026-03-08
+#+DATE: 2026-03-08 (completed 2026-03-15)
 
-*DO NOT MERGE TO =master=.* Development branches (=m1-testing=, future
-=m2-*=, =m3-*=) chain off each other. Master stays untouched until all
-milestones are tested and explicitly approved for public release.
+*Status: DONE.* All phases complete. Branch =m1-testing= pushed.
+Merges to =master= as part of v1.7.0 release (after M3 bug fixes).
 
 * Overview
 
