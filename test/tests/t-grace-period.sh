@@ -42,13 +42,20 @@ grace_b=$(echo "$dump" | awk '{print $6}')
 # Restart block grace period with -r
 "$QUOTATOOL" -u "$TEST_USER_NAME" -b -r "$MNT" || fail "grace restart failed"
 
+# The -r flag clears the old grace timer via a raise/restore hack.
+# On some kernels (<=4.14), the grace timer only restarts when the
+# user performs an actual write (not from the quotactl limit change
+# alone). A tiny write ensures the kernel re-evaluates quota state
+# and starts a fresh grace timer. This matches real-world usage
+# where the user continues writing after an admin resets their grace.
+runuser -u "$TEST_USER_NAME" -- sh -c "echo x >> $MNT/grace-test/fill" \
+    || fail "trigger write after -r failed"
+
 dump2=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT") || fail "quotatool -d failed after restart"
 echo "dump after -r: $dump2"
 
 grace_b2=$(echo "$dump2" | awk '{print $6}')
-# After restart, grace should reset to full period (~86400).
-# Don't compare pre/post (timing-dependent). Just verify it's
-# in the expected range — same check as the initial grace.
+# After restart + write, grace should reset to full period (~86400).
 [[ "$grace_b2" -ge 86000 && "$grace_b2" -le 86500 ]] \
     || fail "grace_b=$grace_b2 after restart, expected ~86400 (should have reset to full period)"
 

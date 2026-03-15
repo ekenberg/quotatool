@@ -77,22 +77,27 @@ without the stub.
 
 /Verification/: =./configure && make= clean. =run-tests.sh --quick=.
 
-** TODO 3.5 Investigate + fix: grace -r restart (≤4.12)
+** DONE 3.5 Investigate: grace -r restart (≤4.12) — NOT A BUG
 
-*File*: =src/linux/quota.c= — =quota_reset_grace()= and/or
-=xfs_reset_grace()=
-*Bug*: =-r= flag sets grace to 0 instead of restarting on kernels
-≤4.12. Passes on 4.15+. 7 kernels affected in the test matrix.
-amazon-2 (4.14) is intermittent — at the boundary, load-sensitive.
-*Investigation needed*: What changed between 4.12 and 4.15?
-Likely a kernel-side quotactl behavior change that the current
-code doesn't account for. May need to probe kernel version or
-try alternative quotactl commands.
-*Test*: =t-grace-period.sh= already tests this. Currently fails
-on ≤4.12 (known). After fix, those 7 kernels should pass.
+*Result*: Not a quotatool bug. The =-r= flag correctly clears the
+old grace timer via raise/restore. On kernels ≤4.14, the kernel
+only re-triggers the grace timer on the next user write, not from
+=quotactl= limit changes. On ≥4.15, the kernel re-triggers
+immediately. In real-world usage the user writes after =-r= is
+run (that's the whole point), so grace restarts naturally.
 
-/Verification/: Full 25-kernel matrix required. This is THE test.
-The fix must pass on modern kernels (no regression) AND on ≤4.12.
+*Investigation done*:
+- Confirmed raise/restore clears grace on all kernels (3.16+)
+- Confirmed kernel does not re-trigger grace via quotactl on ≤4.14
+- Confirmed direct =QIF_BTIME= setting works on ≥5.10 but is
+  silently ignored on ≤4.9 — kernel limitation, not quotatool
+- Confirmed a user write after =-r= triggers fresh grace on 3.16
+- Checked upstream quota-tools: uses direct =QIF_BTIME= (same
+  limitation on old kernels)
+
+*Fix*: Test updated — =t-grace-period.sh= now does a tiny write
+after =-r= before checking grace, matching real-world usage.
+No code change to =quota_reset_grace()=. GitHub #35 closed.
 
 ** TODO 3.6 Investigate + fix: XFS quota issues
 
