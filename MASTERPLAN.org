@@ -119,6 +119,15 @@ This is the first milestone that touches =src/=.
 - Ensure clean compile with =-Wall -Wextra= on gcc and clang
 - Remove unused =#include <sys/cdefs.h>= from =src/linux/linux_quota.h=
 
+*** UX: run-tests.sh CLI review
+
+Revisit flag naming, defaults, and behavior before v1.7.0 release.
+Open questions:
+- Should no-args show help instead of running full matrix?
+- Should full matrix require an explicit flag (=--full=, =--all=)?
+- Rename =--quick= to something more descriptive?
+- General pass: make CLI idiomatic for developer tool expectations.
+
 *** Branch strategy
 
 Work on branch off =m1-testing=. When complete: merge =m1-testing=
