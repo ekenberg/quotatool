@@ -83,6 +83,7 @@ without the stub.
 =xfs_reset_grace()=
 *Bug*: =-r= flag sets grace to 0 instead of restarting on kernels
 ≤4.12. Passes on 4.15+. 7 kernels affected in the test matrix.
+amazon-2 (4.14) is intermittent — at the boundary, load-sensitive.
 *Investigation needed*: What changed between 4.12 and 4.15?
 Likely a kernel-side quotactl behavior change that the current
 code doesn't account for. May need to probe kernel version or
@@ -93,9 +94,12 @@ on ≤4.12 (known). After fix, those 7 kernels should pass.
 /Verification/: Full 25-kernel matrix required. This is THE test.
 The fix must pass on modern kernels (no regression) AND on ≤4.12.
 
-** TODO 3.6 Investigate + fix: XFS grace period display
+** TODO 3.6 Investigate + fix: XFS quota issues
 
-*Bug*: =-d= reports =block_grace=0= on XFS after setting grace with
+Two known XFS-specific issues:
+
+*** XFS grace period display
+=-d= reports =block_grace=0= on XFS after setting grace with
 =-t= and exceeding soft limit. Works on ext4. (Q5 in step-plan 01.)
 *Investigation needed*: Read =src/linux/quota.c= XFS path.
 Check if =-t= reaches XFS correctly. Check if =d_btimer= is
@@ -104,7 +108,15 @@ be a separate issue in the XFS grace set/get path.
 *Test*: =t-grace-period.sh= skips XFS. =t-enforce-block-soft.sh=
 skips grace check on XFS. After fix, both should work on XFS.
 
-/Verification/: =run-tests.sh --host-only= with XFS grace test enabled.
+*** XFS block accounting discrepancy
+Setting soft limit to =50k= shows 50 on ext4 but 52 on XFS via
+=repquota=. Discovered during interactive testing (2026-03-15).
+XFS uses different internal block size for quota accounting.
+*Investigation needed*: Is this a quotatool set/display issue
+or kernel-side accounting difference? Compare =quotatool -d=
+output with =xfs_quota= output for the same limit.
+
+/Verification/: =run-tests.sh --host-only= with XFS tests enabled.
 
 ** TODO 3.7 Compiler warnings: -Wall -Wextra clean build
 
