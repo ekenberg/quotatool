@@ -35,7 +35,9 @@ dump=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT") || fail "quotatool -d failed
 echo "dump after exceeding soft: $dump"
 
 grace_b=$(echo "$dump" | awk '{print $6}')
-[[ "$grace_b" -gt 0 ]] || fail "grace_b=$grace_b, expected >0 (grace period should be active)"
+# Grace should be close to 86400 (1 day), not just >0. Allow ±60s for execution time.
+[[ "$grace_b" -ge 86000 && "$grace_b" -le 86500 ]] \
+    || fail "grace_b=$grace_b, expected ~86400 (1 day)"
 
 # Restart block grace period with -r
 "$QUOTATOOL" -u "$TEST_USER_NAME" -b -r "$MNT" || fail "grace restart failed"
@@ -44,7 +46,10 @@ dump2=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT") || fail "quotatool -d faile
 echo "dump after -r: $dump2"
 
 grace_b2=$(echo "$dump2" | awk '{print $6}')
-[[ "$grace_b2" -gt 0 ]] || fail "grace_b=$grace_b2 after restart, expected >0"
+# After restart, grace should reset to full period (~86400).
+# Must be >= pre-restart value (timer was counting down, restart resets it).
+[[ "$grace_b2" -ge "$grace_b" ]] \
+    || fail "grace_b=$grace_b2 after restart, expected >=$grace_b (restart should reset timer)"
 
 # Cleanup
 rm -rf "$MNT/grace-test"

@@ -24,8 +24,14 @@ echo "dump: $dump"
 
 used=$(echo "$dump" | awk '{print $3}')
 soft=$(echo "$dump" | awk '{print $4}')
+grace_b=$(echo "$dump" | awk '{print $6}')
 
 [[ "$used" -gt "$soft" ]] || fail "used=$used not > soft=$soft"
+# Grace timer must be active — distinguishes working soft limit from no quota.
+# XFS grace display is broken (Q5), so only check on ext4.
+if [[ "$FSTYPE" == "ext4" ]]; then
+    [[ "$grace_b" -gt 0 ]] || fail "grace_b=$grace_b, expected >0 (soft limit should trigger grace)"
+fi
 echo "PASS ($FSTYPE): wrote past soft limit, used=$used > soft=$soft"
 
 # Cleanup

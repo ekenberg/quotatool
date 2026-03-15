@@ -38,7 +38,7 @@ iused=$(echo "$dump" | awk '{print $7}')
 ihard=$(echo "$dump" | awk '{print $9}')
 
 [[ "$iused" -le "$ihard" ]] || fail "inode used=$iused > hard=$ihard (not enforced!)"
-[[ "$created" -lt 10 ]] || fail "created all 10 files, hard limit not enforced"
+[[ "$created" -le 5 ]] || fail "created $created files, expected <=5 (hard limit=5)"
 echo "PASS ($FSTYPE): inode hard limit enforced, created=$created, used=$iused <= hard=$ihard"
 
 # Cleanup
