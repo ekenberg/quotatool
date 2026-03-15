@@ -97,9 +97,9 @@ fi
 # Type 'exit' or 'poweroff' to shut down the VM.
 export PS1="quotatool-test# "
 export PATH="/bin:/sbin:/usr/bin:/usr/sbin:$SCRIPT_DIR/.."
-# Suppress bash startup warnings about missing PTY (job control, tcsetpgrp).
-# These are harmless — everything works except job control and Ctrl-Z.
-exec bash --norc --noprofile -i 2> >(grep -v 'no job control\|cannot set terminal' >&2)
+# Two harmless warnings will appear (no job control, cannot set terminal
+# process group) — this is normal without a PTY. Everything works.
+exec bash --norc --noprofile -i
 
 # If bash exits, tear down (fs-setup EXIT trap handles cleanup)
 echo ""
