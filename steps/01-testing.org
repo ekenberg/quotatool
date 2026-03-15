@@ -204,46 +204,153 @@ All tests must pass before moving to multi-kernel.
 
 /Dependencies/: 2.3, 2.4, 1.5
 
-* Phase 2b: Test Coverage Gaps [0/3]
+* Phase 2b: Host-Side Tests [0/4]
 
-Tests that do NOT need the kernel matrix — run once on host.
+Tests that do NOT need the kernel matrix. Two categories:
 
-** TODO 2.6 Host-side argument parsing tests
-Unit conversion, edge cases, error handling. No VM needed — run
-quotatool directly on host against a local loopback filesystem.
+- *Quick tests* (no root, no VM, no filesystem): argument validation,
+  error handling, exit codes. Run directly on host, instant.
+- *Value tests* (need quota filesystem = need VM): unit parsing,
+  round-trip set-then-readback, dump format. Run via =--host-only=
+  (boots host kernel in VM, ~5s).
 
-Tests needed:
-- Units: Kb, Mb, Gb, Tb, bytes, blocks, plain integers
-- Floating point: 1.2G, 1.8K, 0.5T
-- Edge values: 0, very large (4T+, ref issue #8), negative
-- Invalid input: bad units, non-numeric, empty string
-- Error paths: no root, invalid args, non-existent mountpoint,
-  missing required flags (-b/-i), conflicting options
-- Verbose output (-v, -v -v): verify output format/content
-- Dump output (-d): verify field count and format
+Both run *before* the kernel matrix in a normal =run-tests.sh= run.
 
-/Dependencies/: none (host-side, no VM)
+Research basis: source analysis of =parse.c= and =main.c=, cross-
+referenced with GitHub issues #1, #2, #6, #7, #8, #10, #27. Every
+test below exercises a code path with documented bug history or
+verified surprising behavior.
 
-** TODO 2.7 Code coverage analysis (gcov)
-Rebuild quotatool with =--coverage= flags, run full test suite,
-generate coverage report. Identifies untested code paths in:
-- =src/linux/quota.c= — =kern_quota_format()= and the four
-  quota code paths (old, v0, generic, xfs)
-- =src/parse.c= — argument parsing
-- =src/main.c= — option handling and dispatch
+** TODO 2.6 Quick tests: argument validation (no root, no VM)
 
-Target: identify which lines/branches are not exercised by the
-current test suite. Add tests to fill gaps.
+All of these fail in =parse_commandline()= or early =main()= —
+before any =quotactl()= call. Testable directly on host without
+root. Verified: all produce exit code 1 (=ERR_PARSE=) or 2
+(=ERR_ARG=) with correct error messages on stderr.
 
-/Dependencies/: 2.6, test suite complete
+Location: =test/tests/host/t-error-args.sh=
 
-** TODO 2.8 Multi-kernel-specific tests
-Tests that only make sense across different kernels:
-- =kern_quota_format()= detection succeeds (D01, D02)
-- Get+set round-trip: set value, read back, compare (D03)
-- These ARE the kernel matrix tests — run per kernel in Phase 4
+Tests (each checks exit code + error message on stderr):
 
-/Dependencies/: Phase 3 (need kernels), Phase 4 (need orchestrator)
+| Test                              | Expected exit | Code path              |
+|-----------------------------------+---------------+------------------------|
+| No arguments                      |             1 | =argc==1= → help       |
+| =-q= without =-b/-i=             |             1 | =_PARSE_UNDEF= check   |
+| =-l= without =-b/-i=             |             1 | same                   |
+| =-t= without =-b/-i=             |             1 | same                   |
+| =-r= without =-b/-i=             |             1 | same                   |
+| Both =-u= and =-g=               |             1 | =id_type= already set  |
+| No filesystem argument            |             1 | =qfile= NULL check     |
+| No =-u/-g= at all                |             1 | =id_type= 0 check      |
+| =-t= mixed with =-l=             |             1 | grace+limit conflict   |
+| =-r= mixed with =-l=             |             1 | reset+limit conflict   |
+| Unknown option (=-Z=)            |             1 | =getopt= =?= case      |
+| Nonexistent user (no =:= prefix) |             2 | =system_getuid()= fail |
+| =:= with non-numeric (=:abc=)    |             2 | =strtol= → id 0?      |
+| =:= alone (empty after colon)    |           1/2 | edge: =strlen>1= false |
+
+/Verification/: script exits 0 if all sub-tests pass. Each test
+is a simple =quotatool <bad-args>; check $? and stderr=. No root.
+
+** TODO 2.7 Value tests: unit parsing (VM, host kernel)
+
+These need a quota filesystem for set-then-readback. Run inside VM
+via =--host-only= path. All use =quotatool -d= to read back values
+and compare against expected.
+
+Location: =test/tests/host/t-parse-units.sh= (blocks + inodes)
+         =test/tests/host/t-parse-timespan.sh= (grace periods)
+         =test/tests/host/t-dump-format.sh= (=-d= output stability)
+
+*** Block unit parsing (=parse_size= with =PARSE_BLOCKS=)
+
+Each test: set limit, read back with =-d=, compare field value.
+
+| Input       | Expected blocks | Why this matters                         |
+|-------------+-----------------+------------------------------------------|
+| =100M=      |          102400 | Standard, baseline (already tested)      |
+| =1K=        |               1 | Minimum: 1024 bytes / 1024 BLOCK_SIZE    |
+| =1G=        |         1048576 | Issue #1: Gb was missing pre-1.4.12      |
+| =1T=        |      1073741824 | Issue #8: overflow at 4T+                |
+| =1.5M=      |            1536 | Float: exercises =strtod= path           |
+| =1.1T=      |      1181116006 | Issue #8: =strtol= missed decimal        |
+| =0.5G=      |          524288 | Sub-unit fraction                        |
+| =1024bytes= |               1 | =by= suffix → multiplier 1, ÷1024=1     |
+| =1blocks=   |               1 | =bl= suffix → multiplier BLOCK_SIZE      |
+| =100=       |             100 | No suffix → default = blocks             |
+
+*** Inode unit parsing (=parse_size= with =PARSE_INODES=)
+
+Critical: inodes use *base-10* multipliers, not base-2 (issue #10).
+
+| Input  | Expected inodes | Why this matters                     |
+|--------+-----------------+--------------------------------------|
+| =1K=   |            1000 | Must be 1000, NOT 1024               |
+| =1M=   |         1000000 | Must be 10^6, NOT 2^20               |
+| =1G=   |      1000000000 | Must be 10^9, NOT 2^30               |
+| =1.5K= |            1500 | Float × base-10                      |
+| =100=  |             100 | No suffix → default = 1 (raw inodes) |
+
+*** Relative adjustment edge cases
+
+| Scenario                         | Expected                 | Bug potential             |
+|----------------------------------+--------------------------+---------------------------|
+| Set 100M, then =+0M=            | Stays 102400 (no-op)     | *Likely BUG*: returns 0   |
+| Set 100M, then =-0M=            | Stays 102400 (no-op)     | Same bug path             |
+| Set 100M, then =+100M=          | 204800                   | Sanity check              |
+
+The =+0= bug: =parse_size()= line 475 returns 0 when =count==0=,
+ignoring =orig= and =op=. So =+0M= applied to 100M → 0, not 100M.
+
+*** Timespan parsing (=parse_timespan=)
+
+Set grace with =-t=, read back with =-d=, compare seconds.
+
+| Input         | Expected seconds | Why                         |
+|---------------+------------------+-----------------------------|
+| =3600 seconds= |           3600 | Explicit seconds            |
+| =60 minutes=  |            3600 | =mi= prefix                |
+| =1 hour=      |            3600 | Same value, different unit  |
+| =1 day=       |           86400 | =DAY= macro                |
+| =2 weeks=     |         1209600 | Issue #27: failed pre-1.6.4 |
+| =1 month=     |         2592000 | =mo= prefix                |
+| =5m=          |          *error* | Ambiguous: not mi, not mo   |
+| =5min=        |             300 | Unambiguous abbreviation   |
+| =5mo=         |        12960000 | Unambiguous month           |
+
+*** =-d= dump format stability
+
+| Check                         | Expected | Why                     |
+|-------------------------------+----------+-------------------------|
+| Field count                   | 10       | Issue #7: format bug    |
+| All fields numeric            | yes      | Regression guard        |
+| Fields not concatenated       | yes      | Issue #7: missing space |
+| =-R= with equal value         | no change | =<== vs =<= semantics |
+
+** TODO 2.8 Integration: wire into run-tests.sh
+
+- New =--quick= flag: runs only =test/tests/host/t-error-args.sh=,
+  no VM, no root, instant. For rapid dev feedback.
+- Normal run: execute quick tests first, then =--host-only= value
+  tests, then kernel matrix (if not =--quick= or =--host-only=).
+- Exit early if quick tests fail (parse bugs → no point running VMs).
+
+/Dependencies/: 2.6, 2.7
+
+** TODO 2.9 Verify tests catch regressions
+
+For each test category, deliberately break the source code, rebuild,
+and confirm the test catches the breakage:
+
+- Swap inode multiplier to base-2 → =t-parse-units.sh= must fail
+- Remove =-b/-i= validation → =t-error-args.sh= must fail
+- Break =-d= field format → =t-dump-format.sh= must fail
+- Break timespan =mi= match → =t-parse-timespan.sh= must fail
+
+This is the "test the tests" step. Each mutation → rebuild →
+verify test fails → restore source.
+
+/Dependencies/: 2.6, 2.7, 2.8
 
 * Phase 3: Kernel Collection [0/5]
 
@@ -800,56 +907,44 @@ no regressions.
 
 /Dependencies/: 8.5
 
-* Phase 9: Dependency Audit & Minimization [0/3]
+* Phase 9: Dependency Audit & Minimization [3/3]
 
-Every external tool is a portability failure waiting to happen (as
-=script(1)= just demonstrated). Audit the entire framework and prune
-everything that isn't essential. The minimal core is: *Python3*
-(required by vng), *busybox-musl* (static, no deps), *QEMU*, and the
-quota/filesystem tools that are the actual test subject. Everything
-else is suspect.
+Completed 2026-03-15. Three-agent parallel audit of all =test/*.sh=
+scripts. ~65 external commands cataloged, classified, cross-referenced.
 
-** TODO 9.1 Audit all external commands used by the framework
-Walk every =.sh= file in =test/= and catalog every external command
-invoked. For each command, classify:
-- *Essential*: directly needed for testing (mkfs, quota tools, qemu)
-- *Replaceable*: can be done by something already in the core
-  (e.g., =script= → =python3 pty=, =curl= → =python3 urllib=)
-- *Removable*: not actually needed or only used in one place
+Result: dep stack is already lean. All tools justified. One fix made
+(=grep -oP= → POSIX =sed=, 6 instances). No other replacements
+warranted — cost exceeds benefit for all candidates.
 
-Deliverable: a table in =research/dependency-audit.org= with every
-command, which scripts use it, classification, and replacement plan.
+** DONE 9.1 Audit all external commands used by the framework
+Three parallel agents audited:
+- Every external command in =test/=, classified essential/replaceable
+- Hard-coded paths, distro assumptions, GNU-specific flags
+- Replacement feasibility (python3, busybox, bash builtins)
 
-/Dependencies/: none
+Key findings:
+- ~45 essential commands (VM infra, filesystem/quota tools, compression)
+- ~20 replaceable but not worth it (text processing, coreutils)
+- All hard-coded paths have fallbacks (merged-usr, multiarch)
+- =rpm2cpio= already optional with graceful fallback
+- =file=, =strings=, =readelf= all have fallbacks
+- No gratuitous deps (no jq, getent, etc.)
 
-** TODO 9.2 Replace or eliminate non-essential dependencies
-For each "replaceable" command from 9.1, implement the replacement.
-For each "removable" command, delete the usage. Update =check-deps.sh=
-to match.
+** DONE 9.2 Replace or eliminate non-essential dependencies
+Only actionable finding: =grep -oP= (Perl regex, GNU extension).
+6 instances across 5 files, all replaced with POSIX =sed=.
+Verified with 15-case regression test.
 
-Candidates already identified:
-- =curl= → =python3 urllib= (download.sh, build-busybox.sh)
-- =rpm2cpio= → pure Python or busybox (kernel extraction)
-- =dpkg-deb= → =ar= + =tar= (standard tools, or Python)
-- =file= → could check ELF header directly
-- =strings= → =grep -a= or Python
-- =readelf= → Python struct parsing or just skip
+All other candidates assessed and rejected:
+- =curl= → python3 urllib: setup-only, curl is ubiquitous, no gain
+- =rpm2cpio= → python3: already optional, already fails gracefully
+- =dpkg-deb= → ar+tar: adds complexity, no portability gain
+- =file/strings/readelf= → python3 ELF: ~100 LOC for zero gain
 
-Not all of these will be worth doing — assess cost vs benefit.
-
-/Dependencies/: 9.1
-
-** TODO 9.3 Document the minimal dependency set
-Update =check-deps.sh= and README to reflect the pruned dependency
-list. Clearly separate:
-- *Hard requirements*: cannot run without these (qemu, python3, etc.)
-- *Test subjects*: what we're testing (mkfs.ext4, quota tools, etc.)
-- *Build requirements*: only for =./configure && make= (cc, make)
-
-Goal: someone reading the list should understand WHY each dep exists
-and be confident nothing is superfluous.
-
-/Dependencies/: 9.2
+** DONE 9.3 Document the minimal dependency set
+Existing =check-deps.sh= already separates required vs optional deps
+with distro-adaptive install hints. No further changes needed — the
+audit confirmed the current dep list is correct and minimal.
 
 * Dependency Graph
 
