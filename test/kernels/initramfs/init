@@ -77,12 +77,16 @@ if [ -b /dev/vda ]; then
     fi
 
     # Run it inside the chroot (output goes to serial console)
-    echo "[init] chroot: running $CMD"
-    chroot /mnt/rootfs /bin/bash -c "export PATH=/bin:/sbin:/usr/bin:/usr/sbin; $CMD" 2>&1
-    EXIT_CODE=$?
-
-    # Signal exit code to host via serial marker
-    echo "===QUOTATOOL_EXIT:${EXIT_CODE}==="
+    if [ "$CMD" = "__INTERACTIVE__" ]; then
+        echo "[init] interactive shell — type 'exit' to shut down"
+        chroot /mnt/rootfs /bin/bash -l 2>&1
+        echo "===QUOTATOOL_EXIT:0==="
+    else
+        echo "[init] chroot: running $CMD"
+        chroot /mnt/rootfs /bin/bash -c "export PATH=/bin:/sbin:/usr/bin:/usr/sbin; $CMD" 2>&1
+        EXIT_CODE=$?
+        echo "===QUOTATOOL_EXIT:${EXIT_CODE}==="
+    fi
 
     poweroff -f
 fi
@@ -129,12 +133,17 @@ fi
 CMD=$(cat /mnt/results/cmd)
 
 # Step 7: run it inside the chroot
-# Combine stdout+stderr to preserve interleaved output ordering
-chroot /mnt/host /bin/sh -c "$CMD" > /mnt/results/stdout 2>&1
-EXIT_CODE=$?
+if [ "$CMD" = "__INTERACTIVE__" ]; then
+    # Interactive mode: connect directly to serial console (no redirect)
+    echo "[init] interactive shell — type 'exit' to shut down"
+    chroot /mnt/host /bin/bash -l 2>&1
+    echo "0" > /mnt/results/exit_code
+else
+    # Normal mode: capture output to files
+    chroot /mnt/host /bin/sh -c "$CMD" > /mnt/results/stdout 2>&1
+    EXIT_CODE=$?
+    echo "$EXIT_CODE" > /mnt/results/exit_code
+fi
 
-# Step 8: write exit code for the host to read
-echo "$EXIT_CODE" > /mnt/results/exit_code
-
-# Step 9: done
+# Done
 poweroff -f

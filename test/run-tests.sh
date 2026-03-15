@@ -129,6 +129,9 @@ Options:
   --kernel NAME   Only run the named kernel
   --quick         Argument validation tests only (no root, no VM, instant)
   --host-only     Run tests on the host kernel only (no kernel matrix)
+  --interactive   Boot a kernel with quota filesystems and drop to shell.
+                  Use with --kernel NAME for a specific kernel, or alone
+                  for the host kernel. Type 'exit' to tear down.
   --timeout SECS  Per-kernel timeout in seconds (default: 120)
   -v, --verbose   Verbose boot output (forces --jobs 1)
   -h, --help      Show this help
@@ -139,6 +142,7 @@ OPT_TIER=""
 OPT_KERNEL=""
 OPT_HOST_ONLY=0
 OPT_QUICK=0
+OPT_INTERACTIVE=0
 OPT_SETUP=0
 OPT_SMOKE=0
 OPT_LIST=0
@@ -159,6 +163,7 @@ while [[ $# -gt 0 ]]; do
         --kernel)    OPT_KERNEL="$2"; shift 2 ;;
         --quick)     OPT_QUICK=1; shift ;;
         --host-only) OPT_HOST_ONLY=1; shift ;;
+        --interactive) OPT_INTERACTIVE=1; shift ;;
         --timeout)   OPT_TIMEOUT="$2"; shift 2 ;;
         -v|--verbose) OPT_VERBOSE="1"; shift ;;
         -h|--help)   usage; exit 0 ;;
@@ -297,6 +302,48 @@ if [[ $OPT_HOST_ONLY -eq 1 ]]; then
     echo ""
     boot_host_kernel "$GUEST_CMD"
     exit $?
+fi
+
+# ---------------------------------------------------------------------------
+# Interactive mode: boot a kernel with quota filesystems, drop to shell
+# ---------------------------------------------------------------------------
+
+if [[ $OPT_INTERACTIVE -eq 1 ]]; then
+    INTERACTIVE_CMD="$SCRIPT_DIR/guest-interactive.sh"
+    if [[ ! -x "$INTERACTIVE_CMD" ]]; then
+        echo -e "${RED}guest-interactive.sh not found${NC}"
+        exit 1
+    fi
+
+    if [[ -z "$OPT_KERNEL" ]]; then
+        # No --kernel: use host kernel
+        echo -e "${BOLD}Interactive shell — host kernel $(uname -r)${NC}"
+        boot_kernel_interactive "/boot/vmlinuz-$(uname -r)" "$INTERACTIVE_CMD"
+        exit $?
+    else
+        # --kernel NAME: find and boot that kernel
+        vmlinuz=$(find_vmlinuz "$OPT_KERNEL")
+        if [[ -z "$vmlinuz" ]]; then
+            echo -e "${RED}Kernel '$OPT_KERNEL' not found. Run --setup or check --list.${NC}"
+            exit 1
+        fi
+        version=$(boot_kernel_version "$vmlinuz" 2>/dev/null || echo "unknown")
+        echo -e "${BOLD}Interactive shell — $OPT_KERNEL (kernel $version)${NC}"
+
+        # Check if this kernel needs Alpine rootfs
+        if _needs_alpine_rootfs "$OPT_KERNEL" "$version"; then
+            alpine_rootfs="$KERNELS_DIR/alpine-rootfs.img"
+            if [[ ! -f "$alpine_rootfs" ]]; then
+                echo -e "${RED}Alpine rootfs needed but not built. Run --setup.${NC}"
+                exit 1
+            fi
+            BOOT_METHOD=qemu BOOT_ROOTFS="$alpine_rootfs" \
+                boot_kernel_interactive "$vmlinuz" "$INTERACTIVE_CMD"
+        else
+            boot_kernel_interactive "$vmlinuz" "$INTERACTIVE_CMD"
+        fi
+        exit $?
+    fi
 fi
 
 # ---------------------------------------------------------------------------

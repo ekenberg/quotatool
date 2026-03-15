@@ -1,0 +1,78 @@
+#!/bin/bash
+# guest-interactive.sh — interactive shell with quota filesystems ready
+#
+# Runs INSIDE the VM. Sets up ext4 and XFS quota filesystems, prints
+# a help banner, then drops to an interactive bash shell. On exit,
+# tears down filesystems and the VM powers off.
+#
+# Usage: guest-interactive.sh [fstype]
+#   fstype: "ext4", "xfs", or "both" (default: both)
+
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+source "$SCRIPT_DIR/lib/fs-setup.sh"
+source "$SCRIPT_DIR/lib/test-ids.sh"
+set +e  # fs-setup.sh enables -e via source; we don't want that here
+
+# Ensure required modules
+modprobe loop 2>/dev/null || true
+modprobe quota_v2 2>/dev/null || true
+modprobe quota_tree 2>/dev/null || true
+
+WANT_FS="${1:-both}"
+EXT4_MNT="/tmp/test-ext4"
+XFS_MNT="/tmp/test-xfs"
+
+# Set up filesystems
+if [[ "$WANT_FS" == "ext4" || "$WANT_FS" == "both" ]]; then
+    fs_create_ext4 "$EXT4_MNT" 200M
+fi
+if [[ "$WANT_FS" == "xfs" || "$WANT_FS" == "both" ]]; then
+    fs_create_xfs "$XFS_MNT" 512M
+fi
+
+# Find quotatool
+QT=""
+for p in "$SCRIPT_DIR/../quotatool" /usr/bin/quotatool; do
+    [[ -x "$p" ]] && QT="$p" && break
+done
+
+# Banner
+cat <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  quotatool interactive test shell                            ║
+╚══════════════════════════════════════════════════════════════╝
+
+  Kernel:    $(uname -r)
+  quotatool: ${QT:-NOT FOUND}
+  Test user: $TEST_USER_NAME (uid $TEST_USER_UID)
+  Test group: $TEST_GROUP_NAME (gid $TEST_GROUP_GID)
+
+EOF
+
+if [[ "$WANT_FS" == "ext4" || "$WANT_FS" == "both" ]]; then
+    echo "  ext4: $EXT4_MNT"
+fi
+if [[ "$WANT_FS" == "xfs" || "$WANT_FS" == "both" ]]; then
+    echo "  XFS:  $XFS_MNT"
+fi
+
+cat <<'EOF'
+
+  Examples:
+    quotatool -u nobody -b -q 50M -l 100M /tmp/test-ext4
+    quotatool -d -u nobody /tmp/test-ext4
+    repquota /tmp/test-ext4
+    runuser -u nobody -- dd if=/dev/zero of=/tmp/test-ext4/test bs=1K count=200
+
+  Type 'exit' to tear down and shut down the VM.
+
+EOF
+
+# Drop to interactive shell
+export PS1="quotatool-test# "
+export PATH="/bin:/sbin:/usr/bin:/usr/sbin:$SCRIPT_DIR/.."
+exec bash --norc --noprofile -i

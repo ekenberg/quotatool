@@ -715,3 +715,193 @@ boot_kernel_version() {
     fi
     _extract_kernel_version "$kernel_path"
 }
+
+# ---------------------------------------------------------------------------
+# Interactive mode: boot a kernel and drop to a shell
+# ---------------------------------------------------------------------------
+
+# Boot a kernel interactively. No timeout, no output capture.
+# The user gets a shell connected to the terminal.
+#
+# For virtme: runs the command directly (vng without output capture).
+# For QEMU: passes __INTERACTIVE__ marker; init drops to bash on
+# the serial console.
+#
+# Usage:
+#   boot_kernel_interactive /path/to/vmlinuz "/path/to/setup-script.sh"
+#   boot_kernel_interactive /path/to/vmlinuz  # just a shell
+boot_kernel_interactive() {
+    local kernel_path="${1:-}"
+    local command="${2:-__INTERACTIVE__}"
+
+    if [[ -z "$kernel_path" ]]; then
+        _boot_die "Usage: boot_kernel_interactive KERNEL_PATH [COMMAND]"; return 1
+    fi
+    if [[ ! -f "$kernel_path" ]]; then
+        _boot_die "Kernel not found: $kernel_path"; return 1
+    fi
+    if ! _have_kvm; then
+        echo "[boot] WARNING: /dev/kvm not accessible — VM will use emulation (very slow)" >&2
+    fi
+
+    local method
+    method=$(_detect_boot_method "$kernel_path") || return 1
+
+    case "$method" in
+        virtme) _boot_virtme_interactive "$kernel_path" "$command" ;;
+        qemu)   _boot_qemu_interactive "$kernel_path" "$command" ;;
+        *)      _boot_die "Unknown boot method: $method"; return 1 ;;
+    esac
+}
+
+# Interactive virtme: no -e flag, no output capture, no timeout.
+_boot_virtme_interactive() {
+    local kernel_path="$1"
+    local command="$2"
+
+    local -a vng_args=()
+    vng_args+=(-r "$kernel_path")
+    vng_args+=(-m "${BOOT_MEMORY}M")
+    vng_args+=(--cpus "$BOOT_CPUS")
+
+    local lib_dir
+    lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local busybox="$lib_dir/../kernels/initramfs/busybox-musl"
+    [[ -f "$busybox" ]] && vng_args+=(--busybox "$busybox")
+
+    if [[ "$command" != "__INTERACTIVE__" ]]; then
+        # Run the setup script (sets up filesystems, drops to bash -i)
+        vng_args+=(-e "$command")
+    fi
+    # Without -e (bare __INTERACTIVE__): vng boots to an interactive shell
+
+    _boot_log "Running interactive: vng ${vng_args[*]}"
+    vng "${vng_args[@]}"
+}
+
+# Interactive QEMU: no timeout, no output capture, terminal connected.
+# Uses __INTERACTIVE__ marker in command — init detects and drops to shell.
+_boot_qemu_interactive() {
+    local kernel_path="$1"
+    local command="$2"
+
+    # Reuse _boot_qemu's module/initramfs setup by calling it with
+    # the interactive marker. But we need to change QEMU flags:
+    # no timeout, terminal connected to serial console.
+
+    if ! _have_qemu; then
+        _boot_die "qemu-system-x86_64 not found in PATH"; return 1
+    fi
+
+    local lib_dir
+    lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local initramfs="$lib_dir/../kernels/initramfs/initramfs.cpio.gz"
+    [[ -f "$initramfs" ]] || { _boot_die "Initramfs not found"; return 1; }
+
+    # Build initramfs with modules (same as _boot_qemu)
+    local work_dir
+    work_dir=$(mktemp -d "${TMPDIR:-/tmp}/qemu-work.XXXXXX")
+    trap "rm -rf '$work_dir'" RETURN
+
+    local results_dir="$work_dir/results"
+    mkdir -p "$results_dir"
+    echo "$command" > "$results_dir/cmd"
+
+    local boot_initramfs="$work_dir/initramfs.cpio.gz"
+    cp "$initramfs" "$boot_initramfs"
+
+    # Append kernel modules (reuse the module collection from _boot_qemu)
+    local kver_full
+    kver_full=$(basename "$kernel_path" | sed 's/^vmlinu[xz]-//')
+    local mod_dir=""
+    local kernel_dir search_base candidate
+    kernel_dir=$(dirname "$kernel_path")
+    search_base="$kernel_dir"
+    while [[ "$search_base" != "/" && "$(basename "$search_base")" != "extracted" ]]; do
+        search_base=$(dirname "$search_base")
+    done
+    if [[ "$(basename "$search_base")" == "extracted" ]]; then
+        candidate=$(find "$search_base/lib/modules" -maxdepth 2 -name "kernel" -type d 2>/dev/null | head -1)
+        [[ -z "$candidate" ]] && candidate=$(find "$search_base/usr/lib/modules" -maxdepth 2 -name "kernel" -type d 2>/dev/null | head -1)
+        [[ -n "$candidate" ]] && mod_dir=$(dirname "$candidate")
+    fi
+    [[ -z "$mod_dir" && -d "/lib/modules/$kver_full" ]] && mod_dir="/lib/modules/$kver_full"
+
+    if [[ -n "$mod_dir" ]]; then
+        local mod_tmp="$work_dir/mod_overlay"
+        mkdir -p "$mod_tmp/modules"
+        local -A collected=()
+        _collect_module_deps() {
+            local mod_name="$1"
+            [[ -n "${collected[$mod_name]+x}" ]] && return
+            collected[$mod_name]=1
+            local mod_file
+            mod_file=$(find "$mod_dir" \( -name "${mod_name}.ko" -o -name "${mod_name}.ko.xz" \
+                -o -name "${mod_name}.ko.zst" -o -name "${mod_name}.ko.gz" \) 2>/dev/null | head -1)
+            [[ -z "$mod_file" ]] && return
+            local deps
+            deps=$(modinfo "$mod_file" 2>/dev/null | grep '^depends:' | sed 's/^depends:[[:space:]]*//')
+            if [[ -n "$deps" ]]; then
+                local IFS=','
+                for dep in $deps; do
+                    dep=$(echo "$dep" | tr '-' '_')
+                    _collect_module_deps "$dep"
+                done
+            fi
+            case "$mod_file" in
+                *.ko.xz)  xz -dc "$mod_file" > "$mod_tmp/modules/${mod_name}.ko" ;;
+                *.ko.zst) zstd -dc "$mod_file" > "$mod_tmp/modules/${mod_name}.ko" 2>/dev/null ;;
+                *.ko.gz)  gzip -dc "$mod_file" > "$mod_tmp/modules/${mod_name}.ko" ;;
+                *)        cp "$mod_file" "$mod_tmp/modules/" ;;
+            esac
+            load_order+=("$mod_name")
+        }
+        local -a load_order=()
+        for mod in 9pnet 9pnet_virtio virtio virtio_ring virtio_pci 9p \
+                   quota_tree quota_v1 quota_v2 loop fscrypto crc16 mbcache jbd2 ext4 \
+                   crc32c_generic crc32c libcrc32c exportfs xfs virtio_blk; do
+            _collect_module_deps "$mod"
+        done
+        if [[ ${#load_order[@]} -gt 0 ]]; then
+            printf '%s\n' "${load_order[@]}" > "$mod_tmp/modules/load_order"
+            (cd "$mod_tmp" && find . | cpio -o -H newc --quiet | gzip -9) >> "$boot_initramfs"
+        fi
+    fi
+
+    # Detect rootfs mode
+    local rootfs_mode=0
+    if [[ -n "${BOOT_ROOTFS:-}" && -f "$BOOT_ROOTFS" ]]; then
+        rootfs_mode=1
+        local cmd_overlay="$work_dir/cmd_overlay"
+        mkdir -p "$cmd_overlay"
+        echo "$command" > "$cmd_overlay/cmd"
+        (cd "$cmd_overlay" && echo cmd | cpio -o -H newc --quiet | gzip -9) >> "$boot_initramfs"
+    fi
+
+    # QEMU args — interactive: no timeout, stdio connected
+    local -a qemu_args=()
+    qemu_args+=(-machine "accel=kvm:tcg")
+    qemu_args+=(-cpu host)
+    qemu_args+=(-m "${BOOT_MEMORY}M")
+    qemu_args+=(-smp "$BOOT_CPUS")
+    qemu_args+=(-no-reboot)
+    qemu_args+=(-nographic)
+    qemu_args+=(-kernel "$kernel_path")
+    qemu_args+=(-initrd "$boot_initramfs")
+    qemu_args+=(-append "console=ttyS0 loglevel=1 panic=-1")
+
+    if [[ $rootfs_mode -eq 1 ]]; then
+        qemu_args+=(-drive "file=$BOOT_ROOTFS,if=virtio,format=raw,readonly=on")
+    else
+        qemu_args+=(
+            -fsdev "local,id=hostroot,path=/,security_model=none"
+            -device "virtio-9p-pci,fsdev=hostroot,mount_tag=hostroot"
+            -fsdev "local,id=results,path=$results_dir,security_model=none"
+            -device "virtio-9p-pci,fsdev=results,mount_tag=results"
+        )
+    fi
+    qemu_args+=(-net none)
+
+    _boot_log "Running interactive: qemu-system-x86_64 ${qemu_args[*]}"
+    qemu-system-x86_64 "${qemu_args[@]}"
+}
