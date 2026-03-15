@@ -176,22 +176,25 @@ QUOTATOOL="$PROJECT_DIR/quotatool"
 INITRAMFS_DIR="$SCRIPT_DIR/kernels/initramfs"
 KERNELS_DIR="$SCRIPT_DIR/kernels"
 GUEST_CMD="$SCRIPT_DIR/guest-run-all.sh"
+HOST_TESTS_DIR="$SCRIPT_DIR/tests/host"
+
+# Export boot options early — needed by --host-only which exits before
+# the kernel matrix section where these were previously set.
+export BOOT_TIMEOUT="$OPT_TIMEOUT"
+export BOOT_VERBOSE="$OPT_VERBOSE"
 
 # ---------------------------------------------------------------------------
 # Quick tests (no root, no VM — argument validation only)
 # ---------------------------------------------------------------------------
 
-HOST_TESTS_DIR="$SCRIPT_DIR/tests/host"
-
 _run_quick_tests() {
     echo -e "${BOLD}Quick tests (argument validation, no VM)${NC}"
     echo ""
-    if [[ -x "$HOST_TESTS_DIR/t-error-args.sh" ]]; then
-        "$HOST_TESTS_DIR/t-error-args.sh" "$QUOTATOOL"
-    else
-        echo -e "${YELLOW}SKIP${NC}: $HOST_TESTS_DIR/t-error-args.sh not found"
-        return 0
+    if [[ ! -f "$HOST_TESTS_DIR/t-error-args.sh" ]]; then
+        echo -e "${RED}FAIL${NC}: $HOST_TESTS_DIR/t-error-args.sh not found"
+        return 1
     fi
+    "$HOST_TESTS_DIR/t-error-args.sh" "$QUOTATOOL"
 }
 
 # ---------------------------------------------------------------------------
@@ -353,10 +356,6 @@ _glibc_min=$(file -L /bin/sh 2>/dev/null | sed -n 's/.*for GNU\/Linux \([0-9.]\+
 if [[ -n "$_glibc_min" ]]; then
     GLIBC_MIN_KVER="$_glibc_min"
 fi
-
-# Set boot layer options
-export BOOT_TIMEOUT="$OPT_TIMEOUT"
-export BOOT_VERBOSE="$OPT_VERBOSE"
 
 # Create results directory
 mkdir -p "$RESULTS_DIR"
