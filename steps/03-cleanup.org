@@ -64,7 +64,7 @@ expired-grace test (set grace very short, wait, verify -d output).
 
 /Verification/: =run-tests.sh --host-only=.
 
-** TODO 3.4 Remove: unused sys/cdefs.h include
+** DONE 3.4 Remove: unused sys/cdefs.h include
 
 *File*: =src/linux/linux_quota.h= line 17
 *Bug*: =#include <sys/cdefs.h>= — glibc-only header. Nothing from

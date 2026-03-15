@@ -180,11 +180,6 @@ build_static_quotatool() {
         return 1
     fi
 
-    # musl doesn't have sys/cdefs.h (glibc-ism). quotatool's linux_quota.h
-    # includes it but uses nothing from it. Provide empty stub.
-    mkdir -p "$kinclude/sys"
-    echo "/* stub: musl lacks sys/cdefs.h */" > "$kinclude/sys/cdefs.h"
-
     # Ensure config.h exists (from normal ./configure)
     if [[ ! -f "$PROJECT_DIR/config.h" ]]; then
         log "Running ./configure first (needed for config.h)..."

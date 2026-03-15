@@ -14,7 +14,6 @@
 #ifndef LINUX_QUOTA_H
 #define LINUX_QUOTA_H
 
-#include <sys/cdefs.h>
 #include <sys/types.h>
 #include "system.h"
 
