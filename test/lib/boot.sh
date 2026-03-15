@@ -769,12 +769,25 @@ _boot_virtme_interactive() {
     local busybox="$lib_dir/../kernels/initramfs/busybox-musl"
     [[ -f "$busybox" ]] && vng_args+=(--busybox "$busybox")
 
+    # Use --shell with a wrapper that sources the setup script then
+    vng_args+=(--user root)
+
     if [[ "$command" != "__INTERACTIVE__" ]]; then
-        vng_args+=(-e "$command")
+        # Write a thin wrapper to /tmp that sources the real script.
+        # Can't copy (SCRIPT_DIR breaks) or symlink (nested symlinks
+        # don't resolve in VM overlay). Wrapper uses resolved path.
+        local real_cmd
+        real_cmd=$(readlink -f "$command")
+        echo "source '$real_cmd'" > /tmp/.quotatool-setup.sh
+        echo ""
+        echo "  After login, run:  source /tmp/.quotatool-setup.sh"
+        echo ""
     fi
 
     _boot_log "Running interactive: vng ${vng_args[*]}"
     vng "${vng_args[@]}"
+
+    rm -f /tmp/.quotatool-setup.sh 2>/dev/null || true
 }
 
 # Interactive QEMU: no timeout, no output capture, terminal connected.

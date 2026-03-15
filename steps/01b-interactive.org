@@ -1,0 +1,107 @@
+#+TITLE: M1: Interactive Shell Mode — Step Plan
+#+DATE: 2026-03-15
+
+*Branch: =m1-interactive= (off =m1-testing=)*
+
+Add =--interactive= flag to =run-tests.sh= that boots any kernel
+with quota filesystems ready and drops to a shell for manual
+debugging and testing.
+
+* Design
+
+=run-tests.sh --interactive= boots host kernel.
+=run-tests.sh --interactive --kernel NAME= boots a specific kernel.
+
+Uses the same boot infrastructure as auto-tests. On exit, filesystem
+teardown and VM shutdown happen automatically.
+
+* Boot Path Matrix
+
+Four cases, each uses a different boot path:
+
+| # | Command                              | Boot path     | PTY? | Status      |
+|---+--------------------------------------+---------------+------+-------------|
+| 1 | =--interactive= (host kernel)        | virtme        | TODO | Works, no PTY |
+| 2 | =--interactive --kernel debian-12=    | virtme        | TODO | Not tested  |
+| 3 | =--interactive --kernel alma9=        | qemu+alpine   | No   | Not tested  |
+| 4 | =--interactive --kernel debian-8=     | qemu+9p       | No   | Not tested  |
+
+Cases 1-2 (virtme): investigating =vng --shell= for proper PTY.
+Cases 3-4 (QEMU): serial console, PTY not possible without major
+work (virtio-console or SSH). Accept limitation, document it.
+
+* PTY Investigation (virtme path)
+
+** Problem
+
+=vng -e <command>= runs without a PTY. Bash warns "no job control",
+"cannot set terminal process group". Stdin redirection broken.
+Long lines wrap incorrectly (terminal width unknown).
+
+=vng= without =-e= has a proper PTY but doesn't run our setup.
+
+** Attempted solutions
+
+- =2> >(grep -v ...)= on bash: blocks startup (grep waits for EOF)
+- =python3 pty.spawn(['vng', ...])=: PTY wraps host-side vng, not
+  the guest-side bash. Doesn't help.
+- =vng --shell /path/to/wrapper=: flag exists in =--help= but
+  wrapper never executed. Source grep inconclusive — may be in
+  a different module or generated dynamically.
+- =PROMPT_COMMAND= export: doesn't propagate into VM (fresh kernel
+  boot, not a subshell).
+- =vng --user root= without =-e=: proper PTY but setup doesn't run.
+
+** Current approach: researching =vng --shell=
+
+Agent searching virtme-ng GitHub, docs, source for how =--shell=
+actually works. May enable: =vng --user root --shell /wrapper= where
+wrapper sources setup then execs bash with proper PTY.
+
+* Current State (working, no PTY)
+
+=guest-interactive.sh=:
+- Creates ext4 + XFS loopback with quotas
+- Creates =data/= dirs with chmod 777 (for =runuser -u nobody=)
+- Prints banner with kernel info, mount paths, examples
+- Notes about no-PTY limitations
+- Drops to =bash --norc --noprofile -i=
+- On exit: teardown message, fs-setup EXIT trap cleans up
+
+=boot.sh=:
+- =boot_kernel_interactive()= dispatches to virtme or QEMU
+- =_boot_virtme_interactive()=: =vng -e guest-interactive.sh=
+- =_boot_qemu_interactive()=: QEMU with =__INTERACTIVE__= marker,
+  init drops to bash on serial console
+
+=init= (initramfs):
+- Detects =__INTERACTIVE__= in command
+- Both 9p and rootfs modes: =chroot ... /bin/bash -l= instead of
+  running command + poweroff
+
+* Files Modified
+
+- =test/guest-interactive.sh= — new
+- =test/lib/boot.sh= — added =boot_kernel_interactive()= and helpers
+- =test/run-tests.sh= — added =--interactive= flag
+- =test/kernels/initramfs/init= — added =__INTERACTIVE__= detection
+
+* TODO
+
+** DOING Case 1: =--interactive= (host kernel, virtme)
+Works with no-PTY limitations. Investigating =vng --shell= for PTY.
+
+** TODO Case 2: =--interactive --kernel debian-12= (virtme)
+Same path as case 1. Test after PTY question resolved.
+
+** TODO Case 3: =--interactive --kernel alma9= (qemu+alpine)
+Serial console. Test that =__INTERACTIVE__= marker works with
+Alpine rootfs. Expect no PTY (serial limitation).
+
+** TODO Case 4: =--interactive --kernel debian-8= (qemu+9p)
+Serial console. Test that =__INTERACTIVE__= marker works with
+9p init path. Expect no PTY (serial limitation).
+
+** TODO Commit and merge
+Squash the iteration commits into clean history before merging
+to =m1-testing=. Current git log has broken intermediate commits.

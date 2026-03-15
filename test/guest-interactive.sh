@@ -10,7 +10,8 @@
 
 set -uo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# BASH_SOURCE works when sourced; $0 works when executed directly.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 source "$SCRIPT_DIR/lib/fs-setup.sh"
 source "$SCRIPT_DIR/lib/test-ids.sh"
@@ -54,29 +55,21 @@ cat <<EOF
 EOF
 
 if [[ "$WANT_FS" == "ext4" || "$WANT_FS" == "both" ]]; then
-    echo "  ext4: $EXT4_MNT"
+    echo "  ext4:     $EXT4_MNT  (writable: $EXT4_MNT/data)"
 fi
 if [[ "$WANT_FS" == "xfs" || "$WANT_FS" == "both" ]]; then
-    echo "  XFS:  $XFS_MNT"
-fi
-
-if [[ -d "$EXT4_MNT/data" ]]; then
-    echo "  ext4 writable dir: $EXT4_MNT/data (chmod 777, for runuser)"
-fi
-if [[ -d "$XFS_MNT/data" ]]; then
-    echo "  XFS writable dir:  $XFS_MNT/data (chmod 777, for runuser)"
+    echo "  XFS:      $XFS_MNT  (writable: $XFS_MNT/data)"
 fi
 
 cat <<'EOF'
 
   Examples:
     quotatool -u nobody -b -q 50M -l 100M /tmp/test-ext4
+    runuser -u nobody -- dd if=/dev/zero of=/tmp/test-ext4/data/fill bs=1K count=200
     quotatool -d -u nobody /tmp/test-ext4
     repquota /tmp/test-ext4
-    runuser -u nobody -- dd if=/dev/zero of=/tmp/test-ext4/data/fill bs=1K count=200
 
   Type 'exit' to shut down the VM.
-  Note: no PTY — no job control, no Ctrl-Z. Ctrl-C kills the VM.
 
 EOF
 
@@ -97,10 +90,18 @@ fi
 # Type 'exit' or 'poweroff' to shut down the VM.
 export PS1="quotatool-test# "
 export PATH="/bin:/sbin:/usr/bin:/usr/sbin:$SCRIPT_DIR/.."
-# Two harmless warnings will appear (no job control, cannot set terminal
-# process group) — this is normal without a PTY. Everything works.
-exec bash --norc --noprofile -i
+# If sourced (from shell wrapper or PROMPT_COMMAND), just set
+# PS1 and return — caller provides the interactive shell.
+# If executed directly (vng -e, or QEMU), drop to bash.
+export PS1="quotatool-test# "
+(return 0 2>/dev/null) && return 0
 
-# If bash exits, tear down (fs-setup EXIT trap handles cleanup)
+echo "  Note: no PTY — two warnings above are harmless."
+echo "  No job control, no Ctrl-Z. Ctrl-C kills the VM."
 echo ""
-echo "Shell exited. Shutting down VM..."
+
+bash --norc --noprofile -i
+
+# Shell exited — teardown happens via fs-setup EXIT trap
+echo ""
+echo "Tearing down filesystems and shutting down VM..."
