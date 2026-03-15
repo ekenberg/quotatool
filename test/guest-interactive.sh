@@ -69,10 +69,20 @@ cat <<'EOF'
     runuser -u nobody -- dd if=/dev/zero of=/tmp/test-ext4/test bs=1K count=200
 
   Type 'exit' to tear down and shut down the VM.
+  Note: no job control (no PTY). Ctrl-C kills the VM.
+  stdin redirection (cat >, here-docs) unavailable.
 
 EOF
 
-# Drop to interactive shell
+# Drop to interactive shell.
+# Note: when using vng -e, there's no proper PTY — job control and
+# stdin redirection (cat >, here-docs) are unavailable. Normal
+# commands (quotatool, repquota, dd, runuser) all work fine.
+# Type 'exit' or 'poweroff' to shut down the VM.
 export PS1="quotatool-test# "
 export PATH="/bin:/sbin:/usr/bin:/usr/sbin:$SCRIPT_DIR/.."
-exec bash --norc --noprofile -i
+bash --norc --noprofile -i 2>&1
+
+# If bash exits, tear down (fs-setup EXIT trap handles cleanup)
+echo ""
+echo "Shell exited. Shutting down VM..."

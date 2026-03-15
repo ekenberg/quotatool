@@ -770,10 +770,8 @@ _boot_virtme_interactive() {
     [[ -f "$busybox" ]] && vng_args+=(--busybox "$busybox")
 
     if [[ "$command" != "__INTERACTIVE__" ]]; then
-        # Run the setup script (sets up filesystems, drops to bash -i)
         vng_args+=(-e "$command")
     fi
-    # Without -e (bare __INTERACTIVE__): vng boots to an interactive shell
 
     _boot_log "Running interactive: vng ${vng_args[*]}"
     vng "${vng_args[@]}"
