@@ -454,10 +454,10 @@ Fixes applied during validation:
 
 /Dependencies/: 4.1, 4.2
 
-* Phase 5: CI Wrapper [0/3]
+* Phase 5: CI Wrapper [0/3]                                       :deferred:
 
-Thin layer on top of the local framework. Disposable if CI
-platform changes.
+Deferred indefinitely. One-person project — local test framework IS
+the CI. Run before push. May revisit if contributors appear.
 
 ** TODO 5.1 GitHub Actions workflow
 =.github/workflows/test.yml= — matrix strategy over kernels.
