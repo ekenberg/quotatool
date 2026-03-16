@@ -420,9 +420,11 @@ Run: test/kernels/initramfs/build.sh"
         _collect_module_deps "9pnet"
         _collect_module_deps "9pnet_virtio"
         # Virtio core (modinfo reports no depends: for these, but they're
-        # required by virtio_pci and virtio_blk on RHEL kernels)
-        _collect_module_deps "virtio"
+        # required by virtio_pci and virtio_blk on RHEL kernels).
+        # virtio_ring must load before virtio: on amazon-2 (4.14),
+        # virtio.ko imports virtio_break_device from virtio_ring.ko.
         _collect_module_deps "virtio_ring"
+        _collect_module_deps "virtio"
         # Virtio PCI bus (needed for virtio-9p-pci and virtio-blk-pci)
         _collect_module_deps "virtio_pci"
         _collect_module_deps "9p"
@@ -880,7 +882,7 @@ _boot_qemu_interactive() {
             load_order+=("$mod_name")
         }
         local -a load_order=()
-        for mod in 9pnet 9pnet_virtio virtio virtio_ring virtio_pci 9p \
+        for mod in 9pnet 9pnet_virtio virtio_ring virtio virtio_pci 9p \
                    quota_tree quota_v1 quota_v2 loop fscrypto crc16 mbcache jbd2 ext4 \
                    crc32c_generic crc32c libcrc32c exportfs xfs virtio_blk; do
             _collect_module_deps "$mod"
