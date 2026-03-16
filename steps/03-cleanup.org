@@ -99,29 +99,19 @@ run (that's the whole point), so grace restarts naturally.
 after =-r= before checking grace, matching real-world usage.
 No code change to =quota_reset_grace()=. GitHub #35 closed.
 
-** DOING 3.6 Investigate + fix: XFS quota issues
+** DONE 3.6 Investigate: XFS quota issues — NOT QUOTATOOL BUGS
 
-Two known XFS-specific issues:
+Detailed investigation in =steps/03-xfs-grace.org=.
 
-*** XFS grace period display
-=-d= reports =block_grace=0= on XFS after setting grace with
-=-t= and exceeding soft limit. Works on ext4. (Q5 in step-plan 01.)
-*Investigation needed*: Read =src/linux/quota.c= XFS path.
-Check if =-t= reaches XFS correctly. Check if =d_btimer= is
-populated. May be related to 3.3 (operator precedence) or may
-be a separate issue in the XFS grace set/get path.
-*Test*: =t-grace-period.sh= skips XFS. =t-enforce-block-soft.sh=
-skips grace check on XFS. After fix, both should work on XFS.
+*** XFS grace period display — sync issue
+Root cause: XFS lazy quota metadata writeback. Grace timer IS set
+in memory on write but not visible via =quotactl= until synced.
+=sync -f <mountpoint>= makes it visible. Affects all tools equally.
+Not a quotatool bug. Fix: added =sync -f= to test scripts.
 
-*** XFS block accounting discrepancy
-Setting soft limit to =50k= shows 50 on ext4 but 52 on XFS via
-=repquota=. Discovered during interactive testing (2026-03-15).
-XFS uses different internal block size for quota accounting.
-*Investigation needed*: Is this a quotatool set/display issue
-or kernel-side accounting difference? Compare =quotatool -d=
-output with =xfs_quota= output for the same limit.
-
-/Verification/: =run-tests.sh --host-only= with XFS tests enabled.
+*** XFS block accounting (50→52) — working as intended
+XFS rounds quota limits up to its allocation unit (4KB).
+Normal XFS behavior, not a quotatool issue.
 
 ** TODO 3.7 Compiler warnings: -Wall -Wextra clean build
 

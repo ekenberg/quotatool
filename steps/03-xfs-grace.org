@@ -1,0 +1,98 @@
+#+TITLE: XFS Grace Timer Investigation
+#+DATE: 2026-03-16
+
+Reference: M3 task 3.6 in =steps/03-cleanup.org=
+
+* Problem Statement
+
+XFS grace timers do not activate in our test environment. After
+setting a global grace period, setting a soft limit, and exceeding
+it with a user write, the per-user grace timer stays at 0. This is
+confirmed by all tools: =quotatool -d=, =xfs_quota=, =repquota=.
+
+Grace timers work correctly on ext4 in the same environment.
+
+* What We Know
+
+** Grace period IS set correctly
+=xfs_quota -x -c "state"= confirms "Blocks grace time: [1 day]"
+after =quotatool -u -b -t "1 day"= or =xfs_quota -x -c "timer -u -b 1d"=.
+
+** Enforcement IS on
+=xfs_quota -x -c "state"= shows Accounting: ON, Enforcement: ON.
+Filesystem mounted with =usrquota,grpquota=.
+
+** User IS over soft limit
+=xfs_quota report= shows usage 200, soft 100. =repquota= shows =+-=
+flag (over block soft). The kernel knows the user is over quota.
+
+** No tool can activate the timer
+Tested with:
+- =quotatool -u nobody -b -q 1 -l 0 /tmp/test-xfs= + user write
+- =xfs_quota -x -c "limit -u bsoft=100k bhard=0"= + user write
+- =xfs_quota -x -c "limit -u bsoft=100k bhard=500k"= + user write
+- =xfs_quota -x -c "timer -u -b 1d nobody"= (direct per-user timer)
+All result in Warn/Grace = =00 [--------]=.
+
+** Write methods tested
+- =runuser -u nobody -- dd ...= (direct user write, crossing soft)
+- =dd= as root + =chown nobody= (ownership transfer)
+- =runuser -u nobody -- echo x >>= (append after exceeding)
+All fail to trigger the grace timer.
+
+** Hard limit presence doesn't matter
+Tested with bhard=0 (no hard) and bhard=500k. No difference.
+
+** Block accounting discrepancy — working as intended
+Setting 50K shows 52K on XFS. Setting soft=1 shows 4. XFS rounds
+quota limits up to its allocation unit (4KB). This is normal XFS
+behavior, not a quotatool issue. Confirmed by user (2026-03-16).
+
+* Root Cause (2026-03-16)
+
+*XFS lazy quota metadata writeback.* XFS updates the grace timer
+in memory when a user's write exceeds the soft limit, but does
+not immediately flush this to the on-disk quota metadata. A
+subsequent =quotactl= read returns stale data (timer=0) until
+the metadata is synced. =sync -f <mountpoint>= forces the flush
+and makes the timer visible.
+
+This affects all tools equally (xfs_quota, repquota, quotatool).
+It is not a quotatool bug. ext4 does not have this behavior
+because it updates quota metadata synchronously.
+
+*Confirmed on*:
+- Loopback (=/tmp/test-xfs=) inside =--interactive= VM, kernel 6.8.0
+- Real block device (=/mnt/xfs-test=, USB disk), kernel 6.8.0
+Both work correctly after =sync -f=.
+
+*Fix*: Add =sync -f "$MNT"= in test scripts after writes that
+should trigger XFS grace timers. No quotatool code change needed.
+
+* Plan
+
+** DONE Check fs-setup.sh mkfs.xfs options
+=fs-setup.sh= tries progressively simpler formats:
+1. =mkfs.xfs -f= (default: crc=1, reflink=1)
+2. =mkfs.xfs -f -m reflink=0=
+3. =mkfs.xfs -f -m crc=0,finobt=0,rmapbt=0,reflink=0=
+4. Same + =-n ftype=0=
+Mounts with =-o uquota,gquota=. No unusual options.
+On piano (6.8.0), likely uses attempt 1 (default modern format).
+
+** DONE Test on real block device (USB disk)
+Works. Grace timer activates after =sync -f=.
+
+** DONE Test on loopback inside --interactive
+Works. Same fix: =sync -f= after write.
+
+** CANCELLED Test on different kernel versions
+Not needed — root cause found (sync, not kernel version).
+
+** CANCELLED Search for known XFS grace bugs
+Not needed — not a bug, just lazy writeback behavior.
+
+** DONE Add sync -f to XFS test paths
+=t-grace-period.sh= updated: removed XFS skip, added =sync -f "$MNT"=
+after writes. Passes on host kernel (--host-only). Full matrix
+pending (running 2026-03-16).

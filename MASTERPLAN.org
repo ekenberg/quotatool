@@ -31,8 +31,9 @@ and low-effort.
 - Missing support for newer kernel APIs (quotactl_fd, project quotas)
 - Packaged in Debian, Ubuntu, Fedora, EPEL, Gentoo, openSUSE, Homebrew
 - Latest release: v1.6.5 (July 2024)
-- Known bugs: grace -r (≤4.12), +0M, XFS grace display, -d operator
-  precedence, "5m" timespan ambiguity
+- Known bugs fixed in M3: +0M (#31), "5m" timespan (#32), -d operator
+  precedence (#33), unused sys/cdefs.h (#34). Grace -r (#35) and XFS
+  grace display (#36 partial) resolved as not quotatool bugs.
 
 * Strategy
 

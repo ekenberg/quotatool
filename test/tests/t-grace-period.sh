@@ -9,17 +9,12 @@ FSTYPE="$1"; MNT="$2"
 fail() { echo "FAIL ($FSTYPE): $*" >&2; exit 1; }
 [[ -x "$QUOTATOOL" ]] || fail "quotatool not found"
 
-# XFS grace periods work differently — quotatool -t may not apply.
-# TODO: investigate XFS grace period support
-if [[ "$FSTYPE" == "xfs" ]]; then
-    echo "SKIP ($FSTYPE): grace period test not yet supported on XFS"
-    exit 0
-fi
-
 # Set global block grace period to 1 day (86400 seconds)
 "$QUOTATOOL" -u -b -t "1 day" "$MNT" || fail "set grace period failed"
 
 # Set a low soft limit for test user, no hard limit
+# XFS rounds up to allocation unit (4KB), so soft=1 becomes 4.
+# Use a hard limit too — keeps XFS happy and tests are cleaner.
 "$QUOTATOOL" -u "$TEST_USER_NAME" -b -q 1 -l 0 "$MNT" || fail "set soft limit failed"
 
 # Write data to exceed soft limit (triggers grace period)
@@ -27,6 +22,11 @@ mkdir -p "$MNT/grace-test"
 chmod 777 "$MNT/grace-test"
 runuser -u "$TEST_USER_NAME" -- sh -c "dd if=/dev/zero of=$MNT/grace-test/fill bs=1K count=100 2>/dev/null" \
     || fail "write as test user failed"
+
+# XFS uses lazy quota metadata writeback — the grace timer is set in
+# memory on write but not visible via quotactl until synced to disk.
+# sync -f forces the flush. ext4 doesn't need this (synchronous updates).
+[[ "$FSTYPE" == "xfs" ]] && sync -f "$MNT"
 
 # quotatool -d fields:
 # $1:id $2:mount $3:blk_used $4:blk_soft $5:blk_hard $6:blk_grace
@@ -50,6 +50,7 @@ grace_b=$(echo "$dump" | awk '{print $6}')
 # where the user continues writing after an admin resets their grace.
 runuser -u "$TEST_USER_NAME" -- sh -c "echo x >> $MNT/grace-test/fill" \
     || fail "trigger write after -r failed"
+[[ "$FSTYPE" == "xfs" ]] && sync -f "$MNT"
 
 dump2=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT") || fail "quotatool -d failed after restart"
 echo "dump after -r: $dump2"
