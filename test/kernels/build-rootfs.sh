@@ -8,7 +8,7 @@
 # - Minimal /etc for user lookup (nobody, root)
 #
 # This image is used instead of 9p for kernels that lack 9p.ko
-# (all RHEL-derived: centos6/7, alma8/9/10, amazon-2).
+# (all RHEL-derived: centos-6/7, alma-8/9/10, amazon-2).
 #
 # The image is NOT stored in git. Rebuild with: ./build-rootfs.sh
 # One image works for all RHEL kernels (kernel is passed separately).

@@ -9,7 +9,7 @@
 #   ./run-tests.sh                    # run all kernels
 #   ./run-tests.sh --jobs 4           # run 4 kernels in parallel
 #   ./run-tests.sh --tier 1           # run tier 1 only
-#   ./run-tests.sh --kernel alma8     # run one kernel
+#   ./run-tests.sh --kernel alma-8     # run one kernel
 #   ./run-tests.sh --host-only        # run on host kernel only (fast)
 #   ./run-tests.sh --timeout 600      # per-kernel timeout (default: 300)
 
@@ -551,8 +551,8 @@ if [[ $OPT_SMOKE -eq 1 ]]; then
         fi
     done
 
-    # QEMU+alpine path — try alma9, then centos7, then alma8
-    for k in alma9 centos7 alma8; do
+    # QEMU+alpine path — try alma-9, then centos-7, then alma-8
+    for k in alma-9 centos-7 alma-8; do
         if [[ -n "$(find_vmlinuz "$k" 2>/dev/null)" ]] && ! has_9p "$k"; then
             _smoke_run "qemu+alpine" "$k" "rootfs"
             break

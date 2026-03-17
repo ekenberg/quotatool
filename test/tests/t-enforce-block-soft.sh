@@ -17,6 +17,7 @@ mkdir -p "$MNT/enforce-bsoft"
 chmod 777 "$MNT/enforce-bsoft"
 runuser -u "$TEST_USER_NAME" -- sh -c "dd if=/dev/zero of=$MNT/enforce-bsoft/fill bs=1K count=200 2>/dev/null" \
     || fail "write past soft limit should succeed"
+[[ "$FSTYPE" == "xfs" ]] && sync -f "$MNT"
 
 # Verify usage exceeds soft limit
 dump=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT") || fail "quotatool -d failed"
@@ -28,10 +29,7 @@ grace_b=$(echo "$dump" | awk '{print $6}')
 
 [[ "$used" -gt "$soft" ]] || fail "used=$used not > soft=$soft"
 # Grace timer must be active — distinguishes working soft limit from no quota.
-# XFS grace display is broken (Q5), so only check on ext4.
-if [[ "$FSTYPE" == "ext4" ]]; then
-    [[ "$grace_b" -gt 0 ]] || fail "grace_b=$grace_b, expected >0 (soft limit should trigger grace)"
-fi
+[[ "$grace_b" -gt 0 ]] || fail "grace_b=$grace_b, expected >0 (soft limit should trigger grace)"
 echo "PASS ($FSTYPE): wrote past soft limit, used=$used > soft=$soft"
 
 # Cleanup

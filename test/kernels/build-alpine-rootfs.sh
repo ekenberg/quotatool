@@ -49,6 +49,7 @@ ALPINE_PACKAGES=(
     e2fsprogs           # mkfs.ext4, dumpe2fs
     e2fsprogs-extra     # quota support for ext4
     xfsprogs            # mkfs.xfs
+    xfsprogs-extra      # xfs_quota, xfs_info
     quota-tools         # quotacheck, quotaon, quotaoff, repquota
     util-linux          # mount, umount, losetup, runuser, setpriv
     util-linux-misc     # runuser is here on Alpine

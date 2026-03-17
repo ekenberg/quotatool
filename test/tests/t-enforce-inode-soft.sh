@@ -19,6 +19,7 @@ for i in $(seq 1 10); do
     runuser -u "$TEST_USER_NAME" -- sh -c "touch $MNT/enforce-isoft/file$i" \
         || fail "creating file $i should succeed (soft limit)"
 done
+[[ "$FSTYPE" == "xfs" ]] && sync -f "$MNT"
 
 # quotatool -d fields:
 # $1:id $2:mount $3:blk_used $4:blk_soft $5:blk_hard $6:blk_grace

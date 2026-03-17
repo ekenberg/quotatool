@@ -23,7 +23,7 @@ Four cases, each uses a different boot path:
 |---+--------------------------------------+---------------+------+-------------|
 | 1 | =--interactive= (host kernel)        | virtme        | TODO | Works, no PTY |
 | 2 | =--interactive --kernel debian-12=    | virtme        | TODO | Not tested  |
-| 3 | =--interactive --kernel alma9=        | qemu+alpine   | No   | Not tested  |
+| 3 | =--interactive --kernel alma-9=        | qemu+alpine   | No   | Not tested  |
 | 4 | =--interactive --kernel debian-8=     | qemu+9p       | No   | Not tested  |
 
 Cases 1-2 (virtme): investigating =vng --shell= for proper PTY.
@@ -98,7 +98,7 @@ Proper PTY via =vng --user root= (no =-e=). Setup via
 ** DONE Case 2: =--interactive --kernel debian-12= (virtme)
 Same path as case 1. Verified working.
 
-** DONE Case 3: =--interactive --kernel alma9= (qemu+alpine)
+** DONE Case 3: =--interactive --kernel alma-9= (qemu+alpine)
 Serial console (no PTY). Init auto-runs =guest-interactive.sh=.
 Filesystems created, banner shown, drops to bash. Verified working.
 

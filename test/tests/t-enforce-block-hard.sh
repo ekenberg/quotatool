@@ -26,6 +26,8 @@ else
     echo "write correctly rejected by kernel"
 fi
 
+[[ "$FSTYPE" == "xfs" ]] && sync -f "$MNT"
+
 # Verify usage does not exceed hard limit
 dump=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT") || fail "quotatool -d failed"
 echo "dump: $dump"

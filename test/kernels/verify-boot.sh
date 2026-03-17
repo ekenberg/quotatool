@@ -10,7 +10,7 @@
 # Usage:
 #   ./verify-boot.sh                  # verify all kernels
 #   ./verify-boot.sh --tier 1         # verify tier 1 only
-#   ./verify-boot.sh --kernel alma8   # verify one kernel
+#   ./verify-boot.sh --kernel alma-8   # verify one kernel
 #   ./verify-boot.sh --timeout 60     # per-kernel timeout (default: 120s)
 
 set -euo pipefail

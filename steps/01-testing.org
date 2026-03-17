@@ -365,7 +365,7 @@ operational config in =test/kernels/kernels.conf=.
 Sources:
 - Ubuntu mainline PPA (=ppa:vX.Y=): 24 kernels. Auto-discovered .deb filenames.
   Includes XFS, quota, 9p modules. Version coverage, not vendor patches.
-- CentOS vault RPMs (=rpm:<url>=): 2 kernels (centos6, centos7).
+- CentOS vault RPMs (=rpm:<url>=): 2 kernels (centos-6, centos-7).
   Direct URLs to final update kernels. Has XFS + quota, but *no 9p module*.
 - Commented out: ubuntu-2604 (7.0, unreleased), mainline-3.0 (not on PPA).
 
@@ -444,7 +444,7 @@ Results (2026-03-09):
 - *20/20 non-RHEL kernels pass*: all Ubuntu, Debian, Fedora, openSUSE,
   mainline kernels boot and report correct version
 - 5 RHEL-derived kernels blocked by Q7 (no 9p module):
-  centos6, centos7, alma8, alma9, amazon-2
+  centos-6, centos-7, alma-8, alma-9, amazon-2
 
 Fixes applied during verification:
 - virtio_pci.ko added to QEMU initramfs module list
@@ -522,18 +522,18 @@ Results (2026-03-10, verified on two hosts):
 | opensuse-152    |     5.3 | qemu+9p   |    3 | 16/16 | 15/15+1s | Clean                    |
 | debian-10       |    4.19 | qemu+9p   |    2 | 16/16 | 15/15+1s | Clean                    |
 | ubuntu-1804     |    4.15 | qemu+9p   |    2 | 16/16 | 15/15+1s | Clean                    |
-| alma10          |    6.12 | qemu+root |    1 | 16/16 | 16/16    | Clean (rootfs disk)      |
-| alma9           |    5.14 | qemu+root |    1 | 16/16 | 16/16    | Clean (rootfs disk)      |
-| alma8           |    4.18 | qemu+root |    1 | 16/16 | 16/16    | Clean (rootfs disk)      |
+| alma-10          |    6.12 | qemu+root |    1 | 16/16 | 16/16    | Clean (rootfs disk)      |
+| alma-9           |    5.14 | qemu+root |    1 | 16/16 | 16/16    | Clean (rootfs disk)      |
+| alma-8           |    4.18 | qemu+root |    1 | 16/16 | 16/16    | Clean (rootfs disk)      |
 | amazon-2        |    4.14 | qemu+root |    3 | 16/16 | 16/16    | QEMU version–dependent   |
 | opensuse-151    |    4.12 | qemu+9p   |    2 | 15/16 | 15/15+1s | grace -r fail            |
 | debian-9        |     4.9 | qemu+9p   |    2 | 15/16 | 15/15+1s | grace -r fail            |
 | ubuntu-1604     |     4.4 | qemu+9p   |    2 | 15/16 | 15/15+1s | grace -r fail            |
 | ubuntu-1404     |    3.13 | qemu+9p   |    3 | 15/16 | 15/15+1s | grace -r fail            |
 | debian-8        |    3.16 | qemu+9p   |    3 | 15/16 | 15/15+1s | grace -r fail            |
-| centos7         |    3.10 | qemu+root |    1 | 15/16 | 16/16    | grace -r (rootfs disk)   |
+| centos-7         |    3.10 | qemu+root |    1 | 15/16 | 16/16    | grace -r (rootfs disk)   |
 | debian-7        |     3.2 | qemu+9p   |    3 | 15/16 | 14/15+1s | grace -r + xfs blkacct   |
-| centos6         |     2.6 | —         |    — |     — | —        | dropped: no 9p, glibc floor |
+| centos-6         |     2.6 | —         |    — |     — | —        | dropped: no 9p, glibc floor |
 
 (+1s = XFS grace period skip, expected)
 
@@ -661,12 +661,12 @@ building from source with musl-gcc if download fails.
 =initramfs/build.sh= prefers local =busybox-musl= over system busybox.
 
 /Results/:
-- Busybox init works on kernel 2.6.32 (centos6) — no "kernel too old"
+- Busybox init works on kernel 2.6.32 (centos-6) — no "kernel too old"
 - debian-8 (3.16) QEMU path: verified passing
 - debian-12 (6.1) virtme path: verified passing (no regression)
-- centos6 still blocked: has 9pnet but no 9p filesystem module, and
+- centos-6 still blocked: has 9pnet but no 9p filesystem module, and
   rootfs path fails because host glibc (2.35) requires kernel >=3.2.
-  centos6 is EOL since 2020, kernel 2.6.32 — documented as unsupported.
+  centos-6 is EOL since 2020, kernel 2.6.32 — documented as unsupported.
 
 /Dependencies/: none
 
@@ -896,9 +896,9 @@ TODO (minor): update =check-deps.sh= to check for =musl-gcc=.
 *** DONE 8.6 Validate on modern host
 Run full test suite on all kernels from a Fedora 43+ host
 (glibc >= 2.40). Specifically verify the 4 glibc-floor kernels:
-debian-7 (3.2), centos7 (3.10), ubuntu-1404 (3.13), debian-8 (3.16).
+debian-7 (3.2), centos-7 (3.10), ubuntu-1404 (3.13), debian-8 (3.16).
 
-Also verify RHEL kernels (alma8, alma9, alma10, centos7) work via
+Also verify RHEL kernels (alma-8, alma-9, alma-10, centos-7) work via
 Alpine rootfs — if yes, retire =build-rootfs.sh=.
 
 Compare results with Mint 21 (glibc 2.35) baseline to confirm
@@ -1118,18 +1118,18 @@ virtio-blk, tmpfs overlays for writable areas.
 Exit code via serial marker =QUOTATOOL_EXIT:<code>=.
 
 Results:
-- alma10 (6.12): 32/32 pass
-- alma9 (5.14): 32/32 pass
-- alma8 (4.18): 32/32 pass
-- centos7 (3.10): 31/32 (grace-r bug, known)
-- centos6 (2.6): unsupported — busybox fixed (musl-static), but kernel
+- alma-10 (6.12): 32/32 pass
+- alma-9 (5.14): 32/32 pass
+- alma-8 (4.18): 32/32 pass
+- centos-7 (3.10): 31/32 (grace-r bug, known)
+- centos-6 (2.6): unsupported — busybox fixed (musl-static), but kernel
   2.6.32 has no 9p filesystem module and host glibc (>=2.35) requires
   kernel >=3.2 for rootfs path. EOL since 2020, dropped from matrix.
 - amazon-2 (4.14): passes on Fedora 43 (QEMU 10.x), fails on Mint 21
   (QEMU 6.2) — =virtio.ko= insmod "unknown symbol". Exact QEMU
   version boundary unknown. Tier 3.
 
-/Affects/: resolved for all. centos6 dropped.
+/Affects/: resolved for all. centos-6 dropped.
 
 ** TODO Q8: Binary output location (=./quotatool= vs =src/quotatool=)
 Currently =make= places the binary at project root (=./quotatool=).
