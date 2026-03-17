@@ -81,6 +81,13 @@ grace_b2=$(echo "$dump2" | awk '{print $6}')
 echo "PASS ($FSTYPE): block grace set ($grace_b), ticking ($grace_tick), restarted ($grace_b2)"
 
 # --- Inode grace: verify timer starts when exceeding inode soft limit ---
+# Clean up block test state first — leftover over-quota block state
+# can interfere with inode operations on some XFS configurations.
+"$QUOTATOOL" -u "$TEST_USER_NAME" -b -q 0 -l 0 "$MNT" 2>/dev/null || true
+rm -rf "$MNT/grace-test"
+[[ "$FSTYPE" == "xfs" ]] && sync -f "$MNT"
+mkdir -p "$MNT/grace-test" && chmod 777 "$MNT/grace-test"
+
 "$QUOTATOOL" -u -i -t "${GRACE} seconds" "$MNT" || fail "inode grace set failed"
 "$QUOTATOOL" -u "$TEST_USER_NAME" -i -q 1 -l 0 "$MNT" || fail "inode soft set failed"
 
