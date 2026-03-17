@@ -33,3 +33,10 @@ if [[ "$soft" -eq "$EXPECTED" ]]; then
 else
     fail "block soft limit is $soft, expected $EXPECTED"
 fi
+
+# --- Inode soft limit ---
+"$QUOTATOOL" -u "$TEST_USER" -i -q 100 "$MNT" || fail "inode set failed"
+dump=$("$QUOTATOOL" -d -u "$TEST_USER" "$MNT") || fail "quotatool -d failed (inode)"
+isoft=$(echo "$dump" | awk '{print $8}')
+[[ "$isoft" -eq 100 ]] || fail "inode soft=$isoft, expected 100"
+echo "PASS ($FSTYPE): inode soft limit is $isoft (expected 100)"

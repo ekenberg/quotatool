@@ -30,4 +30,14 @@ echo "dump after raise: $dump"
 hard=$(echo "$dump" | awk '{print $5}')
 [[ "$hard" -eq 204800 ]] || fail "hard=$hard, expected 204800"
 
-echo "PASS ($FSTYPE): -R prevented lower, allowed raise"
+# --- Inode -R ---
+"$QUOTATOOL" -u "$TEST_USER_NAME" -i -l 100 "$MNT" || fail "inode initial set failed"
+"$QUOTATOOL" -R -u "$TEST_USER_NAME" -i -l 50 "$MNT" || fail "inode raise-only failed"
+dump=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT") || fail "quotatool -d failed (inode)"
+ihard=$(echo "$dump" | awk '{print $9}')
+[[ "$ihard" -eq 100 ]] || fail "inode hard=$ihard, expected 100 (should not lower)"
+"$QUOTATOOL" -R -u "$TEST_USER_NAME" -i -l 200 "$MNT" || fail "inode raise failed"
+dump=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT") || fail "quotatool -d failed (inode raise)"
+ihard=$(echo "$dump" | awk '{print $9}')
+[[ "$ihard" -eq 200 ]] || fail "inode hard=$ihard, expected 200"
+echo "PASS ($FSTYPE): -R prevented lower, allowed raise (block+inode)"

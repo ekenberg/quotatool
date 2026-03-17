@@ -23,4 +23,12 @@ hard=$(echo "$dump" | awk '{print $5}')
 
 [[ "$soft" -eq 0 ]] || fail "soft=$soft, expected 0 (dry run should not change)"
 [[ "$hard" -eq 0 ]] || fail "hard=$hard, expected 0 (dry run should not change)"
-echo "PASS ($FSTYPE): -n dry run did not change quotas"
+
+# --- Inode dry run ---
+"$QUOTATOOL" -n -u ":$TEST_NOEXIST_UID" -i -q 50 -l 100 "$MNT" || fail "inode dry run failed"
+dump=$("$QUOTATOOL" -d -u ":$TEST_NOEXIST_UID" "$MNT") || fail "quotatool -d failed (inode)"
+isoft=$(echo "$dump" | awk '{print $8}')
+ihard=$(echo "$dump" | awk '{print $9}')
+[[ "$isoft" -eq 0 ]] || fail "inode soft=$isoft, expected 0 (dry run)"
+[[ "$ihard" -eq 0 ]] || fail "inode hard=$ihard, expected 0 (dry run)"
+echo "PASS ($FSTYPE): -n dry run did not change quotas (block or inode)"

@@ -20,4 +20,12 @@ hard=$(echo "$dump" | awk '{print $5}')
 
 [[ "$soft" -eq 51200 ]] || fail "soft=$soft, expected 51200"
 [[ "$hard" -eq 102400 ]] || fail "hard=$hard, expected 102400"
-echo "PASS ($FSTYPE): group quota soft=51200 hard=102400"
+
+# --- Inode group limits ---
+"$QUOTATOOL" -g "$TEST_GROUP_NAME" -i -q 50 -l 100 "$MNT" || fail "inode group set failed"
+dump=$("$QUOTATOOL" -d -g "$TEST_GROUP_NAME" "$MNT") || fail "quotatool -d failed (inode)"
+isoft=$(echo "$dump" | awk '{print $8}')
+ihard=$(echo "$dump" | awk '{print $9}')
+[[ "$isoft" -eq 50 ]] || fail "inode soft=$isoft, expected 50"
+[[ "$ihard" -eq 100 ]] || fail "inode hard=$ihard, expected 100"
+echo "PASS ($FSTYPE): group quota soft=51200 hard=102400, inode soft=50 hard=100"

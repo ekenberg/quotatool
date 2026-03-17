@@ -99,7 +99,7 @@ run (that's the whole point), so grace restarts naturally.
 after =-r= before checking grace, matching real-world usage.
 No code change to =quota_reset_grace()=. GitHub #35 closed.
 
-** DONE 3.6 Investigate: XFS quota issues — NOT QUOTATOOL BUGS
+** DONE 3.6 Fix: XFS grace reset + sync for display
 
 Detailed investigation in =steps/03-xfs-grace.org=.
 
@@ -137,9 +137,18 @@ Do LAST. Cosmetic, no functional changes.
 /Verification/: Full matrix run after all cleanup to confirm
 no regressions from cosmetic changes.
 
+*** Known: debian-7 (3.2) t-enforce-block-soft XFS failure
+Pre-existing. XFS block soft limit enforcement doesn't work on
+kernel 3.2. Not a quotatool bug — likely kernel too old for this
+XFS feature. Investigate or document as unsupported.
+
 ** TODO 3.9 CLI UX: run-tests.sh flag review + timespan clarity
 
 Revisit before v1.7.0 release:
+- Pre-flight check: if =/tmp/test-{xfs,ext4}.img= exist and are
+  owned by another user, refuse to run with a clear error message.
+  Leftover root-owned images from manual =sudo= testing cause
+  virtme overlay COW failures (ENOSPC).
 - No-args behavior (help vs full run?)
 - Flag naming (=--quick= → something clearer?)
 - Should full matrix require explicit flag?

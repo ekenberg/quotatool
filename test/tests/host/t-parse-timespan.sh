@@ -113,6 +113,26 @@ _check_timespan_rejected() {
 _check_timespan_rejected "5m rejected (ambiguous: minutes or months)" "5m"
 _check_timespan_rejected "1m rejected (ambiguous)" "1m"
 
+# Inode grace: verify -i -t path works (same parser, different quota type)
+"$QUOTATOOL" -u "$TEST_USER_NAME" -i -q 0 -l 0 "$MNT" 2>/dev/null || true
+"$QUOTATOOL" -u -i -t "1 day" "$MNT" 2>/dev/null || true
+"$QUOTATOOL" -u "$TEST_USER_NAME" -i -q 1 -l 0 "$MNT" 2>/dev/null || true
+mkdir -p "$MNT/grace-ts-test" && chmod 777 "$MNT/grace-ts-test"
+for i in 1 2 3 4 5; do
+    runuser -u "$TEST_USER_NAME" -- touch "$MNT/grace-ts-test/ifile$i" 2>/dev/null || true
+done
+dump=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT" 2>/dev/null) || true
+igrace=$(echo "$dump" | awk '{print $10}')
+rm -rf "$MNT/grace-ts-test" 2>/dev/null || true
+"$QUOTATOOL" -u "$TEST_USER_NAME" -i -q 0 -l 0 "$MNT" 2>/dev/null || true
+if [[ -n "$igrace" && "$igrace" -ge 86000 && "$igrace" -le 86500 ]]; then
+    echo "  ok - inode grace 1 day (grace=$igrace)"
+    PASS=$((PASS + 1))
+else
+    echo "  FAIL - inode grace: got $igrace, expected ~86400"
+    FAIL=$((FAIL + 1))
+fi
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]

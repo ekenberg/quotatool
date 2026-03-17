@@ -223,6 +223,17 @@ if [[ ! -x "$QUOTATOOL" ]]; then
     exit 1
 fi
 
+# Check for stale test image files owned by another user (e.g. root).
+# These cause virtme overlay COW failures (ENOSPC) since the overlay
+# must copy the entire file to its upper layer before writing.
+for _img in /tmp/test-ext4.img /tmp/test-xfs.img; do
+    if [[ -f "$_img" ]] && [[ "$(stat -c %u "$_img")" != "$(id -u)" ]]; then
+        echo -e "${RED}Stale test image found: $_img (owned by $(stat -c %U "$_img"))${NC}"
+        echo -e "Remove it first: ${BOLD}sudo rm -f $_img${NC}"
+        exit 1
+    fi
+done
+
 if [[ $OPT_SETUP -eq 1 ]]; then
     echo -e "${BOLD}Setting up test framework...${NC}"
     echo ""

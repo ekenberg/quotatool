@@ -13,6 +13,7 @@ fail() { echo "FAIL ($FSTYPE): $*" >&2; exit 1; }
 cleanup() {
     rm -rf "$MNT/grace-test" 2>/dev/null || true
     "$QUOTATOOL" -u "$TEST_USER_NAME" -b -q 0 -l 0 "$MNT" 2>/dev/null || true
+    "$QUOTATOOL" -u "$TEST_USER_NAME" -i -q 0 -l 0 "$MNT" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -77,4 +78,21 @@ grace_b2=$(echo "$dump2" | awk '{print $6}')
 [[ "$grace_b2" -gt "$grace_tick" ]] \
     || fail "grace did not restart: before_r=$grace_tick after_r=$grace_b2"
 
-echo "PASS ($FSTYPE): grace period set ($grace_b), ticking ($grace_tick), restarted ($grace_b2)"
+echo "PASS ($FSTYPE): block grace set ($grace_b), ticking ($grace_tick), restarted ($grace_b2)"
+
+# --- Inode grace: verify timer starts when exceeding inode soft limit ---
+"$QUOTATOOL" -u -i -t "${GRACE} seconds" "$MNT" || fail "inode grace set failed"
+"$QUOTATOOL" -u "$TEST_USER_NAME" -i -q 1 -l 0 "$MNT" || fail "inode soft set failed"
+
+# Create files to exceed inode soft limit (soft=1, create 5 files)
+for i in 1 2 3 4 5; do
+    runuser -u "$TEST_USER_NAME" -- touch "$MNT/grace-test/inode$i" 2>/dev/null || true
+done
+[[ "$FSTYPE" == "xfs" ]] && sync -f "$MNT"
+
+dump_i=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT") || fail "quotatool -d failed (inode grace)"
+grace_i=$(echo "$dump_i" | awk '{print $10}')
+[[ "$grace_i" -ge $((GRACE - TOL)) && "$grace_i" -le $((GRACE + TOL)) ]] \
+    || fail "inode grace=$grace_i, expected ~$GRACE"
+
+echo "PASS ($FSTYPE): inode grace set ($grace_i)"

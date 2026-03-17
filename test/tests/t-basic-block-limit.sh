@@ -33,3 +33,10 @@ if [[ "$hard" -eq "$EXPECTED" ]]; then
 else
     fail "block hard limit is $hard, expected $EXPECTED"
 fi
+
+# --- Inode hard limit ---
+"$QUOTATOOL" -u "$TEST_USER" -i -l 200 "$MNT" || fail "inode set failed"
+dump=$("$QUOTATOOL" -d -u "$TEST_USER" "$MNT") || fail "quotatool -d failed (inode)"
+ihard=$(echo "$dump" | awk '{print $9}')
+[[ "$ihard" -eq 200 ]] || fail "inode hard=$ihard, expected 200"
+echo "PASS ($FSTYPE): inode hard limit is $ihard (expected 200)"

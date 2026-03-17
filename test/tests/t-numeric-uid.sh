@@ -22,4 +22,12 @@ hard=$(echo "$dump" | awk '{print $5}')
 [[ "$uid" -eq $TEST_NOEXIST_UID ]] || fail "uid=$uid, expected $TEST_NOEXIST_UID"
 [[ "$soft" -eq 51200 ]] || fail "soft=$soft, expected 51200"
 [[ "$hard" -eq 102400 ]] || fail "hard=$hard, expected 102400"
-echo "PASS ($FSTYPE): numeric uid :$TEST_NOEXIST_UID soft=51200 hard=102400"
+
+# --- Inode with numeric uid ---
+"$QUOTATOOL" -u :"$TEST_NOEXIST_UID" -i -q 50 -l 100 "$MNT" || fail "inode set failed"
+dump=$("$QUOTATOOL" -d -u :"$TEST_NOEXIST_UID" "$MNT") || fail "quotatool -d failed (inode)"
+isoft=$(echo "$dump" | awk '{print $8}')
+ihard=$(echo "$dump" | awk '{print $9}')
+[[ "$isoft" -eq 50 ]] || fail "inode soft=$isoft, expected 50"
+[[ "$ihard" -eq 100 ]] || fail "inode hard=$ihard, expected 100"
+echo "PASS ($FSTYPE): numeric uid :$TEST_NOEXIST_UID block+inode limits set"
