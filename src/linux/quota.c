@@ -369,9 +369,9 @@ static int generic_quota_set(quota_t *myquota) {
     sysquota.dqb_ihardlimit = myquota->inode_hard;
     sysquota.dqb_isoftlimit = myquota->inode_soft;
     sysquota.dqb_curinodes  = myquota->inode_used;
-    /* 2024-05-01: Completely forgot why these are commented out? */
-    // sysquota.dqb_btime      = myquota->block_time;
-    // sysquota.dqb_itime      = myquota->inode_time;
+    /* Per-user timers (btime/itime) not set here — dqb_valid only
+       includes QIF_LIMITS so the kernel would ignore them anyway.
+       Timer setting is handled by quota_reset_grace() when needed. */
     sysquota.dqb_valid      = QIF_LIMITS;
 
     retval = quotactl(QCMD(Q_SETQUOTA,myquota->_id_type),myquota->_qfile,

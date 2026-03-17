@@ -119,7 +119,7 @@ kernels ≤5.4) + direct timer set via =Q_XSETQLIM= + =FS_DQ_BTIMER=
 *** XFS block accounting (50→52) — working as intended
 XFS rounds quota limits to allocation unit (4KB). Not a bug.
 
-** TODO 3.7 Compiler warnings: -Wall -Wextra clean build
+** DONE 3.7 Compiler warnings: -Wall -Wextra clean build
 
 Do AFTER bug fixes (fixes change code that may trigger warnings).
 

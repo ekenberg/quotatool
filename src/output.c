@@ -76,7 +76,6 @@ void output_help () {
 /*
  * _output
  * print status messages if we're supposed to
- * FIXME: program name is hard-coded
  */
 static inline void _output (int level, const char *format, va_list arglist)
 {

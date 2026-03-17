@@ -114,10 +114,6 @@ int quota_get (quota_t *myquota)
   myquota->block_time = (time_t) sysquota.dqb_btime;
   myquota->inode_time = (time_t) sysquota.dqb_itime;
 
-// FIXME: remove debug
-//output_info ("BLOCK_SIZE: %d\n", BLOCK_SIZE);
-//output_info ("Getting quota soft/hard: %llu, %llu\n", myquota->block_soft, myquota->block_hard);
-
   return 1;
 }
 
@@ -129,9 +125,6 @@ int quota_set (quota_t *myquota){
     output_error ("Only root can set quotas");
     return 0;
   }
-
-// FIXME: remove debug
-//output_info ("Setting quota soft/hard: %llu, %llu\n", myquota->block_soft, myquota->block_hard);
 
   sysquota.dqb_bhardlimit = myquota->block_hard;
   sysquota.dqb_bsoftlimit = myquota->block_soft;

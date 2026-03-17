@@ -72,11 +72,6 @@ int main (int argc, char **argv) {
     exit (ERR_SYS);
   }
 
-// FIXME: remote debug
-//output_info("BLOCKS_TO_KB(quota->block_soft): %llu\n", BLOCKS_TO_KB(quota->block_soft));
-//output_info("DIV_UP(quota->block_soft, 1024): %llu\n", DIV_UP(quota->block_soft, 1024));
-//output_info("DEBUG: quota->block_soft: %llu\n", quota->block_soft);
-
   if (argdata->dump_info) {
      time_t now = time(NULL);
      u_int64_t display_blocks_used = 0;
