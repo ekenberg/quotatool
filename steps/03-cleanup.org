@@ -152,6 +152,14 @@ Revisit before v1.7.0 release:
   for what the tests need. Reduce to save VM memory (currently 1024M
   total, 512M tmpfs — the 512M XFS image barely fits). Would allow
   lower BOOT_MEMORY or more headroom.
+- Inode limit test coverage: verify all tests exercise inode limits
+  equally to block limits. Investigate across all test scripts —
+  everything must be tested for both limit types.
+- Consider adding an older LTS distribution as a test host (e.g.
+  Ubuntu 20.04 or Debian 11). Intent: catch differences between
+  host environments that affect test behavior, like the forte/piano
+  divergence (mkfs.xfs version, XFS V4 fallback, kernel behavior).
+  Current hosts are both relatively new (Mint 21.3, Fedora 43).
 
 ** TODO 3.10 Release prep: v1.7.0
 

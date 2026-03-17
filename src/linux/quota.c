@@ -16,6 +16,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <time.h>
 #include <sys/stat.h>
 
 #include "output.h"
@@ -614,24 +615,70 @@ int kern_quota_format(fs_t *fs, int q_type) {
 }
 
 int quota_reset_grace(quota_t *myquota, int grace_type) {
-    quota_t temp_quota;
-
-    memcpy(&temp_quota, myquota, sizeof(quota_t));
-
-    if (grace_type == GRACE_BLOCK)
-	temp_quota.block_hard = temp_quota.block_soft = BYTES_TO_BLOCKS(temp_quota.diskspace_used) + 1;
-    else
-	temp_quota.inode_hard = temp_quota.inode_soft = temp_quota.inode_used + 1;
 
     if (QF_IS_XFS(quota_format)) {
-	if (xfs_quota_set(&temp_quota) && xfs_quota_set(myquota))
-	    return 1;
+	/*
+	 * XFS grace reset uses two mechanisms for portability:
+	 *
+	 * 1. Raise/restore hack: temporarily set limits above usage
+	 *    (clears grace), then restore. On old kernels (<=5.4),
+	 *    the next user write re-triggers grace.
+	 *
+	 * 2. Direct timer set via Q_XSETQLIM with FS_DQ_BTIMER:
+	 *    sets d_btimer to now + grace_period. Honored by kernels
+	 *    >=5.10. Needed because newer kernels (6.19+) block
+	 *    writes when over soft with no timer, preventing the
+	 *    hack's re-trigger from working.
+	 *
+	 * Both are applied: the hack works on old kernels (where
+	 * direct set is ignored), the direct set works on new kernels
+	 * (where the hack's re-trigger may fail).
+	 */
+	quota_t temp_quota;
+	fs_disk_quota_t sysquota;
+
+	/* Step 1: raise/restore hack */
+	memcpy(&temp_quota, myquota, sizeof(quota_t));
+	if (grace_type == GRACE_BLOCK)
+	    temp_quota.block_hard = temp_quota.block_soft = BYTES_TO_BLOCKS(temp_quota.diskspace_used) + 1;
+	else
+	    temp_quota.inode_hard = temp_quota.inode_soft = temp_quota.inode_used + 1;
+	xfs_quota_set(&temp_quota);
+	xfs_quota_set(myquota);
+
+	/* Step 2: direct timer set (ignored on old kernels, needed on new) */
+	memset(&sysquota, 0, sizeof(fs_disk_quota_t));
+	if (grace_type == GRACE_BLOCK) {
+	    sysquota.d_btimer = (__s32)(time(NULL) + myquota->block_grace);
+	    sysquota.d_fieldmask = FS_DQ_BTIMER;
+	} else {
+	    sysquota.d_itimer = (__s32)(time(NULL) + myquota->inode_grace);
+	    sysquota.d_fieldmask = FS_DQ_ITIMER;
+	}
+	quotactl(QCMD(Q_XSETQLIM, myquota->_id_type),
+	    myquota->_qfile, myquota->_id, (caddr_t) &sysquota);
+
+	return 1;
     }
     else {
+	/*
+	 * Non-XFS: raise/restore hack. Temporarily set limits above
+	 * usage (clears grace), then restore original limits. The
+	 * kernel re-triggers grace on the next user write.
+	 */
+	quota_t temp_quota;
+
+	memcpy(&temp_quota, myquota, sizeof(quota_t));
+
+	if (grace_type == GRACE_BLOCK)
+	    temp_quota.block_hard = temp_quota.block_soft = BYTES_TO_BLOCKS(temp_quota.diskspace_used) + 1;
+	else
+	    temp_quota.inode_hard = temp_quota.inode_soft = temp_quota.inode_used + 1;
+
 	if (quota_set(&temp_quota) && quota_set(myquota))
 	    return 1;
     }
 
     output_error("Cannot reset grace period!");
-    return 0; // error, on success we return above
+    return 0;
 }

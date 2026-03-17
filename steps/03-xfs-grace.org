@@ -76,22 +76,37 @@ XFS rounds quota limits up to its allocation unit (4KB). Normal XFS
 behavior, confirmed by user. Not a quotatool issue.
 
 ** XFS Image Size
-512M image caused "No space left on device" in VMs with 1024M RAM
-(tmpfs ~512M). Reduced to 300M — the minimum forte's xfsprogs 6.x
-needs. Original bump from 200M→512M was overly generous.
+512M image caused "No space left on device" in VMs — root cause was
+a stale =/tmp/test-xfs.img= on the host from manual XFS testing.
+Virtme's overlay tried to COW the 512M file and overflowed the
+upper-layer tmpfs. Deleting the host file fixed it. Size kept at
+512M (needed by forte's xfsprogs 6.x).
 
-* Next Steps
+** Direct Timer Set: Kernel Boundary
+=Q_XSETQLIM= with =FS_DQ_BTIMER= (direct per-user timer set):
+- Works on kernels >=5.10 (timer takes effect immediately)
+- Silently ignored on kernels <=5.4 (quotactl returns 0 but no change)
+Boundary between 5.4 and 5.10.
 
-** TODO Implement direct timer set for XFS grace reset
-Modify =quota_reset_grace()= XFS path: instead of raise/restore
-hack, use =Q_XSETQLIM= with =FS_DQ_TIMER_MASK= to set
-=d_btimer = now + grace_period= directly. Keep raise/restore as
-fallback or remove entirely (needs testing across kernel range).
+* Implementation: Hybrid Approach
 
-** TODO Verify direct approach across kernel matrix
-Test on piano (full matrix) + forte. Must work on old kernels too.
+=quota_reset_grace()= XFS path now does BOTH:
+1. Raise/restore hack (works on old kernels <=5.4 where next write
+   re-triggers grace; needed because direct set is ignored)
+2. Direct timer set via =Q_XSETQLIM= + =FS_DQ_BTIMER= (works on
+   >=5.10; needed because newer kernels 6.19+ block writes after
+   grace clear, preventing the hack's re-trigger)
+
+This is safe: on old kernels, step 2 is silently ignored. On new
+kernels, step 1 clears the old timer and step 2 sets the new one.
+
+Matrix test running on piano (2026-03-17).
+
+** TODO Verify hybrid on forte (kernel 6.19)
+Push and test on forte to confirm the direct timer set fixes the
+XFS V4 grace reset on the newer kernel.
 
 ** TODO Investigate forte VM guest kernel mystery
 Guest kernel 5.15 fails on forte but works on piano. Both use
 the same kernel binary. Host kernel shouldn't affect guest XFS.
-Low priority — the direct timer fix may make this moot.
+Low priority — the hybrid fix may make this moot.
