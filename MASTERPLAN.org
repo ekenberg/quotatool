@@ -26,8 +26,8 @@ and low-effort.
 
 - Working tool, ~5,500 LOC of clean C, no dependencies
 - Supports Linux, FreeBSD, OpenBSD, NetBSD, macOS, Solaris, AIX
-- *Test suite complete for Linux* — 25 kernels, 2 hosts, 2 filesystems
-- *25/25 pass* on both piano (Mint 21.3) and forte (Fedora 43)
+- *Test suite complete for Linux* — 25 kernels, 2 filesystems (ext4, XFS)
+- *25/25 pass* — verified on multiple hosts with different mkfs/kernel versions
 - Several supported platforms are dead or broken
 - Missing support for newer kernel APIs (quotactl_fd, project quotas)
 - Packaged in Debian, Ubuntu, Fedora, EPEL, Gentoo, openSUSE, Homebrew
@@ -67,8 +67,8 @@ The critical enabler for everything else. Without this, no change
 can be made with confidence. *Complete as of 2026-03-15.*
 
 Delivered:
-- Clone repo → =run-tests.sh --setup= → full results across 25 kernels
-- Validated on 3 hosts (2× Mint 21, 1× Fedora 43)
+- Clone repo → =run-tests --setup= → =run-tests --all= → full results across 25 kernels
+- Validated on multiple hosts
 - 16 kernel-matrix tests × 2 filesystems × 25 kernels
 - 53 host-side test checks (arg validation, unit parsing, timespan, dump format)
 - =--quick= (no VM, instant), =--host-only= (one VM), full matrix
@@ -122,14 +122,11 @@ This is the first milestone that touches =src/=.
 - Ensure clean compile with =-Wall -Wextra= on gcc and clang
 - Remove unused =#include <sys/cdefs.h>= from =src/linux/linux_quota.h=
 
-*** UX: run-tests.sh CLI review
+*** UX: run-tests CLI review (DONE)
 
-Revisit flag naming, defaults, and behavior before v1.7.0 release.
-Open questions:
-- Should no-args show help instead of running full matrix?
-- Should full matrix require an explicit flag (=--full=, =--all=)?
-- Rename =--quick= to something more descriptive?
-- General pass: make CLI idiomatic for developer tool expectations.
+- Renamed =run-tests.sh= → =run-tests= (no extension)
+- No-args shows help
+- =--all= required for full matrix
 
 *** Branch strategy
 

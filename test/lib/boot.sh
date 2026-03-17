@@ -804,7 +804,7 @@ _boot_qemu_interactive() {
 
     # QEMU interactive: always send __INTERACTIVE__ to init so it
     # drops to a shell instead of running a command and powering off.
-    # Setup instructions printed by caller (run-tests.sh).
+    # Setup instructions printed by caller (run-tests).
 
     if ! _have_qemu; then
         _boot_die "qemu-system-x86_64 not found in PATH"; return 1

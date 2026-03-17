@@ -228,13 +228,13 @@ if [ -f "$BB" ]; then
         _warn "busybox-musl" "exists but NOT statically linked — run: test/kernels/initramfs/build-busybox.sh --force"
     fi
 else
-    _warn "busybox-musl" "not found — will be downloaded by run-tests.sh --setup"
+    _warn "busybox-musl" "not found — will be downloaded by run-tests --setup"
 fi
 
 if [ -f "$INITRAMFS" ]; then
     _ok "initramfs.cpio.gz" "($(du -h "$INITRAMFS" | cut -f1))"
 else
-    _warn "initramfs.cpio.gz" "not built — will be built by run-tests.sh --setup"
+    _warn "initramfs.cpio.gz" "not built — will be built by run-tests --setup"
 fi
 
 echo ""

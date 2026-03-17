@@ -183,7 +183,7 @@ into three tiers:
 - **Tier 2**: Recently EOL or significant niche — should test
 - **Tier 3**: Historical/EOL — nice to have, catches regressions
 
-Run `test/run-tests.sh --list` to see the current matrix.
+Run `test/run-tests --list` to see the current matrix.
 
 ### Prerequisites
 
@@ -217,7 +217,7 @@ hints. The essentials:
 From a fresh clone:
 
     ./configure && make                  # build quotatool
-    test/run-tests.sh --setup --smoke    # download kernels, smoke test
+    test/run-tests --setup --smoke    # download kernels, smoke test
 
 `--setup` handles everything: downloads busybox, builds initramfs,
 downloads vendor kernels, builds rootfs for RHEL kernels.
@@ -228,10 +228,10 @@ the infrastructure works.
 
 ### Full test run
 
-    test/run-tests.sh                    # all kernels
-    test/run-tests.sh --kernel debian-12 # single kernel
-    test/run-tests.sh --tier 1           # tier 1 only
-    test/run-tests.sh --list             # show all kernels and status
+    test/run-tests --all               # all kernels
+    test/run-tests --kernel debian-12 # single kernel
+    test/run-tests --tier 1           # tier 1 only
+    test/run-tests --list             # show all kernels and status
 
 Results are saved to `test/results/`.
 
@@ -239,7 +239,7 @@ Results are saved to `test/results/`.
 
 If a smoke test fails, run the failing kernel with `--verbose`:
 
-    test/run-tests.sh --kernel <name> --verbose
+    test/run-tests --kernel <name> --verbose
 
 **qemu+9p failures on newer hosts**: The qemu+9p path runs host
 binaries inside old kernels. If your host glibc is newer than the

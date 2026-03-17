@@ -2,12 +2,12 @@
 
 ## *** KVM CAPABILITY CHECK — DO THIS FIRST ***
 
-M1 testing requires KVM virtualization. At the start of EVERY session,
+Testing requires KVM virtualization. At the start of EVERY session,
 check that `/dev/kvm` exists and is accessible. If not:
 
 ```
 ╔══════════════════════════════════════════════════════════════╗
-║  WARNING: NO KVM!  M1 testing requires /dev/kvm for         ║
+║  WARNING: NO KVM!  Testing requires /dev/kvm for             ║
 ║  QEMU/virtme-ng VM-based kernel testing.                     ║
 ║                                                              ║
 ║  Simple edits (README, docs, planning) are fine, but         ║
@@ -82,7 +82,8 @@ badges. Use for categorization where helpful.
 - Language: C (ANSI C, no external dependencies)
 - Build: GNU autoconf + Make (`./configure && make`)
 - Platforms: Linux (primary), FreeBSD, OpenBSD
-- No test suite yet (M1 milestone will create one)
+- Test suite: `test/run-tests` — VM-based multi-kernel testing
+  (25 kernels, ext4 + XFS, requires KVM). See `test/run-tests --help`.
 
 ## Conventions
 

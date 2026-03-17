@@ -32,7 +32,7 @@ and =op=. So =+0M= applied to 100M → 0 instead of staying at 100M.
 *Fix*: Move the =count==0= early return after the =switch(op)=,
 or handle it inside the switch (return =orig= for add/sub with 0).
 
-/Verification/: =run-tests.sh --host-only= — known bug line disappears.
+/Verification/: =run-tests --host-only= — known bug line disappears.
 Full matrix not needed (parse_size is kernel-independent).
 
 ** DONE 3.2 Fix: "5m" timespan ambiguity passes -1 to quotactl
@@ -48,7 +48,7 @@ print error and exit. Optionally: make bare "m" resolve to minutes
 *Test*: Add a test case to =t-parse-timespan.sh= or =t-error-args.sh=
 for the "5m" case once the behavior is decided.
 
-/Verification/: =run-tests.sh --host-only=.
+/Verification/: =run-tests --host-only=.
 
 ** DONE 3.3 Fix: -d grace field operator precedence
 
@@ -62,7 +62,7 @@ Match the BSD code path's style.
 *Test*: =t-dump-format.sh= checks field types. Could add an
 expired-grace test (set grace very short, wait, verify -d output).
 
-/Verification/: =run-tests.sh --host-only=.
+/Verification/: =run-tests --host-only=.
 
 ** DONE 3.4 Remove: unused sys/cdefs.h include
 
@@ -75,7 +75,7 @@ in =build-alpine-rootfs.sh=).
 *Test*: Normal =make= succeeds. =build-alpine-rootfs.sh= still works
 without the stub.
 
-/Verification/: =./configure && make= clean. =run-tests.sh --quick=.
+/Verification/: =./configure && make= clean. =run-tests --quick=.
 
 ** DONE 3.5 Investigate: grace -r restart (≤4.12) — NOT A BUG
 
@@ -130,20 +130,15 @@ Do AFTER bug fixes (fixes change code that may trigger warnings).
 
 /Verification/: =./configure && make CFLAGS="-Wall -Wextra"= clean.
 
-** TODO 3.8 Codebase cleanup
+** DONE 3.8 Codebase cleanup
 
-Do LAST. Cosmetic, no functional changes.
+- Dead code and debug blocks removed (committed)
+- Custom kernel headers: kept — they ARE the portability layer
+- =TODO= file: already clean (points to GitHub issues)
+- Indentation (tabs vs spaces): deferred to M2/v1.8.0 when platform
+  drops shrink the codebase — do style sweep once on surviving code
 
-- Remove dead code, commented-out debug blocks (=// FIXME: remote debug=)
-- Fix mixed indentation (tabs vs spaces)
-- Evaluate whether shipping custom kernel quota headers is still needed
-  (=linux_quota.h=, =xfs_quota.h=, =dqblk_old.h=, =dqblk_v0.h=)
-- Review and clean up =TODO= file
-
-/Verification/: Full matrix run after all cleanup to confirm
-no regressions from cosmetic changes.
-
-** TODO 3.9 CLI UX: run-tests.sh flag review + timespan clarity
+** TODO 3.9 CLI UX: run-tests flag review + timespan clarity
 
 Revisit before v1.7.0 release:
 - No-args behavior (help vs full run?)

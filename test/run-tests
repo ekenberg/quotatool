@@ -1,17 +1,17 @@
 #!/bin/bash
-# run-tests.sh — Multi-kernel test orchestrator
+# run-tests — Multi-kernel test orchestrator
 #
 # Entry point for the quotatool test suite. Reads kernels.conf, boots
 # each kernel in a VM, runs the full test suite inside it, collects
 # results.
 #
 # Usage:
-#   ./run-tests.sh                    # run all kernels
-#   ./run-tests.sh --jobs 4           # run 4 kernels in parallel
-#   ./run-tests.sh --tier 1           # run tier 1 only
-#   ./run-tests.sh --kernel alma-8     # run one kernel
-#   ./run-tests.sh --host-only        # run on host kernel only (fast)
-#   ./run-tests.sh --timeout 600      # per-kernel timeout (default: 300)
+#   ./run-tests                    # run all kernels
+#   ./run-tests --jobs 4           # run 4 kernels in parallel
+#   ./run-tests --tier 1           # run tier 1 only
+#   ./run-tests --kernel alma-8     # run one kernel
+#   ./run-tests --host-only        # run on host kernel only (fast)
+#   ./run-tests --timeout 600      # per-kernel timeout (default: 300)
 
 set -euo pipefail
 
@@ -20,7 +20,7 @@ CONF="$SCRIPT_DIR/kernels/kernels.conf"
 RESULTS_DIR="$SCRIPT_DIR/results"
 
 # Source boot layer (boot.sh enables set -e which we don't want —
-# run-tests.sh needs to continue after test failures)
+# run-tests needs to continue after test failures)
 source "$SCRIPT_DIR/lib/boot.sh"
 set +e
 
@@ -113,11 +113,12 @@ _print_result() {
 
 usage() {
     cat <<'EOF'
-Usage: run-tests.sh [OPTIONS]
+Usage: run-tests [OPTIONS]
 
 Run the quotatool test suite across multiple kernels.
 
 Options:
+  --all           Run the full kernel matrix (all 25 kernels)
   --setup         Bootstrap test infrastructure: check deps, download
                   kernels, build initramfs/rootfs. Does not run tests.
   --smoke         Quick infrastructure check (~30s). Boots one kernel
@@ -140,6 +141,7 @@ Options:
 EOF
 }
 
+OPT_ALL=0
 OPT_TIER=""
 OPT_KERNEL=""
 OPT_HOST_ONLY=0
@@ -153,8 +155,15 @@ OPT_VERBOSE="0"
 OPT_JOBS=1
 OPT_ONLY_FAILED=0
 
+# No arguments: show help
+if [[ $# -eq 0 ]]; then
+    usage
+    exit 0
+fi
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --all)       OPT_ALL=1; shift ;;
         --setup)     OPT_SETUP=1; shift ;;
         --smoke)     OPT_SMOKE=1; shift ;;
         --list)      OPT_LIST=1; shift ;;
@@ -283,9 +292,9 @@ if [[ $OPT_SETUP -eq 1 ]]; then
     fi
 
     echo -e "${GREEN}Setup complete.${NC}"
-    echo -e "  Verify:  ${BOLD}test/run-tests.sh --smoke${NC}"
-    echo -e "  Run:     ${BOLD}test/run-tests.sh${NC}"
-    echo -e "  Options: ${BOLD}test/run-tests.sh --help${NC}"
+    echo -e "  Verify:  ${BOLD}test/run-tests --smoke${NC}"
+    echo -e "  Run:     ${BOLD}test/run-tests${NC}"
+    echo -e "  Options: ${BOLD}test/run-tests --help${NC}"
     exit 0
 fi
 
@@ -365,16 +374,25 @@ if [[ $OPT_INTERACTIVE -eq 1 ]]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Require --all (or --kernel/--tier/--only-failed) for kernel matrix
+# ---------------------------------------------------------------------------
+
+if [[ $OPT_ALL -eq 0 && -z "$OPT_KERNEL" && -z "$OPT_TIER" && $OPT_ONLY_FAILED -eq 0 ]]; then
+    echo -e "${RED}No test mode specified.${NC} Use ${BOLD}--all${NC} for full matrix, or see ${BOLD}--help${NC}."
+    exit 1
+fi
+
+# ---------------------------------------------------------------------------
 # Pre-flight: bail if --setup hasn't been run (needed for kernel matrix)
 # ---------------------------------------------------------------------------
 
 if [[ ! -f "$INITRAMFS_DIR/initramfs.cpio.gz" ]]; then
-    echo -e "${RED}Test infrastructure not set up.${NC} Run: ${BOLD}test/run-tests.sh --setup${NC}"
+    echo -e "${RED}Test infrastructure not set up.${NC} Run: ${BOLD}test/run-tests --setup${NC}"
     exit 1
 fi
 
 if [[ ! -f "$CONF" ]]; then
-    echo -e "${RED}No kernels.conf found.${NC} Run: ${BOLD}test/run-tests.sh --setup${NC}"
+    echo -e "${RED}No kernels.conf found.${NC} Run: ${BOLD}test/run-tests --setup${NC}"
     exit 1
 fi
 
@@ -396,7 +414,7 @@ for _entry in "${_preflight_entries[@]}"; do
 done
 
 if [[ $_ready -eq 0 ]]; then
-    echo -e "${RED}No kernels downloaded.${NC} Run: ${BOLD}test/run-tests.sh --setup${NC}"
+    echo -e "${RED}No kernels downloaded.${NC} Run: ${BOLD}test/run-tests --setup${NC}"
     exit 1
 fi
 
@@ -567,8 +585,8 @@ if [[ $OPT_SMOKE -eq 1 ]]; then
 
     if [[ $smoke_fail -gt 0 || $smoke_skip -gt 0 ]]; then
         echo ""
-        [[ $smoke_fail -gt 0 ]] && echo "Debug failures: run-tests.sh --kernel <name> --verbose"
-        [[ $smoke_skip -gt 0 ]] && echo "Skipped kernels may need: run-tests.sh --setup"
+        [[ $smoke_fail -gt 0 ]] && echo "Debug failures: run-tests --kernel <name> --verbose"
+        [[ $smoke_skip -gt 0 ]] && echo "Skipped kernels may need: run-tests --setup"
         if [[ -n "$GLIBC_MIN_KVER" ]]; then
             echo "Note: host glibc requires kernel >=$GLIBC_MIN_KVER (qemu+9p path affected)"
         fi

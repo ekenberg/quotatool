@@ -1,7 +1,7 @@
 #!/bin/bash
 # guest-run-all.sh — runs all tests against all filesystems
 #
-# Runs INSIDE the VM. Called by run-tests.sh via boot_kernel.
+# Runs INSIDE the VM. Called by run-tests via boot_kernel.
 # Creates each filesystem once, runs all tests against it, then tears down.
 
 set -uo pipefail

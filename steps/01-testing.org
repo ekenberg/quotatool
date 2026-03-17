@@ -13,7 +13,7 @@ and two filesystem types (ext4, XFS).
 Architecture:
 #+begin_example
 test/                          ← workspace (all test framework code)
-  run-tests.sh                 ← entry point: "run one command, get results"
+  run-tests                 ← entry point: "run one command, get results"
   lib/
     boot.sh                    ← kernel boot layer (virtme-ng / raw QEMU)
     fs-setup.sh                ← loopback filesystem create/mount/teardown
@@ -29,7 +29,7 @@ test/                          ← workspace (all test framework code)
     initramfs/                 ← custom initramfs for legacy kernels
   results/                     ← output (gitignored)
 
-.github/workflows/test.yml    ← thin CI wrapper (calls run-tests.sh)
+.github/workflows/test.yml    ← thin CI wrapper (calls run-tests)
 .cirrus.yml                   ← FreeBSD testing
 #+end_example
 
@@ -99,7 +99,7 @@ a working quota-enabled filesystem. =repquota /mnt/test= succeeds.
 
 /Dependencies/: none (runs inside VM, no boot layer needed to write)
 
-** TODO 1.4 Dependency check script (=test/check-deps.sh=)
+** DONE 1.4 Dependency check script (=test/check-deps.sh=)
 A script that verifies all required tools are present and working.
 Serves two purposes: (1) verify our dev environment before testing,
 (2) help anyone cloning the repo to set up for running tests.
@@ -118,11 +118,11 @@ fails with helpful messages on a bare system.
 
 /Dependencies/: 1.1
 
-** TODO 1.5 First end-to-end test
+** DONE 1.5 First end-to-end test
 Combine 1.2 + 1.3: boot host kernel, create ext4 loopback inside VM,
 run =quotatool -u nobody -b -l 100M /mnt/test=, verify with =repquota=.
 
-/Verification/: =./test/run-tests.sh= boots VM, runs one test, reports
+/Verification/: =./test/run-tests= boots VM, runs one test, reports
 PASS or FAIL, exits with correct code.
 
 /Dependencies/: 1.2, 1.3, 1.4
@@ -132,7 +132,7 @@ PASS or FAIL, exits with correct code.
 Write the actual test cases. Each test is a self-contained function
 that assumes a quota-enabled filesystem is mounted.
 
-** TODO 2.1 Define test case list
+** DONE 2.1 Define test case list
 Based on quotatool's features. Reference =research/PLAN.org= test
 case table. Each test must be independently runnable.
 
@@ -171,13 +171,13 @@ system for the entire project.
 
 /Verification/: test list reviewed, each test has clear pass criteria.
 
-** TODO 2.2 Write TAP output layer (=test/lib/tap.sh=)
+** CANCELLED 2.2 Write TAP output layer (=test/lib/tap.sh=)
 TAP (Test Anything Protocol) for machine-parseable output.
 Simple: =ok 1 - description= / =not ok 2 - description=.
 
 /Verification/: output parseable by standard TAP consumers.
 
-** TODO 2.3 Write test implementations
+** DONE 2.3 Write test implementations
 Implement each test from 2.1 as a shell function. Each test:
 1. Calls quotatool with specific args
 2. Checks exit code
@@ -189,17 +189,17 @@ handling a category (basic, parse, feature, output, error).
 
 /Dependencies/: 2.1, 2.2
 
-** TODO 2.4 Filesystem parameterization
+** DONE 2.4 Filesystem parameterization
 Each test runs against both ext4 and XFS (where applicable).
 The test runner creates both filesystem types and loops tests.
 
 /Dependencies/: 2.3, 1.3
 
-** TODO 2.5 Validate test suite on host kernel
+** DONE 2.5 Validate test suite on host kernel
 Run full suite inside a single VM with the host's own kernel.
 All tests must pass before moving to multi-kernel.
 
-/Verification/: =./test/run-tests.sh= reports all tests passing.
+/Verification/: =./test/run-tests= reports all tests passing.
 
 /Dependencies/: 2.3, 2.4, 1.5
 
@@ -213,14 +213,14 @@ Tests that do NOT need the kernel matrix. Two categories:
   round-trip set-then-readback, dump format. Run via =--host-only=
   (boots host kernel in VM, ~5s).
 
-Both run *before* the kernel matrix in a normal =run-tests.sh= run.
+Both run *before* the kernel matrix in a normal =run-tests= run.
 
 Research basis: source analysis of =parse.c= and =main.c=, cross-
 referenced with GitHub issues #1, #2, #6, #7, #8, #10, #27. Every
 test below exercises a code path with documented bug history or
 verified surprising behavior.
 
-** TODO 2.6 Quick tests: argument validation (no root, no VM)
+** DONE 2.6 Quick tests: argument validation (no root, no VM)
 
 All of these fail in =parse_commandline()= or early =main()= —
 before any =quotactl()= call. Testable directly on host without
@@ -251,7 +251,7 @@ Tests (each checks exit code + error message on stderr):
 /Verification/: script exits 0 if all sub-tests pass. Each test
 is a simple =quotatool <bad-args>; check $? and stderr=. No root.
 
-** TODO 2.7 Value tests: unit parsing (VM, host kernel)
+** DONE 2.7 Value tests: unit parsing (VM, host kernel)
 
 These need a quota filesystem for set-then-readback. Run inside VM
 via =--host-only= path. All use =quotatool -d= to read back values
@@ -326,7 +326,7 @@ Set grace with =-t=, read back with =-d=, compare seconds.
 | Fields not concatenated       | yes      | Issue #7: missing space |
 | =-R= with equal value         | no change | =<== vs =<= semantics |
 
-** TODO 2.8 Integration: wire into run-tests.sh
+** DONE 2.8 Integration: wire into run-tests
 
 - New =--quick= flag: runs only =test/tests/host/t-error-args.sh=,
   no VM, no root, instant. For rapid dev feedback.
@@ -336,7 +336,7 @@ Set grace with =-t=, read back with =-d=, compare seconds.
 
 /Dependencies/: 2.6, 2.7
 
-** TODO 2.9 Verify tests catch regressions
+** DONE 2.9 Verify tests catch regressions
 
 For each test category, deliberately break the source code, rebuild,
 and confirm the test catches the breakage:
@@ -461,7 +461,7 @@ Fixes applied during verification:
 The main loop: for each kernel in the matrix, boot it, run full
 test suite, collect results, checkpoint.
 
-** DONE 4.1 Build the orchestrator (=test/run-tests.sh=)
+** DONE 4.1 Build the orchestrator (=test/run-tests=)
 Reads kernels.conf, loops over kernels, calls boot layer for each,
 collects results, prints summary.
 
@@ -490,7 +490,7 @@ Tested: tier-1 =--only-failed= drops from ~90s to ~5s (9 cached,
 /Dependencies/: 4.1
 
 ** DONE 4.3 Parallel execution
-Add =run-tests.sh --jobs N= (like =make -jN=) to run N kernels
+Add =run-tests --jobs N= (like =make -jN=) to run N kernels
 concurrently using bash background jobs + =wait -n= (bash 4.3+).
 No external deps. Default =--jobs 1= (sequential). Verbose forces
 =--jobs 1=. Progress counter with =\r= overwrite. Results printed
@@ -565,9 +565,9 @@ Fixes applied during validation:
 Deferred indefinitely. One-person project — local test framework IS
 the CI. Run before push. May revisit if contributors appear.
 
-** TODO 5.1 GitHub Actions workflow
+** CANCELLED 5.1 GitHub Actions workflow
 =.github/workflows/test.yml= — matrix strategy over kernels.
-Each job: checkout → setup KVM → download kernel → run-tests.sh.
+Each job: checkout → setup KVM → download kernel → run-tests.
 
 /Subtasks/:
 - [ ] KVM permission setup (udev rule)
@@ -578,12 +578,12 @@ Each job: checkout → setup KVM → download kernel → run-tests.sh.
 
 /Dependencies/: 4.4
 
-** TODO 5.2 Cirrus CI for FreeBSD
+** CANCELLED 5.2 Cirrus CI for FreeBSD
 =.cirrus.yml= — FreeBSD VM, build quotatool, test UFS quotas.
 
 /Dependencies/: 4.4 (Linux framework must work first)
 
-** TODO 5.3 CI documentation
+** CANCELLED 5.3 CI documentation
 Update README with CI badge. Document how to run tests locally.
 Document the tested kernel matrix.
 
@@ -595,7 +595,7 @@ The kernel matrix is a snapshot. Distros release new kernels
 continuously. Without a maintenance strategy, the matrix goes stale
 within 12-24 months and the test framework loses its value.
 
-** TODO 6.1 Future-proof the kernel matrix
+** DONE 6.1 Future-proof the kernel matrix
 
 Design a sustainable process for keeping =kernels.conf= current as
 distros release new versions and old ones go EOL. This is not a
@@ -640,7 +640,7 @@ The test framework must be usable from a fresh =git clone= with
 minimal manual steps. Goal: one command after deps are installed.
 
 *Validated 2026-03-10*: clean clone → =./configure && make= →
-=run-tests.sh --setup= → full matrix, on three hosts:
+=run-tests --setup= → full matrix, on three hosts:
 - =piano= (Linux Mint 21.3): 17 pass, 8 fail (known)
 - =forte= (Fedora 43): 18 pass, 7 fail (known)
 - =banjo= (Linux Mint 21.3): 17 pass, 8 fail (known)
@@ -695,7 +695,7 @@ messages on a bare system.
 
 /Dependencies/: none
 
-** DONE 7.3 Self-bootstrapping =run-tests.sh=
+** DONE 7.3 Self-bootstrapping =run-tests=
 Make the orchestrator self-sufficient. Currently requires manual
 invocation of download.sh, build-rootfs.sh, initramfs/build.sh.
 
@@ -709,10 +709,10 @@ invocation of download.sh, build-rootfs.sh, initramfs/build.sh.
 - If quotatool not built: build it.
 - Then proceed with test execution.
 
-This means =./test/run-tests.sh --setup= is the single command that
+This means =./test/run-tests --setup= is the single command that
 goes from bare clone to full test results (after deps installed).
 
-/Verification/: fresh clone → install deps → =run-tests.sh --setup=
+/Verification/: fresh clone → install deps → =run-tests --setup=
 → all 25 kernels tested, results printed.
 
 /Dependencies/: 7.1, 7.2
@@ -867,7 +867,7 @@ scripts present at expected paths.
 /Dependencies/: 8.2, 8.3
 
 *** DONE 8.5 Integrate into boot paths
-Wire Alpine rootfs into =boot.sh= and =run-tests.sh=.
+Wire Alpine rootfs into =boot.sh= and =run-tests=.
 
 Boot path selection:
 #+begin_example
@@ -1019,7 +1019,7 @@ since 2021). Noted for reference only.
 
 /Affects/: 3.4 (only if Q4 fails)
 
-** TODO Q2: Quota-tools (repquota) in legacy VMs
+** DONE Q2: Quota-tools (repquota) in legacy VMs
 Need =repquota= inside legacy VMs for test verification. Since
 quota-tools link against kernel headers and libc, there's risk of
 version-dependent behavior. Best approach: extract =repquota= from
@@ -1045,7 +1045,7 @@ with format fallback in =fs-setup.sh=. Issues found:
 
 /Affects/: 3.1, resolved
 
-** TODO Q5: XFS grace period display/behavior
+** DONE Q5: XFS grace period display/behavior
 Grace period test (=t-grace-period.sh=) is skipped on XFS.
 After setting global grace with =-t "1 day"= and exceeding the soft
 limit, =quotatool -d= reports =block_grace=0= on XFS (works on ext4).
@@ -1069,7 +1069,7 @@ inside VM to compare.
 
 /Affects/: test suite (=t-grace-period.sh= XFS skip)
 
-** TODO Q6: ARM/aarch64 support
+** WAITING Q6: ARM/aarch64 support
 Does quotatool work on ARM? The C code uses quotactl() which is
 arch-independent, and the shipped quota structs are likely ABI-stable
 across architectures. But it hasn't been tested. Research:
@@ -1114,7 +1114,7 @@ virtio-blk, tmpfs overlays for writable areas.
 
 =initramfs/init= auto-detects =/dev/vda= → rootfs mode.
 =boot.sh= handles compressed modules (=.ko.xz=, =.ko.zst=).
-=run-tests.sh= auto-falls back to rootfs for kernels without 9p.
+=run-tests= auto-falls back to rootfs for kernels without 9p.
 Exit code via serial marker =QUOTATOOL_EXIT:<code>=.
 
 Results:
@@ -1131,12 +1131,12 @@ Results:
 
 /Affects/: resolved for all. centos-6 dropped.
 
-** TODO Q8: Binary output location (=./quotatool= vs =src/quotatool=)
+** WAITING Q8: Binary output location (=./quotatool= vs =src/quotatool=)
 Currently =make= places the binary at project root (=./quotatool=).
 Investigate whether =src/quotatool= is more conventional for autoconf
 projects of this type. Compare with similar C tools using
 =./configure && make=. If =src/= is better practice, update Makefile
-and all scripts that reference the binary path (=run-tests.sh=,
+and all scripts that reference the binary path (=run-tests=,
 =build-rootfs.sh=, =check-deps.sh=, =guest-run-all.sh=).
 
 /Affects/: build system, test framework paths. Low risk, contained change.

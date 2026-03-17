@@ -3,14 +3,14 @@
 
 *Branch: =m1-interactive= (off =m1-testing=)*
 
-Add =--interactive= flag to =run-tests.sh= that boots any kernel
+Add =--interactive= flag to =run-tests= that boots any kernel
 with quota filesystems ready and drops to a shell for manual
 debugging and testing.
 
 * Design
 
-=run-tests.sh --interactive= boots host kernel.
-=run-tests.sh --interactive --kernel NAME= boots a specific kernel.
+=run-tests --interactive= boots host kernel.
+=run-tests --interactive --kernel NAME= boots a specific kernel.
 
 Uses the same boot infrastructure as auto-tests. On exit, filesystem
 teardown and VM shutdown happen automatically.
@@ -83,7 +83,7 @@ wrapper sources setup then execs bash with proper PTY.
 
 - =test/guest-interactive.sh= — new
 - =test/lib/boot.sh= — added =boot_kernel_interactive()= and helpers
-- =test/run-tests.sh= — added =--interactive= flag
+- =test/run-tests= — added =--interactive= flag
 - =test/kernels/initramfs/init= — added =__INTERACTIVE__= detection
 
 * Status: DONE
