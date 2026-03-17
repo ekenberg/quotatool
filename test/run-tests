@@ -377,7 +377,7 @@ fi
 # Require --all (or --kernel/--tier/--only-failed) for kernel matrix
 # ---------------------------------------------------------------------------
 
-if [[ $OPT_ALL -eq 0 && -z "$OPT_KERNEL" && -z "$OPT_TIER" && $OPT_ONLY_FAILED -eq 0 ]]; then
+if [[ $OPT_ALL -eq 0 && -z "$OPT_KERNEL" && -z "$OPT_TIER" && $OPT_ONLY_FAILED -eq 0 && $OPT_LIST -eq 0 && $OPT_SMOKE -eq 0 ]]; then
     echo -e "${RED}No test mode specified.${NC} Use ${BOLD}--all${NC} for full matrix, or see ${BOLD}--help${NC}."
     exit 1
 fi

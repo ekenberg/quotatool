@@ -1,8 +1,7 @@
 quotatool
 =========
 
-> **Branch `m1-testing` — development branch, not for production use.**
-> See [Testing](#testing) below for how to run the multi-kernel test suite.
+> **[Roadmap](ROADMAP.md)** — upcoming releases and platform changes.
 
 ![Quotatool](http://quotatool.ekenberg.se/diskusage.gif) Commandline utility for filesystem quotas on Linux, Mac OS X, FreeBSD, OpenBSD, NetBSD, Solaris and AIX
 
@@ -166,7 +165,9 @@ FreeBSD, OpenBSD, NetBSD (ufs, ffs)
 
 -- AIX --
 
-Missing your favorite *nix OS? Missing a feature, or found a bug?
+See [ROADMAP.md](ROADMAP.md) for planned platform changes in v1.8.0.
+
+Missing a feature or found a bug?
 Feel free to add an Issue on https://github.com/ekenberg/quotatool
 
 ## Testing
@@ -216,7 +217,7 @@ hints. The essentials:
 
 From a fresh clone:
 
-    ./configure && make                  # build quotatool
+    ./configure && make               # build quotatool
     test/run-tests --setup --smoke    # download kernels, smoke test
 
 `--setup` handles everything: downloads busybox, builds initramfs,
@@ -228,7 +229,7 @@ the infrastructure works.
 
 ### Full test run
 
-    test/run-tests --all               # all kernels
+    test/run-tests --all              # all kernels
     test/run-tests --kernel debian-12 # single kernel
     test/run-tests --tier 1           # tier 1 only
     test/run-tests --list             # show all kernels and status
@@ -237,15 +238,9 @@ Results are saved to `test/results/`.
 
 ### Troubleshooting
 
-If a smoke test fails, run the failing kernel with `--verbose`:
+If a test fails, run the failing kernel with `--verbose`:
 
     test/run-tests --kernel <name> --verbose
-
-**qemu+9p failures on newer hosts**: The qemu+9p path runs host
-binaries inside old kernels. If your host glibc is newer than the
-test kernel supports (glibc 2.40+ needs kernel >= 4.4), old kernels
-will fail with "kernel too old". This only affects tier 2-3 legacy
-kernels (< 4.4). Use `--list` to check compatibility.
 
 ## License
 This software is available under the terms of the GNU General Public License (GPL) 2.0 or any later version.

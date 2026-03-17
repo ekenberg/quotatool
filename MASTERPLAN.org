@@ -2,6 +2,18 @@
 #+AUTHOR: Johan Ekenberg
 #+DATE: 2026-03-08 (revised 2026-03-15)
 
+* AI coding - to the human reader
+Yes, the rest of this file is mostly maintained by AI (Claude Code).
+It's a hard decision how much of development chores to hand over to
+AI, and how much to keep doing by hand. I have chosen to embrace
+AI for mostly maintaining project notes, todos, research notes,
+commit messages and large non-core boilerplate code generation
+like the new test framework. For actual bugs and features I have
+stayed in the loop, reviewing/coding manually, testing the important
+bits by hand. I expect these choices will be challenged continuously
+as we move forward, AI capabilities increasing seamingly
+exponentially over time.
+
 * Purpose
 
 This document is the single source of truth for the quotatool
@@ -70,7 +82,7 @@ Delivered:
 - Clone repo → =run-tests --setup= → =run-tests --all= → full results across 25 kernels
 - Validated on multiple hosts
 - 16 kernel-matrix tests × 2 filesystems × 25 kernels
-- 53 host-side test checks (arg validation, unit parsing, timespan, dump format)
+- Host-side test checks (arg validation, unit parsing, timespan, dump format)
 - =--quick= (no VM, instant), =--host-only= (one VM), full matrix
 - Alpine rootfs for RHEL kernels (musl-based, no host dependency)
 - Dependency audit complete (dep stack lean, grep -oP → POSIX sed)
@@ -188,8 +200,8 @@ Write =PLATFORM-CHANGES.md= (or section in README) covering:
 - *FreeBSD, OpenBSD*: kept. Active projects, standard UFS quotas,
   quotatool works.
 
-Note: v1.7.0 already announces these drops in its ROADMAP section.
-Stakeholders (Homebrew, MacPorts) have advance notice.
+Note: v1.7.0's ROADMAP.md announces these planned drops.
+Notify Homebrew/MacPorts stakeholders before v1.8.0 release.
 
 *** M2c: Drop Dead Platforms
 
