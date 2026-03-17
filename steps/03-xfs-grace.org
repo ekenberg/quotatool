@@ -5,94 +5,93 @@ Reference: M3 task 3.6 in =steps/03-cleanup.org=
 
 * Problem Statement
 
-XFS grace timers do not activate in our test environment. After
-setting a global grace period, setting a soft limit, and exceeding
-it with a user write, the per-user grace timer stays at 0. This is
-confirmed by all tools: =quotatool -d=, =xfs_quota=, =repquota=.
+XFS grace timers were not visible in our test environment. After
+investigation, two separate issues found:
 
-Grace timers work correctly on ext4 in the same environment.
+1. *XFS lazy writeback* (RESOLVED): grace timer set in memory but not
+   visible via quotactl until =sync -f=. Affects all tools equally.
+   Fix: added =sync -f= to tests. No quotatool code change.
 
-* What We Know
+2. *Grace reset (-r) fails on newer kernels with XFS V4*: after =-r=
+   clears the grace timer, user cannot write (EDQUOT) so grace never
+   restarts. Only happens with XFS V4 (crc=0) on kernel 6.19+.
+   Works fine on kernel 6.8. INVESTIGATION IN PROGRESS.
 
-** Grace period IS set correctly
-=xfs_quota -x -c "state"= confirms "Blocks grace time: [1 day]"
-after =quotatool -u -b -t "1 day"= or =xfs_quota -x -c "timer -u -b 1d"=.
+* Issue 1: XFS Lazy Writeback (RESOLVED)
 
-** Enforcement IS on
-=xfs_quota -x -c "state"= shows Accounting: ON, Enforcement: ON.
-Filesystem mounted with =usrquota,grpquota=.
+** Root Cause
+XFS updates grace timer in memory on write but does not immediately
+flush to on-disk quota metadata. =quotactl= reads return stale data
+(timer=0) until synced. =sync -f <mountpoint>= forces the flush.
+ext4 updates quota metadata synchronously.
 
-** User IS over soft limit
-=xfs_quota report= shows usage 200, soft 100. =repquota= shows =+-=
-flag (over block soft). The kernel knows the user is over quota.
+** Fix
+Added =sync -f "$MNT"= in =t-grace-period.sh= after writes on XFS.
+No quotatool code change needed. Confirmed on loopback and real
+block device, kernel 6.8.
 
-** No tool can activate the timer
-Tested with:
-- =quotatool -u nobody -b -q 1 -l 0 /tmp/test-xfs= + user write
-- =xfs_quota -x -c "limit -u bsoft=100k bhard=0"= + user write
-- =xfs_quota -x -c "limit -u bsoft=100k bhard=500k"= + user write
-- =xfs_quota -x -c "timer -u -b 1d nobody"= (direct per-user timer)
-All result in Warn/Grace = =00 [--------]=.
+* Issue 2: Grace Reset Fails on Newer Kernels (IN PROGRESS)
 
-** Write methods tested
-- =runuser -u nobody -- dd ...= (direct user write, crossing soft)
-- =dd= as root + =chown nobody= (ownership transfer)
-- =runuser -u nobody -- echo x >>= (append after exceeding)
-All fail to trigger the grace timer.
+** Symptoms
+=-r= flag uses raise/restore hack: raise limits above usage (clears
+grace timer), restore original limits (expects kernel to re-trigger
+grace on next write). On some kernel+format combinations, the write
+after restore fails with EDQUOT ("Disk quota exceeded") because
+the kernel treats timer=0 + over-soft as "grace expired".
 
-** Hard limit presence doesn't matter
-Tested with bhard=0 (no hard) and bhard=500k. No difference.
+** Test Matrix
 
-** Block accounting discrepancy — working as intended
-Setting 50K shows 52K on XFS. Setting soft=1 shows 4. XFS rounds
-quota limits up to its allocation unit (4KB). This is normal XFS
-behavior, not a quotatool issue. Confirmed by user (2026-03-16).
+| Host      | Kernel | XFS format | -r works? | Notes              |
+|-----------+--------+------------+-----------+--------------------|
+| piano     | 6.8.0  | V5 (crc=1) | YES       | Default mkfs 5.13  |
+| piano     | 6.8.0  | V4 (crc=0) | YES       | Forced V4          |
+| piano VM  | 5.15   | V5 (crc=1) | YES       | virtme guest       |
+| piano VM  | 5.15   | V4 (crc=0) | YES       | Forced V4 in VM    |
+| piano VM  | 5.4    | V5 (crc=1) | YES       | virtme guest       |
+| forte     | 6.19   | V4 (crc=0) | NO        | Native, no VM      |
+| forte VM  | 5.15   | V4 (crc=0) | NO        | virtme guest       |
+| forte VM  | 5.4    | V4 (crc=0) | YES       | virtme guest       |
 
-* Root Cause (2026-03-16)
+Key observations:
+- Piano kernel 6.8 + V4: works. Forte kernel 6.19 + V4: fails.
+- Forte VM guest kernel 5.4 + V4: works. Guest 5.15 + V4: fails.
+- The forte VM results are puzzling: guest kernel should handle XFS
+  independently of host, yet host kernel seems to matter.
 
-*XFS lazy quota metadata writeback.* XFS updates the grace timer
-in memory when a user's write exceeds the soft limit, but does
-not immediately flush this to the on-disk quota metadata. A
-subsequent =quotactl= read returns stale data (timer=0) until
-the metadata is synced. =sync -f <mountpoint>= forces the flush
-and makes the timer visible.
+** Direct Timer Setting Works
+On forte (kernel 6.19), using =xfs_quota= to directly set per-user
+timer via =Q_XSETQLIM= with =FS_DQ_TIMER_MASK= works:
+- Set timer after clearing grace → timer appears in quotactl
+- Write succeeds → grace active
+This is a viable fix for =quota_reset_grace()= on XFS.
 
-This affects all tools equally (xfs_quota, repquota, quotatool).
-It is not a quotatool bug. ext4 does not have this behavior
-because it updates quota metadata synchronously.
+** Agent Research: No XFS Enforcement Code Changed
+Exhaustive search of kernel XFS quota code between v6.8 and v6.18:
+the enforcement functions (=xfs_dqresv_check=, =xfs_qm_adjust_res_timer=,
+=xfs_trans_dqresv=) are byte-identical. Changes in that range are
+limited to dquot buffer lifecycle, LRU reclaim, and debug assertions.
 
-*Confirmed on*:
-- Loopback (=/tmp/test-xfs=) inside =--interactive= VM, kernel 6.8.0
-- Real block device (=/mnt/xfs-test=, USB disk), kernel 6.8.0
-Both work correctly after =sync -f=.
+** Block Accounting (50→52) — Working as Intended
+XFS rounds quota limits up to its allocation unit (4KB). Normal XFS
+behavior, confirmed by user. Not a quotatool issue.
 
-*Fix*: Add =sync -f "$MNT"= in test scripts after writes that
-should trigger XFS grace timers. No quotatool code change needed.
+** XFS Image Size
+512M image caused "No space left on device" in VMs with 1024M RAM
+(tmpfs ~512M). Reduced to 300M — the minimum forte's xfsprogs 6.x
+needs. Original bump from 200M→512M was overly generous.
 
-* Plan
+* Next Steps
 
-** DONE Check fs-setup.sh mkfs.xfs options
-=fs-setup.sh= tries progressively simpler formats:
-1. =mkfs.xfs -f= (default: crc=1, reflink=1)
-2. =mkfs.xfs -f -m reflink=0=
-3. =mkfs.xfs -f -m crc=0,finobt=0,rmapbt=0,reflink=0=
-4. Same + =-n ftype=0=
-Mounts with =-o uquota,gquota=. No unusual options.
-On piano (6.8.0), likely uses attempt 1 (default modern format).
+** TODO Implement direct timer set for XFS grace reset
+Modify =quota_reset_grace()= XFS path: instead of raise/restore
+hack, use =Q_XSETQLIM= with =FS_DQ_TIMER_MASK= to set
+=d_btimer = now + grace_period= directly. Keep raise/restore as
+fallback or remove entirely (needs testing across kernel range).
 
-** DONE Test on real block device (USB disk)
-Works. Grace timer activates after =sync -f=.
+** TODO Verify direct approach across kernel matrix
+Test on piano (full matrix) + forte. Must work on old kernels too.
 
-** DONE Test on loopback inside --interactive
-Works. Same fix: =sync -f= after write.
-
-** CANCELLED Test on different kernel versions
-Not needed — root cause found (sync, not kernel version).
-
-** CANCELLED Search for known XFS grace bugs
-Not needed — not a bug, just lazy writeback behavior.
-
-** DONE Add sync -f to XFS test paths
-=t-grace-period.sh= updated: removed XFS skip, added =sync -f "$MNT"=
-after writes. Passes on host kernel (--host-only). Full matrix
-pending (running 2026-03-16).
+** TODO Investigate forte VM guest kernel mystery
+Guest kernel 5.15 fails on forte but works on piano. Both use
+the same kernel binary. Host kernel shouldn't affect guest XFS.
+Low priority — the direct timer fix may make this moot.

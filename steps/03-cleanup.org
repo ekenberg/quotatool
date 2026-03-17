@@ -148,6 +148,10 @@ Revisit before v1.7.0 release:
   (same as "5day" or "5days"), but this is opaque to users. Help/man
   page should list accepted suffixes with examples. Consider whether
   the "mi"/"mo" disambiguation is user-friendly enough.
+- Test filesystem image sizes: ext4=200M and XFS=512M are oversized
+  for what the tests need. Reduce to save VM memory (currently 1024M
+  total, 512M tmpfs — the 512M XFS image barely fits). Would allow
+  lower BOOT_MEMORY or more headroom.
 
 ** TODO 3.10 Release prep: v1.7.0
 

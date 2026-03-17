@@ -9,12 +9,22 @@ FSTYPE="$1"; MNT="$2"
 fail() { echo "FAIL ($FSTYPE): $*" >&2; exit 1; }
 [[ -x "$QUOTATOOL" ]] || fail "quotatool not found"
 
-# Set global block grace period to 1 day (86400 seconds)
-"$QUOTATOOL" -u -b -t "1 day" "$MNT" || fail "set grace period failed"
+# Cleanup on exit (including failures)
+cleanup() {
+    rm -rf "$MNT/grace-test" 2>/dev/null || true
+    "$QUOTATOOL" -u "$TEST_USER_NAME" -b -q 0 -l 0 "$MNT" 2>/dev/null || true
+}
+trap cleanup EXIT
+
+# Use 30-second grace — short enough to verify countdown, long enough
+# to not expire during the test.
+GRACE=30
+TOL=5  # tolerance in seconds for execution overhead
+
+# Set global block grace period
+"$QUOTATOOL" -u -b -t "${GRACE} seconds" "$MNT" || fail "set grace period failed"
 
 # Set a low soft limit for test user, no hard limit
-# XFS rounds up to allocation unit (4KB), so soft=1 becomes 4.
-# Use a hard limit too — keeps XFS happy and tests are cleaner.
 "$QUOTATOOL" -u "$TEST_USER_NAME" -b -q 1 -l 0 "$MNT" || fail "set soft limit failed"
 
 # Write data to exceed soft limit (triggers grace period)
@@ -25,7 +35,6 @@ runuser -u "$TEST_USER_NAME" -- sh -c "dd if=/dev/zero of=$MNT/grace-test/fill b
 
 # XFS uses lazy quota metadata writeback — the grace timer is set in
 # memory on write but not visible via quotactl until synced to disk.
-# sync -f forces the flush. ext4 doesn't need this (synchronous updates).
 [[ "$FSTYPE" == "xfs" ]] && sync -f "$MNT"
 
 # quotatool -d fields:
@@ -35,19 +44,24 @@ dump=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT") || fail "quotatool -d failed
 echo "dump after exceeding soft: $dump"
 
 grace_b=$(echo "$dump" | awk '{print $6}')
-# Grace should be close to 86400 (1 day), not just >0. Allow ±60s for execution time.
-[[ "$grace_b" -ge 86000 && "$grace_b" -le 86500 ]] \
-    || fail "grace_b=$grace_b, expected ~86400 (1 day)"
+[[ "$grace_b" -ge $((GRACE - TOL)) && "$grace_b" -le $((GRACE + TOL)) ]] \
+    || fail "grace_b=$grace_b, expected ~$GRACE"
+
+# Wait 2 seconds, verify timer is counting down
+sleep 2
+dump_tick=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT") || fail "quotatool -d failed (tick)"
+grace_tick=$(echo "$dump_tick" | awk '{print $6}')
+[[ "$grace_tick" -lt "$grace_b" ]] \
+    || fail "timer not ticking: before=$grace_b after=$grace_tick"
+[[ "$grace_tick" -ge $((GRACE - TOL - 2)) ]] \
+    || fail "timer ticked too fast: $grace_tick (expected ~$((GRACE - 2)))"
 
 # Restart block grace period with -r
 "$QUOTATOOL" -u "$TEST_USER_NAME" -b -r "$MNT" || fail "grace restart failed"
 
-# The -r flag clears the old grace timer via a raise/restore hack.
-# On some kernels (<=4.14), the grace timer only restarts when the
-# user performs an actual write (not from the quotactl limit change
-# alone). A tiny write ensures the kernel re-evaluates quota state
-# and starts a fresh grace timer. This matches real-world usage
-# where the user continues writing after an admin resets their grace.
+# The -r flag clears the old grace timer. On some kernels, the timer
+# only restarts on the next user write. A tiny write ensures the kernel
+# re-evaluates quota state and starts a fresh grace timer.
 runuser -u "$TEST_USER_NAME" -- sh -c "echo x >> $MNT/grace-test/fill" \
     || fail "trigger write after -r failed"
 [[ "$FSTYPE" == "xfs" ]] && sync -f "$MNT"
@@ -56,12 +70,11 @@ dump2=$("$QUOTATOOL" -d -u "$TEST_USER_NAME" "$MNT") || fail "quotatool -d faile
 echo "dump after -r: $dump2"
 
 grace_b2=$(echo "$dump2" | awk '{print $6}')
-# After restart + write, grace should reset to full period (~86400).
-[[ "$grace_b2" -ge 86000 && "$grace_b2" -le 86500 ]] \
-    || fail "grace_b=$grace_b2 after restart, expected ~86400 (should have reset to full period)"
+# After restart, grace should reset to full period (~GRACE).
+# Must be higher than grace_tick (proving it actually restarted).
+[[ "$grace_b2" -ge $((GRACE - TOL)) && "$grace_b2" -le $((GRACE + TOL)) ]] \
+    || fail "grace_b=$grace_b2 after restart, expected ~$GRACE"
+[[ "$grace_b2" -gt "$grace_tick" ]] \
+    || fail "grace did not restart: before_r=$grace_tick after_r=$grace_b2"
 
-# Cleanup
-rm -rf "$MNT/grace-test"
-"$QUOTATOOL" -u "$TEST_USER_NAME" -b -q 0 -l 0 "$MNT" 2>/dev/null || true
-
-echo "PASS ($FSTYPE): grace period set, triggered, restarted"
+echo "PASS ($FSTYPE): grace period set ($grace_b), ticking ($grace_tick), restarted ($grace_b2)"
