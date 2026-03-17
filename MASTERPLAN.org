@@ -22,18 +22,20 @@ well-tested Linux (+BSD) utility with modern kernel API support.
 Establish automated testing that makes ongoing maintenance confident
 and low-effort.
 
-* Current State (2026-03-15)
+* Current State (2026-03-17)
 
 - Working tool, ~5,500 LOC of clean C, no dependencies
 - Supports Linux, FreeBSD, OpenBSD, NetBSD, macOS, Solaris, AIX
-- *Test suite complete for Linux* — 25 kernels, 3 hosts, 2 filesystems
+- *Test suite complete for Linux* — 25 kernels, 2 hosts, 2 filesystems
+- *25/25 pass* on both piano (Mint 21.3) and forte (Fedora 43)
 - Several supported platforms are dead or broken
 - Missing support for newer kernel APIs (quotactl_fd, project quotas)
 - Packaged in Debian, Ubuntu, Fedora, EPEL, Gentoo, openSUSE, Homebrew
 - Latest release: v1.6.5 (July 2024)
-- Known bugs fixed in M3: +0M (#31), "5m" timespan (#32), -d operator
-  precedence (#33), unused sys/cdefs.h (#34). Grace -r (#35) and XFS
-  grace display (#36 partial) resolved as not quotatool bugs.
+- M3 bug fixes done: +0M (#31), "5m" timespan (#32), -d operator
+  precedence (#33), sys/cdefs.h (#34), XFS grace reset (hybrid).
+  Grace -r (#35) resolved as not a bug. BSD grace (#36) deferred to M2.
+- M3 remaining: -Wall -Wextra, cosmetic cleanup, CLI UX, release prep
 
 * Strategy
 

@@ -100,13 +100,14 @@ Boundary between 5.4 and 5.10.
 This is safe: on old kernels, step 2 is silently ignored. On new
 kernels, step 1 clears the old timer and step 2 sets the new one.
 
-Matrix test running on piano (2026-03-17).
+*Verified 25/25 on both piano and forte (2026-03-17).*
 
-** TODO Verify hybrid on forte (kernel 6.19)
-Push and test on forte to confirm the direct timer set fixes the
-XFS V4 grace reset on the newer kernel.
+** DONE Verify hybrid on forte (kernel 6.19)
+Confirmed: 25/25 on forte with =--jobs 8=. The hybrid approach
+works across both hosts and all 25 kernels.
 
-** TODO Investigate forte VM guest kernel mystery
-Guest kernel 5.15 fails on forte but works on piano. Both use
-the same kernel binary. Host kernel shouldn't affect guest XFS.
-Low priority — the hybrid fix may make this moot.
+** Forte VM guest kernel mystery (unresolved, low priority)
+Guest kernel 5.15 on forte behaves differently from piano for XFS
+V4 quota. The hybrid fix makes this moot — all tests pass — but
+the root cause is unknown. Possibly related to forte's QEMU 10.1.4
+vs piano's QEMU 6.2, or subtle virtiofs/overlay differences.
