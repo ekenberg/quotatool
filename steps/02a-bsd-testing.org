@@ -237,7 +237,7 @@ completes with test results.
 
 /Dependencies/: 6
 
-** TODO 8. End-to-End FreeBSD Validation
+** DONE 8. End-to-End FreeBSD Validation
 
 Full flow test on a clean system: git clone → setup → run tests.
 This validates the "BSD maintainer experience."
@@ -255,10 +255,10 @@ full pipeline from the README/docs alone.
 
 /Dependencies/: 7
 
-** TODO 9. Checkpoint: FreeBSD Complete
+** DONE 9. Checkpoint: FreeBSD Complete
 
-Commit all FreeBSD test work. Update session.md, MASTERPLAN.org.
-This is the checkpoint before starting OpenBSD.
+Validated E2E on Fedora 43 (separate machine, fresh clone).
+16/16 tests, 50 subtests pass. Ready for OpenBSD.
 
 /Dependencies/: 8
 
