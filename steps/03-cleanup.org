@@ -102,7 +102,7 @@ No code change to =quota_reset_grace()=. GitHub #35 closed.
 ** DONE 3.6 Fix: XFS quota issues
 
 Detailed investigation in =steps/03-xfs-grace.org=.
-Verified 25/25 on both piano (Mint 21.3) and forte (Fedora 43).
+Verified 25/25 on multiple hosts with different mkfs/kernel versions.
 
 *** XFS grace display — sync issue (test fix)
 XFS lazy quota metadata writeback: grace timer set in memory but
@@ -155,9 +155,9 @@ Revisit before v1.7.0 release:
   lower BOOT_MEMORY or more headroom.
 - Consider adding an older LTS distribution as a test host (e.g.
   Ubuntu 20.04 or Debian 11). Intent: catch differences between
-  host environments that affect test behavior, like the forte/piano
-  divergence (mkfs.xfs version, XFS V4 fallback, kernel behavior).
-  Current hosts are both relatively new (Mint 21.3, Fedora 43).
+  host environments that affect test behavior, like mkfs.xfs version
+  differences causing XFS V4 fallback. Current test hosts are
+  relatively new distributions.
 
 *** Already done (moved here from TODO for reference)
 - Pre-flight check for stale =/tmp/test-{xfs,ext4}.img= (implemented)

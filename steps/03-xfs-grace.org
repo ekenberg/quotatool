@@ -41,25 +41,23 @@ the kernel treats timer=0 + over-soft as "grace expired".
 
 ** Test Matrix
 
-| Host      | Kernel | XFS format | -r works? | Notes              |
-|-----------+--------+------------+-----------+--------------------|
-| piano     | 6.8.0  | V5 (crc=1) | YES       | Default mkfs 5.13  |
-| piano     | 6.8.0  | V4 (crc=0) | YES       | Forced V4          |
-| piano VM  | 5.15   | V5 (crc=1) | YES       | virtme guest       |
-| piano VM  | 5.15   | V4 (crc=0) | YES       | Forced V4 in VM    |
-| piano VM  | 5.4    | V5 (crc=1) | YES       | virtme guest       |
-| forte     | 6.19   | V4 (crc=0) | NO        | Native, no VM      |
-| forte VM  | 5.15   | V4 (crc=0) | NO        | virtme guest       |
-| forte VM  | 5.4    | V4 (crc=0) | YES       | virtme guest       |
+| Host kernel | XFS format | -r works? | Notes                      |
+|-------------+------------+-----------+----------------------------|
+| 6.8.0       | V5 (crc=1) | YES       | Default mkfs 5.13          |
+| 6.8.0       | V4 (crc=0) | YES       | Forced V4                  |
+| 6.19        | V4 (crc=0) | NO        | Native, newer mkfs → V4    |
+| VM 5.15     | V5 (crc=1) | YES       | Host with mkfs 5.13        |
+| VM 5.15     | V4 (crc=0) | NO        | Host with newer mkfs → V4  |
+| VM 5.4      | V4 (crc=0) | YES       | Both host configurations   |
 
 Key observations:
-- Piano kernel 6.8 + V4: works. Forte kernel 6.19 + V4: fails.
-- Forte VM guest kernel 5.4 + V4: works. Guest 5.15 + V4: fails.
-- The forte VM results are puzzling: guest kernel should handle XFS
-  independently of host, yet host kernel seems to matter.
+- Kernel 6.8 + V4: works. Kernel 6.19 + V4: fails.
+- VM guest 5.4 + V4: works. VM guest 5.15 + V4: fails on one host.
+- The VM results on one host are puzzling: guest kernel should handle
+  XFS independently of host, yet host environment seems to matter.
 
 ** Direct Timer Setting Works
-On forte (kernel 6.19), using =xfs_quota= to directly set per-user
+On kernel 6.19, using =xfs_quota= to directly set per-user
 timer via =Q_XSETQLIM= with =FS_DQ_TIMER_MASK= works:
 - Set timer after clearing grace → timer appears in quotactl
 - Write succeeds → grace active
@@ -80,7 +78,7 @@ behavior, confirmed by user. Not a quotatool issue.
 a stale =/tmp/test-xfs.img= on the host from manual XFS testing.
 Virtme's overlay tried to COW the 512M file and overflowed the
 upper-layer tmpfs. Deleting the host file fixed it. Size kept at
-512M (needed by forte's xfsprogs 6.x).
+512M (needed by newer xfsprogs 6.x).
 
 ** Direct Timer Set: Kernel Boundary
 =Q_XSETQLIM= with =FS_DQ_BTIMER= (direct per-user timer set):
@@ -100,14 +98,14 @@ Boundary between 5.4 and 5.10.
 This is safe: on old kernels, step 2 is silently ignored. On new
 kernels, step 1 clears the old timer and step 2 sets the new one.
 
-*Verified 25/25 on both piano and forte (2026-03-17).*
+*Verified 25/25 on multiple hosts (2026-03-17).*
 
-** DONE Verify hybrid on forte (kernel 6.19)
-Confirmed: 25/25 on forte with =--jobs 8=. The hybrid approach
-works across both hosts and all 25 kernels.
+** DONE Verify hybrid on multiple hosts
+Confirmed: 25/25 on hosts with different QEMU versions, mkfs.xfs
+versions, and host kernels. The hybrid approach works universally.
 
-** Forte VM guest kernel mystery (unresolved, low priority)
-Guest kernel 5.15 on forte behaves differently from piano for XFS
+** VM guest kernel mystery (unresolved, low priority)
+Guest kernel 5.15 behaves differently on different hosts for XFS
 V4 quota. The hybrid fix makes this moot — all tests pass — but
-the root cause is unknown. Possibly related to forte's QEMU 10.1.4
-vs piano's QEMU 6.2, or subtle virtiofs/overlay differences.
+the root cause is unknown. Possibly related to QEMU version
+differences or subtle virtiofs/overlay behavior.

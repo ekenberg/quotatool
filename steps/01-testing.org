@@ -538,8 +538,8 @@ Results (2026-03-10, verified on two hosts):
 (+1s = XFS grace period skip, expected)
 
 Verified on two hosts:
-- =piano= (Linux Mint 21, QEMU 6.2)
-- =forte= (Fedora 43, QEMU 10.x)
+- Linux Mint 21.3 (QEMU 6.2)
+- Fedora 43 (QEMU 10.1.4)
 
 All failures are known issues (grace -r on ≤4.12, XFS blkacct on
 3.2, amazon-2 QEMU version). No unknown regressions.
@@ -641,9 +641,9 @@ minimal manual steps. Goal: one command after deps are installed.
 
 *Validated 2026-03-10*: clean clone → =./configure && make= →
 =run-tests --setup= → full matrix, on three hosts:
-- =piano= (Linux Mint 21.3): 17 pass, 8 fail (known)
-- =forte= (Fedora 43): 18 pass, 7 fail (known)
-- =banjo= (Linux Mint 21.3): 17 pass, 8 fail (known)
+- Linux Mint 21.3 (host A): 17 pass, 8 fail (known)
+- Fedora 43 (host B): 18 pass, 7 fail (known)
+- Linux Mint 21.3 (host C): 17 pass, 8 fail (known)
 
 Priority: this phase comes before CI (Phase 5) and before any
 quotatool code changes. A test framework that only works on one

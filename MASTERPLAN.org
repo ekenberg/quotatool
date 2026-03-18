@@ -43,11 +43,11 @@ and low-effort.
 - Several supported platforms are dead or broken
 - Missing support for newer kernel APIs (quotactl_fd, project quotas)
 - Packaged in Debian, Ubuntu, Fedora, EPEL, Gentoo, openSUSE, Homebrew
-- Latest release: v1.6.5 (July 2024)
+- Latest released version: v1.6.5 (July 2024). v1.7.0 in preparation.
 - M3 bug fixes done: +0M (#31), "5m" timespan (#32), -d operator
   precedence (#33), sys/cdefs.h (#34), XFS grace reset (hybrid).
   Grace -r (#35) resolved as not a bug. BSD grace (#36) deferred to M2.
-- M3 remaining: -Wall -Wextra, cosmetic cleanup, CLI UX, release prep
+- M3 remaining: release prep (3.10)
 
 * Strategy
 
