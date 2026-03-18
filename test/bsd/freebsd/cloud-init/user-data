@@ -34,6 +34,7 @@ packages:
   - gmake
   - gcc
   - git
+  - bash
 
 # Enable quota support, fix sshd, create test user
 runcmd:
