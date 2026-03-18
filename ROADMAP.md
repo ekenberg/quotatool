@@ -1,6 +1,6 @@
 # Roadmap
 
-## v1.7.0 — Quality Release (next)
+## v1.7.0 — Quality Release
 
 Bug fixes verified by a comprehensive new test suite.
 **No platform changes** — all existing platforms continue to be supported.

@@ -172,7 +172,7 @@ Feel free to add an Issue on https://github.com/ekenberg/quotatool
 
 ## Testing
 
-quotatool has a multi-kernel test suite that boots vendor kernels in
+quotatool includes a multi-kernel test suite that boots vendor kernels in
 QEMU/virtme-ng VMs and tests quota operations on both ext4 and XFS.
 
 The kernel matrix covers actively supported Linux distros (Ubuntu,
@@ -200,6 +200,8 @@ Check what's needed:
 
 This shows required and optional tools with distro-specific install
 hints. The essentials:
+
+A working Python 3 installation with pip is required for virtme-ng.
 
 **Debian/Ubuntu:**
 
@@ -233,6 +235,7 @@ the infrastructure works.
     test/run-tests --kernel debian-12 # single kernel
     test/run-tests --tier 1           # tier 1 only
     test/run-tests --list             # show all kernels and status
+    test/run-tests --help             # full list of options
 
 Results are saved to `test/results/`.
 
