@@ -138,20 +138,14 @@ This is the first milestone that touches =src/=.
 - No-args shows help
 - =--all= required for full matrix
 
-*** Branch strategy
-
-Work on branch off =m1-testing=. When complete: merge =m1-testing=
-→ =master=, tag =v1.7.0=. Create =release-1.7= branch for future
-1.7.x maintenance.
-
 -----
 
-*→ Release v1.7.0 here*
+*v1.7.0 released. v1.7.1 released (macOS install fix).*
 
 -----
 
 ** TODO M2: Platform Testing & Cleanup [step-plan: steps/02-platforms.org]
-/Status: NOT STARTED — after M3/
+/Status: NOT STARTED/
 
 *** M2a: BSD Test Coverage (scaffolding)
 
@@ -284,19 +278,14 @@ What's NOT in it:
 - No new features (quotactl_fd, project quotas — that's v1.8.0+)
 - No CI (local testing is the workflow for a one-person project)
 
-Branch strategy:
-- M3 work branches off =m1-testing=
-- When done: merge to =master=, tag =v1.7.0=
-- Create =release-1.7= branch for maintenance
+** v1.7.x — Maintenance
 
-** v1.7.x — Maintenance releases
-
-Bug fixes backported from master to =release-1.7= branch.
-Maintained in parallel with v1.8.x development.
+=master= IS the v1.7.x line. Bug fixes go directly to master,
+tag, release. Simple — no separate release branch needed.
 
 Purpose: macOS users on older OS versions (pre-APFS) and anyone
 who can't upgrade to v1.8.0 (which drops platforms) can still
-receive bug fixes.
+receive bug fixes via v1.7.x patches.
 
 ** v1.8.0 — Platform Focus (M2, possibly +M4/M5)
 
@@ -310,10 +299,14 @@ What's in it:
 - *Possibly*: project quotas =-p= flag (M5)
 - Updated kernel test matrix
 
-Decision on M4/M5 inclusion made after v1.7.0 ships.
+Decision on M4/M5 inclusion made during M2 development.
 
-Notify Homebrew/MacPorts maintainers *before* release (they got
-advance notice in v1.7.0's ROADMAP section).
+Branch strategy:
+- M2 work on =m2-development= branch (long-lived, off master)
+- =master= stays stable (v1.7.x) during M2 development
+- When v1.8.0 is ready: merge =m2-development= → =master=, tag
+- Notify Homebrew/MacPorts maintainers *before* release (they got
+  advance notice in v1.7.0's ROADMAP section)
 
 ** v1.9.0 or v2.0.0 — Feature Release (if M4/M5 not in v1.8.0)
 
