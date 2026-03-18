@@ -8,9 +8,9 @@ AC_CONFIG_AUX_DIR(tools)
 dnl Main program/version info settings:
 dnl ---------------------------------------------------------------------------
 MAJOR_VERSION=1
-MINOR_VERSION=6
-PATCHLEVEL=5
-COPYRIGHT_NOTICE="Copyright (c) 1999-2024 Mike Glover / Johan Ekenberg"
+MINOR_VERSION=7
+PATCHLEVEL=0
+COPYRIGHT_NOTICE="Copyright (c) 1999-2026 Mike Glover / Johan Ekenberg"
 WWW_URL="https://github.com/ekenberg/quotatool | http://quotatool.ekenberg.se"
 
 dnl ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-.TH QUOTATOOL 8 "1999 - 2024" "version 1.6.5"
+.TH QUOTATOOL 8 "1999 - 2026" "version 1.7.0"
 .SH NAME
 quotatool \- manipulate filesystem quotas
 .SH SYNOPSIS
@@ -58,8 +58,10 @@ Only raise quotas, never lower. Makes sure you don't accidentally lower quotas f
 Set the system-wide grace period to TIME.  TIME consists
 of an optional '-' or '+' character, a number, and optionally
 one of the following modifiers: "seconds", "minutes", "hours",
-"days", "weeks", or "months".  Unique abbreviations (e.g. "s",
-"mo") are also accepted. The default is "seconds".
+"days", "weeks", or "months".  Abbreviations of at least two
+characters for ambiguous units are required: "mi" for minutes,
+"mo" for months. Bare "m" is rejected as ambiguous. The default
+is "seconds".
 The argument should be preceded by -u|-g and -b|-i
 .TP
 -r
@@ -87,8 +89,8 @@ Dump quota info for user/group in a machine readable format:
 .B uid/gid mountpoint current quota limit grace current quota limit grace
 .IP
 .B grace
-is the number of seconds from now until the grace time ends. May be
-negative = time already passed. When quota is not passed, grace is zero.
+is the number of seconds remaining until the grace time ends.
+Zero when quota is not exceeded or grace has expired.
 .TP
 -n
 dry-run: show what would have been done but don't change anything.

@@ -1,3 +1,14 @@
+18 Mar 2026 (1.7.0)
+	- Fix: +0M clearing quota instead of no-op (#31)
+	- Fix: ambiguous "5m" timespan silently passed to quotactl (#32)
+	- Fix: -d grace field showing garbage for expired grace periods (#33)
+	- Fix: XFS grace period reset on newer kernels (hybrid approach)
+	- Fix: removed unused #include <sys/cdefs.h>, fixes musl builds (#34)
+	- Added multi-kernel test suite (25 kernels, ext4 + XFS)
+	- Clean compile with -Wall -Wextra on gcc and clang
+	- Dead code removal, updated comments
+	- See ROADMAP.md for planned v1.8.0 platform changes
+
 24 July 2024 (1.6.5)
 	- Fix issue #28: 'fix missing __P definition for musl compile'
 	- Add license info to README
