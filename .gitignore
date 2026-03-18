@@ -25,3 +25,4 @@ test/kernels/alpine-rootfs.img
 test/kernels/.alpine-cache/
 test/results/
 test/tmp_run.sh
+test/bsd/images/

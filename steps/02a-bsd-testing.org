@@ -1,0 +1,400 @@
+#+TITLE: M2a: BSD Test Coverage — Step Plan
+#+DATE: 2026-03-18
+
+*Status: TODO — not started.*
+*Branch: =m2-1.8-development=*
+
+* Overview
+
+Establish test coverage for FreeBSD and OpenBSD — the BSD platforms
+we're keeping in v1.8.0. Currently =src/bsd/quota.c= (181 LOC) has
+zero test coverage.
+
+The BSD test framework lives in =test/bsd/= as a self-contained
+parallel to the Linux tests in =test/=. Separate code, separate
+entry point, separate concerns. Tests verify the same quota
+operations but are adapted to BSD filesystem tools and behavior.
+
+Architecture: QEMU full-OS VMs, SSH+scp for file sharing, build
+quotatool inside each VM. No 9p, no virtme-ng, no host-compiled
+binary sharing.
+
+Research: =research/bsd-testing-research.org=
+
+* Approach
+
+1. FreeBSD first (official cloud-init qcow2 images — fast path)
+2. OpenBSD second (autoinstall from ISO — more setup)
+3. Latest release only per BSD (14.4, 7.8). Older versions later if needed.
+4. Build inside VM — realistic for BSD users/maintainers
+5. Iterate until the full flow works: git clone → setup → test
+6. After framework is solid: fix #36, then full BSD code audit
+7. Human installs packages; we track and document dependencies
+
+Order: infrastructure → FreeBSD → OpenBSD → bug fixes → audit.
+
+* Directory Structure
+
+#+begin_example
+test/bsd/
+  run-tests              # BSD test entry point (--setup, --freebsd, --openbsd, --all)
+  check-deps.sh          # Verify host-side dependencies
+  DEPENDENCIES.md        # What to install (human reads this)
+  lib/
+    vm.sh                # QEMU boot, SSH wait, shutdown, image management
+    fs-setup.sh          # BSD filesystem setup (mdconfig/vnconfig, newfs, quotaon)
+    common.sh            # Shared helpers (result reporting, test user setup)
+  tests/
+    t-*.sh               # BSD-adapted test scripts
+  guest-run-all.sh       # Runs inside BSD VM (orchestrates test scripts)
+  images/                # Downloaded qcow2s, seed ISOs (gitignored)
+  freebsd/
+    cloud-init/          # user-data, meta-data templates
+    setup.sh             # FreeBSD-specific image download + provisioning
+  openbsd/
+    autoinstall/         # install.conf, site tarballs
+    setup.sh             # OpenBSD-specific image build
+#+end_example
+
+=test/= (existing Linux framework) is *not touched*.
+
+* Tasks
+
+** TODO 1. Host Dependencies & Documentation
+
+Document what needs to be installed on the Linux host. Create
+=test/bsd/DEPENDENCIES.md= and =test/bsd/check-deps.sh=.
+
+*Tools needed*:
+- =qemu-system-x86_64= (likely already present from Linux tests)
+- =qemu-img= (CoW overlay creation)
+- =genisoimage= or =mkisofs= (FreeBSD cloud-init seed ISO)
+- =ssh=, =scp= (file transfer to/from VM)
+- =curl= (downloading BSD images)
+- =xz= (decompressing .qcow2.xz)
+
+/Subtasks/:
+- [ ] Create =test/bsd/DEPENDENCIES.md= with package names per distro
+- [ ] Create =test/bsd/check-deps.sh= — verify all tools present
+- [ ] User installs missing packages
+- [ ] Verify =check-deps.sh= passes
+
+/Verification/: =test/bsd/check-deps.sh= exits 0.
+
+** TODO 2. FreeBSD Image Setup
+
+Download FreeBSD 14.4 UFS cloud-init qcow2, create seed ISO,
+verify VM boots and is accessible via SSH.
+
+*Image*: =FreeBSD-14.4-RELEASE-amd64-ufs-BASIC-CLOUDINIT.qcow2.xz=
+*Source*: https://download.freebsd.org/releases/VM-IMAGES/14.4-RELEASE/amd64/Latest/
+
+/Subtasks/:
+- [ ] Create =test/bsd/freebsd/cloud-init/= with user-data and meta-data
+      - Root SSH key (generate dedicated test key or use existing)
+      - Install build deps: =pkg install -y autoconf automake gmake gcc=
+      - Enable quota: fstab + rc.conf
+      - Create test user/group
+- [ ] Create =test/bsd/freebsd/setup.sh=
+      - Download qcow2.xz (idempotent — skip if exists)
+      - Decompress
+      - Generate seed ISO via genisoimage
+      - Create CoW overlay (=qemu-img create -b ...=)
+- [ ] Boot VM, verify SSH access, verify quota support
+- [ ] Snapshot provisioned image for fast subsequent boots
+
+/Verification/: =ssh -p 2222 root@localhost 'sysctl kern.features.ufs_quota'=
+returns =1=.
+
+/Dependencies/: 1
+
+** TODO 3. VM Boot & SSH Library
+
+Create =test/bsd/lib/vm.sh= — start QEMU, wait for SSH, run
+commands, shutdown. This is the BSD equivalent of =test/lib/boot.sh=.
+
+/Subtasks/:
+- [ ] =vm_start()= — launch QEMU with correct flags, return PID
+      - KVM acceleration
+      - User-mode networking with SSH port forward
+      - Serial console (=-nographic=)
+      - CoW overlay disk
+      - Configurable memory, CPUs, SSH port
+- [ ] =vm_wait_ssh()= — poll SSH until ready (with timeout)
+- [ ] =vm_run()= — execute command via SSH, return exit code
+- [ ] =vm_copy_to()= / =vm_copy_from()= — scp wrappers
+- [ ] =vm_shutdown()= — clean shutdown via SSH + wait for QEMU exit
+- [ ] =vm_cleanup()= — kill QEMU if still running (EXIT trap)
+
+/Verification/: can boot FreeBSD, run a command, get output, shutdown cleanly.
+
+/Dependencies/: 2
+
+** TODO 4. Filesystem Setup Library (BSD)
+
+Create =test/bsd/lib/fs-setup.sh= — create quota-enabled UFS
+filesystem inside the BSD VM.
+
+Key differences from Linux:
+- FreeBSD: =mdconfig= (memory disk) instead of =losetup=
+- OpenBSD: =vnconfig= (vnode disk) instead of =losetup=
+- =newfs= instead of =mkfs.ext4=
+- Mount options: =userquota,groupquota=
+- =quotacheck -a && quotaon -a=
+- Block size: 512 bytes (UFS) vs 1024 (ext4)
+
+/Subtasks/:
+- [ ] =fs_create_ufs()= — create loopback UFS with quotas enabled
+      - FreeBSD: =truncate + mdconfig + newfs + mount + quotacheck + quotaon=
+      - Parameterize for FreeBSD vs OpenBSD differences
+- [ ] =fs_teardown()= — unmount, detach device, remove image
+- [ ] =fs_teardown_all()= — cleanup all tracked filesystems
+
+/Verification/: create UFS inside FreeBSD VM, =repquota -a= shows
+quota tracking active.
+
+/Dependencies/: 3
+
+** TODO 5. First Test Script — Basic Block Limit
+
+Port =test/tests/t-basic-block-limit.sh= to BSD. This is the
+simplest quota test: set a block limit, verify it's applied.
+
+Adaptations needed:
+- =runuser= → =su -m= or equivalent
+- quotatool binary built inside VM (=./configure && make=)
+- =repquota= output parsing (different format)
+- Block size differences (512 vs 1024)
+- No XFS-specific sync workarounds
+
+/Subtasks/:
+- [ ] Create =test/bsd/tests/t-basic-block-limit.sh=
+- [ ] Create =test/bsd/guest-run-all.sh= (initially runs just this one test)
+- [ ] Build quotatool inside FreeBSD VM (=./configure && gmake=)
+- [ ] Run test, verify PASS
+
+/Verification/: test passes on FreeBSD 14.4.
+
+/Dependencies/: 4
+
+** TODO 6. BSD Test Runner
+
+Create =test/bsd/run-tests= — the entry point. Orchestrates
+image setup, VM boot, source transfer, build, test execution,
+result collection.
+
+*Modes*:
+- =--setup= — download images, verify deps, provision VMs
+- =--freebsd= — run tests on FreeBSD
+- =--openbsd= — run tests on OpenBSD (placeholder until task 10)
+- =--all= — run both
+- =--interactive= — boot VM, setup filesystems, drop to SSH shell
+
+*Flow*:
+1. Check deps
+2. Boot VM (from snapshot if available)
+3. scp quotatool source into VM
+4. Build inside VM (=./configure && gmake=)
+5. Run =guest-run-all.sh= via SSH
+6. Collect results (scp or parse SSH output)
+7. Shutdown VM
+8. Report pass/fail summary
+
+/Subtasks/:
+- [ ] Argument parsing, help text
+- [ ] FreeBSD test flow (full pipeline)
+- [ ] Result collection and reporting
+- [ ] Interactive mode (SSH shell with quota filesystems ready)
+- [ ] --setup mode (image download + provisioning)
+
+/Verification/: =test/bsd/run-tests --setup && test/bsd/run-tests --freebsd=
+completes with test results.
+
+/Dependencies/: 5
+
+** TODO 7. Port Remaining Test Scripts to FreeBSD
+
+Adapt remaining Linux test scripts to BSD one by one. Each adapted
+test should pass on FreeBSD before moving to the next.
+
+*Linux tests to port* (from =test/tests/=):
+- [ ] =t-basic-soft-limit.sh=
+- [ ] =t-combined-limits.sh=
+- [ ] =t-inode-limits.sh=
+- [ ] =t-enforce-block-hard.sh=
+- [ ] =t-enforce-block-soft.sh=
+- [ ] =t-enforce-inode-hard.sh=
+- [ ] =t-enforce-inode-soft.sh=
+- [ ] =t-grace-period.sh=
+- [ ] =t-limit-isolation.sh=
+- [ ] =t-group-quota.sh=
+- [ ] =t-reset-limits.sh=
+- [ ] =t-raise-only.sh=
+- [ ] =t-relative-adjust.sh=
+- [ ] =t-dry-run.sh=
+
+Some may need significant rework (grace period tests especially).
+Some may be straightforward (dry-run, numeric-uid).
+
+/Verification/: all ported tests pass on FreeBSD 14.4.
+
+/Dependencies/: 6
+
+** TODO 8. End-to-End FreeBSD Validation
+
+Full flow test on a clean system: git clone → setup → run tests.
+This validates the "BSD maintainer experience."
+
+/Subtasks/:
+- [ ] Test from fresh clone (no cached images)
+- [ ] Verify =--setup= downloads and provisions correctly
+- [ ] Verify =--freebsd= runs all tests and reports results
+- [ ] Verify =--interactive= mode works
+- [ ] Document any manual steps required
+- [ ] Review and clean up all scripts
+
+/Verification/: another person (or fresh environment) can run the
+full pipeline from the README/docs alone.
+
+/Dependencies/: 7
+
+** TODO 9. Checkpoint: FreeBSD Complete
+
+Commit all FreeBSD test work. Update session.md, MASTERPLAN.org.
+This is the checkpoint before starting OpenBSD.
+
+/Dependencies/: 8
+
+** TODO 10. OpenBSD Image Setup
+
+Create automated OpenBSD 7.8 installation using autoinstall(8).
+
+More complex than FreeBSD — no pre-built cloud images. Must:
+1. Download install media
+2. Create autoinstall response file (=install.conf=)
+3. Create =site78.tgz= with post-install setup
+4. Boot installer in QEMU with HTTP-served response file
+5. Wait for install to complete (~10-15 min one-time)
+6. Snapshot the installed qcow2 as base image
+
+Key differences from FreeBSD:
+- No cloud-init — uses autoinstall(8)
+- FFS not UFS (similar but different naming)
+- =vnconfig= not =mdconfig= for loopback
+- =edquota= is interactive-only (use quotatool itself)
+- HTTP server needed during install (QEMU guestfwd or socat)
+
+/Subtasks/:
+- [ ] Create =test/bsd/openbsd/autoinstall/install.conf=
+- [ ] Create =site78.tgz= (post-install: SSH keys, quota setup, build deps)
+- [ ] Create =test/bsd/openbsd/setup.sh= (download + automated install)
+- [ ] Verify: VM boots, SSH works, quotas functional
+- [ ] Snapshot base image
+
+/Verification/: =ssh -p 2222 root@localhost 'mount'= shows quota options.
+
+/Dependencies/: 9
+
+** TODO 11. Adapt Tests for OpenBSD
+
+Update =test/bsd/lib/fs-setup.sh= for OpenBSD differences and
+verify all test scripts pass on OpenBSD 7.8.
+
+Key adaptations:
+- =vnconfig= instead of =mdconfig= for loopback devices
+- =newfs= flags may differ
+- =touch quota.user quota.group= before =quotacheck=
+- No =edquota -e= — rely on quotatool for setting quotas in tests
+- May need OpenBSD-specific branches in =fs-setup.sh=
+
+/Subtasks/:
+- [ ] Add OpenBSD support to =fs-setup.sh= (detect OS, branch)
+- [ ] Run each test script on OpenBSD, fix failures
+- [ ] Verify all tests pass
+
+/Verification/: =test/bsd/run-tests --openbsd= — all tests pass.
+
+/Dependencies/: 10
+
+** TODO 12. End-to-End OpenBSD Validation
+
+Same as task 8 but for OpenBSD. Full pipeline from clone to results.
+
+/Dependencies/: 11
+
+** TODO 13. Checkpoint: BSD Test Framework Complete
+
+Both FreeBSD and OpenBSD under test. Commit, update state files.
+
+/Subtasks/:
+- [ ] =test/bsd/run-tests --all= passes (FreeBSD + OpenBSD)
+- [ ] Update MASTERPLAN.org
+- [ ] Update session.md
+- [ ] Clean commit history
+
+/Dependencies/: 12
+
+** TODO 14. Fix #36: BSD Expired Grace Display
+
+Now that we have a working BSD test framework, fix the bug.
+
+*File*: =src/main.c= lines 96-119
+*Bug*: expired grace periods display as huge unsigned numbers
+*Fix*: add => now= check before subtraction (same pattern as Linux fix in commit 5ea6afe)
+*Affects*: both block grace (lines 96-102) and inode grace (lines 109-115)
+
+/Subtasks/:
+- [ ] Write/adapt test that catches the bug (must fail before fix)
+- [ ] Verify test fails on FreeBSD and/or OpenBSD
+- [ ] Apply fix (minimal change to =src/main.c=)
+- [ ] Verify test passes on BSD
+- [ ] Verify no regressions on Linux (=test/run-tests --host-only=)
+- [ ] Human review
+
+/Verification/: BSD grace test passes. Linux tests still 25/25.
+
+/Dependencies/: 13
+
+** TODO 15. Full BSD Code Audit
+
+With test coverage in place, audit all of =src/bsd/quota.c= for
+potential bugs, edge cases, and modernization opportunities.
+
+/Subtasks/:
+- [ ] Review =quota_new()= — path construction, error handling
+- [ ] Review =quota_get()= — quotactl return values, struct field mapping
+- [ ] Review =quota_set()= — same
+- [ ] Review =quota_reset_grace()= — does raise/restore still work on modern BSDs?
+- [ ] Review block size handling — 512-byte UFS blocks correct everywhere?
+- [ ] Review NetBSD +1 workaround (lines 118-124) — still needed? still correct?
+- [ ] Check for memory leaks, buffer overflows, signed/unsigned issues
+- [ ] Cross-reference with Linux fixes from M3 — any BSD equivalents?
+- [ ] File bugs for anything found, add tests, fix
+
+/Verification/: audit document written, all found issues tracked.
+
+/Dependencies/: 14
+
+* Dependency Order
+
+#+begin_example
+1 (deps)
+  └→ 2 (freebsd image)
+       └→ 3 (vm library)
+            └→ 4 (fs-setup)
+                 └→ 5 (first test)
+                      └→ 6 (runner)
+                           └→ 7 (port all tests)
+                                └→ 8 (e2e freebsd)
+                                     └→ 9 (checkpoint)
+                                          └→ 10 (openbsd image)
+                                               └→ 11 (adapt tests)
+                                                    └→ 12 (e2e openbsd)
+                                                         └→ 13 (checkpoint)
+                                                              └→ 14 (fix #36)
+                                                                   └→ 15 (audit)
+#+end_example
+
+Strictly sequential. Each task builds on the previous.
+FreeBSD (tasks 1-9) is the primary track. OpenBSD (10-12) follows.
+Bug fixes and audit (14-15) only after framework is validated.

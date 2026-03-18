@@ -1,0 +1,52 @@
+#cloud-config
+
+# quotatool BSD test framework — FreeBSD cloud-init provisioning
+# This runs on first boot of the FreeBSD cloud-init image.
+#
+# The default user on FreeBSD cloud images is "freebsd".
+# We need root SSH access for quota testing, so we explicitly
+# enable it and inject our test key.
+
+# Allow root login via SSH key
+disable_root: false
+
+# SSH key placeholder — setup.sh injects the real key here
+ssh_authorized_keys: []
+
+users:
+  - name: root
+    lock_passwd: false
+    ssh_authorized_keys: []
+  - name: freebsd
+    groups: wheel
+    shell: /bin/sh
+
+# Password auth for root (fallback)
+chpasswd:
+  expire: false
+  list:
+    - root:quotatool
+
+# Install build dependencies and quota tools
+packages:
+  - autoconf
+  - automake
+  - gmake
+  - gcc
+  - git
+
+# Enable quota support, fix sshd, create test user
+runcmd:
+  # Enable root SSH login (key-only)
+  - sed -i '' 's/^#PermitRootLogin no/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+  - service sshd restart
+  # Enable quotas
+  - echo 'quota_enable="YES"' >> /etc/rc.conf
+  # Create test user and group
+  - pw groupadd testgroup -g 60000 || true
+  - pw useradd testuser -u 60000 -g 60000 -d /home/testuser -m -s /bin/sh || true
+
+# Disable cloud-init on subsequent boots (faster startup)
+write_files:
+  - path: /etc/cloud/cloud-init.disabled
+    content: ""
