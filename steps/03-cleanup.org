@@ -138,7 +138,7 @@ Do AFTER bug fixes (fixes change code that may trigger warnings).
 - Indentation (tabs vs spaces): deferred to M2/v1.8.0 when platform
   drops shrink the codebase — do style sweep once on surviving code
 
-** TODO 3.9 CLI UX: run-tests flag review + timespan clarity
+** DONE 3.9 CLI UX: run-tests flag review + timespan clarity
 
 Revisit before v1.7.0 release:
 - No-args behavior (help vs full run?)
@@ -170,7 +170,7 @@ Revisit before v1.7.0 release:
 - Inode limit test coverage across all tests (implemented)
 - debian-7 XFS t-enforce-block-soft failure (fixed: missing sync -f)
 
-** TODO 3.10 Release prep: v1.7.0
+** DONE 3.10 Release prep: v1.7.0
 
 - Version bump in =configure.ac= (1.6.5 → 1.7.0)
 - Update =ChangeLog=

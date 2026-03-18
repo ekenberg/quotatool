@@ -34,7 +34,7 @@ well-tested Linux (+BSD) utility with modern kernel API support.
 Establish automated testing that makes ongoing maintenance confident
 and low-effort.
 
-* Current State (2026-03-17)
+* Current State (2026-03-18)
 
 - Working tool, ~5,500 LOC of clean C, no dependencies
 - Supports Linux, FreeBSD, OpenBSD, NetBSD, macOS, Solaris, AIX
@@ -43,11 +43,9 @@ and low-effort.
 - Several supported platforms are dead or broken
 - Missing support for newer kernel APIs (quotactl_fd, project quotas)
 - Packaged in Debian, Ubuntu, Fedora, EPEL, Gentoo, openSUSE, Homebrew
-- Latest released version: v1.6.5 (July 2024). v1.7.0 in preparation.
-- M3 bug fixes done: +0M (#31), "5m" timespan (#32), -d operator
-  precedence (#33), sys/cdefs.h (#34), XFS grace reset (hybrid).
-  Grace -r (#35) resolved as not a bug. BSD grace (#36) deferred to M2.
-- M3 remaining: release prep (3.10)
+- *v1.7.0 released* (March 2026): bug fixes + test framework
+- *v1.7.1 released*: macOS install fix (#30)
+- Next: M2 (BSD testing + platform drops → v1.8.0)
 
 * Strategy
 
@@ -59,7 +57,7 @@ and platform drops are a separate, later release.
 Order of work:
 
 1. *M1 (DONE)*: Linux test framework — the foundation
-2. *M3 (NEXT)*: Bug fixes + cleanup → *release v1.7.0*
+2. *M3 (DONE)*: Bug fixes + cleanup → *released as v1.7.0*
 3. *M2*: BSD testing + platform drops (+possibly M4/M5) → *release v1.8.0*
 4. *M4/M5*: New features (if not bundled with M2)
 
@@ -89,7 +87,7 @@ Delivered:
 - All test assertions reviewed for false positives by 4 audit agents
 - All failures are known quotatool bugs, not framework issues
 
-Branch: =m1-testing= (pushed, not yet merged to master)
+Branch: =m1-testing= (merged to =master= as part of v1.7.0)
 
 Inputs: =research/testing-infrastructure.org=,
         =research/multi-kernel-testing.org=
@@ -100,8 +98,8 @@ Inputs: =research/testing-infrastructure.org=,
 
 -----
 
-** TODO M3: Bug Fixes & Codebase Cleanup [step-plan: steps/03-cleanup.org]
-/Status: NEXT/
+** DONE M3: Bug Fixes & Codebase Cleanup [step-plan: steps/03-cleanup.org]
+/Status: COMPLETE — released as v1.7.0/
 
 Bug fixes and cleanup, verified by the full test suite.
 This is the first milestone that touches =src/=.
