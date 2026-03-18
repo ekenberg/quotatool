@@ -302,9 +302,9 @@ What's in it:
 Decision on M4/M5 inclusion made during M2 development.
 
 Branch strategy:
-- M2 work on =m2-development= branch (long-lived, off master)
+- M2 work on =m2-1.8-development= branch (long-lived, off master)
 - =master= stays stable (v1.7.x) during M2 development
-- When v1.8.0 is ready: merge =m2-development= → =master=, tag
+- When v1.8.0 is ready: merge =m2-1.8-development= → =master=, tag
 - Notify Homebrew/MacPorts maintainers *before* release (they got
   advance notice in v1.7.0's ROADMAP section)
 
