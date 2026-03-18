@@ -7,7 +7,9 @@
 # Usage:
 #   test/bsd/check-deps.sh          # normal check
 #   test/bsd/check-deps.sh -v       # verbose (show paths and versions)
-set -euo pipefail
+set -uo pipefail
+# Note: intentionally no -e. We want to check ALL deps and report
+# all missing ones at once, not abort on the first missing tool.
 
 # ---------------------------------------------------------------------------
 # Detect distro family for install hints
