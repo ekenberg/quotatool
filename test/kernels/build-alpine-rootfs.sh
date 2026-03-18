@@ -168,18 +168,33 @@ build_static_quotatool() {
     local kinclude
     kinclude=$(mktemp -d)
 
-    cp -r /usr/include/linux "$kinclude/linux"
-    cp -r /usr/include/asm-generic "$kinclude/asm-generic"
-    # asm/ location varies: /usr/include/asm (Fedora) or multiarch (Debian)
+    # Copy kernel UAPI headers. Need linux/, asm-generic/, and asm/.
+    # asm/ location varies: /usr/include/asm (Fedora) or multiarch (Debian).
+    local asm_dir=""
     if [[ -d /usr/include/asm ]]; then
-        cp -r /usr/include/asm "$kinclude/asm"
-    elif [[ -d "/usr/include/$(gcc -dumpmachine)/asm" ]]; then
-        cp -r "/usr/include/$(gcc -dumpmachine)/asm" "$kinclude/asm"
-    else
-        err "Cannot find asm/ headers"
+        asm_dir="/usr/include/asm"
+    elif [[ -d "/usr/include/$(gcc -dumpmachine 2>/dev/null)/asm" ]]; then
+        asm_dir="/usr/include/$(gcc -dumpmachine)/asm"
+    fi
+
+    if [[ -z "$asm_dir" ]] || [[ ! -f "$asm_dir/types.h" ]]; then
+        local hint="linux-libc-dev (apt) or kernel-headers (dnf)"
+        if [ -f /etc/os-release ]; then
+            . /etc/os-release
+            case "${ID:-}${ID_LIKE:-}" in
+                *debian*|*ubuntu*) hint="apt install linux-libc-dev" ;;
+                *fedora*|*rhel*|*centos*|*alma*|*rocky*) hint="dnf install kernel-headers" ;;
+                *arch*) hint="pacman -S linux-api-headers" ;;
+            esac
+        fi
+        err "Cannot find asm/types.h (kernel headers). Install: $hint"
         rm -rf "$kinclude"
         return 1
     fi
+
+    cp -r /usr/include/linux "$kinclude/linux"
+    cp -r /usr/include/asm-generic "$kinclude/asm-generic"
+    cp -r "$asm_dir" "$kinclude/asm"
 
     # Ensure config.h exists (from normal ./configure)
     if [[ ! -f "$PROJECT_DIR/config.h" ]]; then
