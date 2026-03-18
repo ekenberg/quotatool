@@ -243,7 +243,7 @@ echo ""
 printf "${BOLD}Alpine rootfs build (for RHEL/old kernels):${NC}\n"
 
 _check_cmd "musl-gcc" "musl-gcc" \
-    "musl-tools" "musl-gcc (dnf install musl-tools or musl-gcc)" "musl" 0
+    "musl-tools" "musl-gcc" "musl" 0
 
 # asm/types.h: needed by kernel UAPI headers during static musl build
 # Location varies: /usr/include/asm (Fedora) or multiarch (Debian/Ubuntu)
