@@ -159,6 +159,12 @@ Revisit before v1.7.0 release:
   differences causing XFS V4 fallback. Current test hosts are
   relatively new distributions.
 
+*** Future docs
+- Document btrfs in README/man: btrfs uses a different quota model
+  (tree-based =btrfs qgroup=, not user/group). Not applicable to
+  =quotactl()=. quotatool does not and will not support btrfs quotas.
+  Mention this to avoid confusion.
+
 *** Already done (moved here from TODO for reference)
 - Pre-flight check for stale =/tmp/test-{xfs,ext4}.img= (implemented)
 - Inode limit test coverage across all tests (implemented)

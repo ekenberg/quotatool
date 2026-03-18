@@ -239,6 +239,22 @@ fi
 
 echo ""
 
+# --- Alpine rootfs build (for RHEL/old kernels) ---
+printf "${BOLD}Alpine rootfs build (for RHEL/old kernels):${NC}\n"
+
+_check_cmd "musl-gcc" "musl-gcc" \
+    "musl-tools" "musl-gcc (dnf install musl-tools or musl-gcc)" "musl" 0
+
+# asm/types.h: needed by kernel UAPI headers during static musl build
+# Location varies: /usr/include/asm (Fedora) or multiarch (Debian/Ubuntu)
+if [ -d /usr/include/asm ] || [ -d "/usr/include/$(gcc -dumpmachine 2>/dev/null)/asm" ]; then
+    _ok "asm headers" ""
+else
+    _warn "asm headers" "not found — $(_hint "linux-libc-dev" "kernel-headers" "linux-api-headers")"
+fi
+
+echo ""
+
 # --- quotatool binary ---
 printf "${BOLD}Project:${NC}\n"
 
