@@ -1,7 +1,7 @@
 #+TITLE: M2a: BSD Test Coverage — Step Plan
 #+DATE: 2026-03-18
 
-*Status: TODO — not started.*
+*Status: DOING — FreeBSD tests complete, OpenBSD next.*
 *Branch: =m2-1.8-development=*
 
 * Overview
@@ -60,7 +60,7 @@ test/bsd/
 
 * Tasks
 
-** TODO 1. Host Dependencies & Documentation
+** DONE 1. Host Dependencies & Documentation
 
 Document what needs to be installed on the Linux host. Create
 =test/bsd/DEPENDENCIES.md= and =test/bsd/check-deps.sh=.
@@ -81,12 +81,12 @@ Document what needs to be installed on the Linux host. Create
 
 /Verification/: =test/bsd/check-deps.sh= exits 0.
 
-** TODO 2. FreeBSD Image Setup
+** DONE 2. FreeBSD Image Setup
 
 Download FreeBSD 14.4 UFS cloud-init qcow2, create seed ISO,
 verify VM boots and is accessible via SSH.
 
-*Image*: =FreeBSD-14.4-RELEASE-amd64-ufs-BASIC-CLOUDINIT.qcow2.xz=
+*Image*: =FreeBSD-14.4-RELEASE-amd64-BASIC-CLOUDINIT-ufs.qcow2.xz=
 *Source*: https://download.freebsd.org/releases/VM-IMAGES/14.4-RELEASE/amd64/Latest/
 
 /Subtasks/:
@@ -108,7 +108,7 @@ returns =1=.
 
 /Dependencies/: 1
 
-** TODO 3. VM Boot & SSH Library
+** DONE 3. VM Boot & SSH Library
 
 Create =test/bsd/lib/vm.sh= — start QEMU, wait for SSH, run
 commands, shutdown. This is the BSD equivalent of =test/lib/boot.sh=.
@@ -130,7 +130,7 @@ commands, shutdown. This is the BSD equivalent of =test/lib/boot.sh=.
 
 /Dependencies/: 2
 
-** TODO 4. Filesystem Setup Library (BSD)
+** DONE 4. Filesystem Setup Library (BSD)
 
 Create =test/bsd/lib/fs-setup.sh= — create quota-enabled UFS
 filesystem inside the BSD VM.
@@ -155,7 +155,7 @@ quota tracking active.
 
 /Dependencies/: 3
 
-** TODO 5. First Test Script — Basic Block Limit
+** DONE 5. First Test Script — Basic Block Limit
 
 Port =test/tests/t-basic-block-limit.sh= to BSD. This is the
 simplest quota test: set a block limit, verify it's applied.
@@ -177,7 +177,7 @@ Adaptations needed:
 
 /Dependencies/: 4
 
-** TODO 6. BSD Test Runner
+** DONE 6. BSD Test Runner
 
 Create =test/bsd/run-tests= — the entry point. Orchestrates
 image setup, VM boot, source transfer, build, test execution,
@@ -212,31 +212,28 @@ completes with test results.
 
 /Dependencies/: 5
 
-** TODO 7. Port Remaining Test Scripts to FreeBSD
+** DONE 7. Port Remaining Test Scripts to FreeBSD
 
-Adapt remaining Linux test scripts to BSD one by one. Each adapted
-test should pass on FreeBSD before moving to the next.
+16 test scripts adapted and passing on FreeBSD 14.4 (50 subtests):
 
-*Linux tests to port* (from =test/tests/=):
-- [ ] =t-basic-soft-limit.sh=
-- [ ] =t-combined-limits.sh=
-- [ ] =t-inode-limits.sh=
-- [ ] =t-enforce-block-hard.sh=
-- [ ] =t-enforce-block-soft.sh=
-- [ ] =t-enforce-inode-hard.sh=
-- [ ] =t-enforce-inode-soft.sh=
-- [ ] =t-grace-period.sh=
-- [ ] =t-limit-isolation.sh=
-- [ ] =t-group-quota.sh=
-- [ ] =t-reset-limits.sh=
-- [ ] =t-raise-only.sh=
-- [ ] =t-relative-adjust.sh=
-- [ ] =t-dry-run.sh=
+- [X] =t-basic-block-limit.sh= (5 subtests)
+- [X] =t-basic-soft-limit.sh= (3 subtests)
+- [X] =t-combined-limits.sh= (4 subtests)
+- [X] =t-inode-limits.sh= (4 subtests)
+- [X] =t-enforce-block-hard.sh= (3 subtests)
+- [X] =t-enforce-block-soft.sh= (3 subtests)
+- [X] =t-enforce-inode-hard.sh= (3 subtests)
+- [X] =t-enforce-inode-soft.sh= (3 subtests)
+- [X] =t-grace-period.sh= (2 subtests)
+- [X] =t-limit-isolation.sh= (2 subtests)
+- [X] =t-group-quota.sh= (3 subtests)
+- [X] =t-reset-limits.sh= (3 subtests)
+- [X] =t-raise-only.sh= (3 subtests)
+- [X] =t-relative-adjust.sh= (7 subtests)
+- [X] =t-dry-run.sh= (2 subtests)
+- [X] =t-numeric-uid.sh= (3 subtests)
 
-Some may need significant rework (grace period tests especially).
-Some may be straightforward (dry-run, numeric-uid).
-
-/Verification/: all ported tests pass on FreeBSD 14.4.
+/Verification/: =test/bsd/run-tests --freebsd= — 16/16 passed.
 
 /Dependencies/: 6
 
@@ -398,3 +395,58 @@ potential bugs, edge cases, and modernization opportunities.
 Strictly sequential. Each task builds on the previous.
 FreeBSD (tasks 1-9) is the primary track. OpenBSD (10-12) follows.
 Bug fixes and audit (14-15) only after framework is validated.
+
+* Findings & Follow-ups
+
+Issues discovered during FreeBSD testing. To be investigated
+during task 15 (BSD code audit) unless noted otherwise.
+
+** Grace period: =-t= may not set per-user grace on FreeBSD
+
+=quotatool -u testuser -b -t "1hours"= does not change the
+grace period from the default 604800s (7 days). The command
+exits 0 (no error), but the value reported by =-d= after
+exceeding soft limit is always 604800.
+
+Possible causes:
+- BSD UFS grace is a global per-filesystem setting, not per-user.
+  quotatool may be trying to set it per-user which has no effect.
+- quotatool's =-t= code path in =src/bsd/quota.c= may not be
+  reaching the kernel correctly.
+- The 604800 is the BSD default grace period (7 days), suggesting
+  the set operation silently fails.
+
+*Action*: investigate in task 15. Compare =src/bsd/quota.c= grace
+handling vs =src/linux/quota.c=. Check FreeBSD =edquota -t= behavior.
+
+** FreeBSD quota tools require fstab entries
+
+Unlike Linux, FreeBSD's =quotacheck=, =quotaon=, =repquota=, and
+=edquota= all require the filesystem to be listed in =/etc/fstab=
+with quota options. Ad-hoc mounts with =-o userquota,groupquota=
+are not recognized.
+
+=fs-setup.sh= works around this by adding temporary fstab entries,
+cleaned up on teardown.
+
+** =edquota -e= appears non-functional on FreeBSD 14.4
+
+=edquota -e /mnt/quota-test:1000:2000:0:0 testuser= runs without
+error but does not actually set quotas. This may be a FreeBSD bug
+or a misunderstanding of the =-e= syntax. Not a problem for us —
+we use quotatool itself to set quotas in tests.
+
+** Cloud-init default user is =freebsd=, not =root=
+
+FreeBSD cloud-init images create a =freebsd= user (uid 1001, wheel
+group). =ssh_authorized_keys= at top level goes to this user, not
+root. Root SSH requires explicit =/etc/ssh/sshd_config= change +
+key placement under root user in cloud-init config.
+
+** Boot performance
+
+| Path | Time |
+|------|------|
+| Cold boot (cloud-init + packages) | ~75s |
+| Fast boot (provisioned snapshot) | ~12-18s |
+| Full test run (boot + build + 16 tests + shutdown) | ~45s |

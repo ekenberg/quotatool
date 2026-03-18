@@ -1,0 +1,290 @@
+#!/bin/bash
+# run-tests — BSD test framework entry point
+#
+# Usage:
+#   test/bsd/run-tests --setup           # download images, provision VMs
+#   test/bsd/run-tests --freebsd         # run tests on FreeBSD
+#   test/bsd/run-tests --openbsd         # run tests on OpenBSD (not yet implemented)
+#   test/bsd/run-tests --all             # run on all BSDs
+#   test/bsd/run-tests --interactive     # boot FreeBSD, drop to SSH shell
+#   test/bsd/run-tests --help            # show this help
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# ---------------------------------------------------------------------------
+# Help
+# ---------------------------------------------------------------------------
+
+show_help() {
+    cat <<'HELP'
+quotatool BSD test framework
+
+Usage: test/bsd/run-tests <mode> [options]
+
+Modes:
+  --setup             Download BSD images, provision VMs, verify deps
+  --freebsd           Run all tests on FreeBSD
+  --openbsd           Run all tests on OpenBSD (not yet implemented)
+  --all               Run tests on all available BSDs
+  --interactive       Boot FreeBSD VM with quota filesystem, SSH in
+  --help              Show this help
+
+Options:
+  --ssh-port PORT     SSH port for VM (default: 2222)
+  --memory MB         VM RAM in MB (default: 2048)
+
+Prerequisites:
+  - KVM access (/dev/kvm)
+  - QEMU, genisoimage, ssh, curl, xz
+  - Run 'test/bsd/check-deps.sh' to verify
+
+Setup (first time):
+  test/bsd/run-tests --setup      # downloads ~660MB FreeBSD image
+  test/bsd/run-tests --freebsd    # run tests (~30s)
+
+What it does:
+  1. Boots BSD VM from provisioned snapshot (~12s)
+  2. Copies quotatool source into VM via scp
+  3. Builds quotatool inside the VM (./configure && gmake)
+  4. Creates UFS filesystem with quotas enabled
+  5. Runs all test scripts
+  6. Reports results, shuts down VM
+HELP
+}
+
+# ---------------------------------------------------------------------------
+# Parse arguments
+# ---------------------------------------------------------------------------
+
+MODE=""
+export VM_SSH_PORT="${VM_SSH_PORT:-2222}"
+export VM_MEMORY="${VM_MEMORY:-2048}"
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --setup)       MODE="setup" ;;
+        --freebsd)     MODE="freebsd" ;;
+        --openbsd)     MODE="openbsd" ;;
+        --all)         MODE="all" ;;
+        --interactive) MODE="interactive" ;;
+        --help|-h)     show_help; exit 0 ;;
+        --ssh-port)    VM_SSH_PORT="$2"; shift ;;
+        --memory)      VM_MEMORY="$2"; shift ;;
+        *)
+            echo "Unknown option: $1" >&2
+            echo "Run with --help for usage." >&2
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+if [ -z "$MODE" ]; then
+    show_help
+    exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# Setup mode
+# ---------------------------------------------------------------------------
+
+do_setup() {
+    echo ""
+    echo "=== BSD Test Framework Setup ==="
+    echo ""
+
+    # Check dependencies first
+    "$SCRIPT_DIR/check-deps.sh"
+    echo ""
+
+    # FreeBSD
+    if [ -f "$SCRIPT_DIR/freebsd/setup.sh" ]; then
+        echo "=== FreeBSD Setup ==="
+        "$SCRIPT_DIR/freebsd/setup.sh"
+    fi
+
+    # OpenBSD (when implemented)
+    if [ -f "$SCRIPT_DIR/openbsd/setup.sh" ]; then
+        echo ""
+        echo "=== OpenBSD Setup ==="
+        "$SCRIPT_DIR/openbsd/setup.sh"
+    fi
+
+    echo ""
+    echo "Setup complete. Run 'test/bsd/run-tests --freebsd' to test."
+}
+
+# ---------------------------------------------------------------------------
+# Test execution
+# ---------------------------------------------------------------------------
+
+run_tests_on() {
+    local os="$1"
+
+    source "$SCRIPT_DIR/lib/vm.sh"
+    source "$SCRIPT_DIR/lib/fs-setup.sh"
+
+    echo ""
+    echo "========================================"
+    echo "  quotatool BSD tests — $os"
+    echo "========================================"
+    echo ""
+
+    # Boot VM
+    vm_start "$os"
+    vm_wait_ssh
+
+    # Copy source into VM
+    echo ""
+    echo "[run] Copying source into VM..."
+    local tarball="/tmp/quotatool-src-$$.tar.gz"
+    tar -C "$REPO_DIR" --exclude='.git' --exclude='test/bsd/images' \
+        --exclude='test/kernels' --exclude='test/results' \
+        --exclude='*.o' --exclude='*.d' \
+        -czf "$tarball" .
+    vm_copy_to "$tarball" /tmp/quotatool-src.tar.gz
+    rm -f "$tarball"
+
+    # Build inside VM
+    echo "[run] Building quotatool inside $os VM..."
+    local make_cmd="make"
+    case "$os" in
+        freebsd) make_cmd="gmake" ;;
+        openbsd) make_cmd="make" ;;
+    esac
+
+    vm_run "
+        rm -rf /tmp/quotatool
+        mkdir -p /tmp/quotatool
+        cd /tmp/quotatool
+        tar xzf /tmp/quotatool-src.tar.gz
+        autoconf
+        ./configure --quiet
+        $make_cmd -j2 -s
+    "
+    echo "[run] Build OK: $(vm_run '/tmp/quotatool/quotatool -V 2>&1 | head -1')"
+
+    # Create quota filesystem
+    echo ""
+    echo "[run] Creating quota filesystem..."
+    fs_create_ufs /mnt/quota-test 256M
+
+    # Run tests
+    echo ""
+    echo "[run] Running test scripts..."
+    echo ""
+    local rc=0
+    vm_run "bash /tmp/quotatool/test/bsd/guest-run-all.sh /mnt/quota-test" || rc=$?
+
+    # Cleanup
+    echo ""
+    fs_teardown /mnt/quota-test
+    vm_shutdown
+
+    return $rc
+}
+
+# ---------------------------------------------------------------------------
+# Interactive mode
+# ---------------------------------------------------------------------------
+
+do_interactive() {
+    source "$SCRIPT_DIR/lib/vm.sh"
+    source "$SCRIPT_DIR/lib/fs-setup.sh"
+
+    local os="freebsd"  # default for now
+
+    echo ""
+    echo "=== Interactive mode: $os ==="
+    echo ""
+
+    vm_start "$os"
+    vm_wait_ssh
+
+    # Copy and build
+    echo "[interactive] Copying and building quotatool..."
+    local tarball="/tmp/quotatool-src-$$.tar.gz"
+    tar -C "$REPO_DIR" --exclude='.git' --exclude='test/bsd/images' \
+        --exclude='test/kernels' --exclude='test/results' \
+        --exclude='*.o' --exclude='*.d' \
+        -czf "$tarball" .
+    vm_copy_to "$tarball" /tmp/quotatool-src.tar.gz
+    rm -f "$tarball"
+
+    vm_run "
+        rm -rf /tmp/quotatool
+        mkdir -p /tmp/quotatool
+        cd /tmp/quotatool
+        tar xzf /tmp/quotatool-src.tar.gz
+        autoconf
+        ./configure --quiet
+        gmake -j2 -s
+    "
+
+    # Create quota filesystem
+    fs_create_ufs /mnt/quota-test 256M
+
+    local ssh_key="$_VM_IMAGES_DIR/test-key"
+
+    echo ""
+    echo "========================================"
+    echo "  Interactive $os VM ready"
+    echo "========================================"
+    echo ""
+    echo "  quotatool: /tmp/quotatool/quotatool"
+    echo "  quota fs:  /mnt/quota-test"
+    echo "  test user: testuser (uid 60000)"
+    echo ""
+    echo "  Connect:   ssh -i $ssh_key -p $VM_SSH_PORT -o StrictHostKeyChecking=no root@localhost"
+    echo "  Shutdown:  type 'exit' or 'shutdown -p now' in the SSH session"
+    echo ""
+    echo "Dropping to SSH shell..."
+    echo ""
+
+    # Drop to interactive SSH (no BatchMode, allocate PTY)
+    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        -i "$ssh_key" -p "$VM_SSH_PORT" -t root@localhost
+
+    echo ""
+    echo "[interactive] SSH session ended. Cleaning up..."
+    fs_teardown /mnt/quota-test
+    vm_shutdown
+}
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+case "$MODE" in
+    setup)
+        do_setup
+        ;;
+    freebsd)
+        run_tests_on freebsd
+        ;;
+    openbsd)
+        echo "OpenBSD testing not yet implemented."
+        echo "See steps/02a-bsd-testing.org tasks 10-12."
+        exit 1
+        ;;
+    all)
+        rc=0
+        if [ -f "$SCRIPT_DIR/images/freebsd-provisioned.qcow2" ]; then
+            run_tests_on freebsd || rc=1
+        else
+            echo "FreeBSD not set up. Run --setup first."
+            rc=1
+        fi
+        if [ -f "$SCRIPT_DIR/images/openbsd-provisioned.qcow2" ]; then
+            run_tests_on openbsd || rc=1
+        else
+            echo "OpenBSD not set up (not yet implemented)."
+        fi
+        exit $rc
+        ;;
+    interactive)
+        do_interactive
+        ;;
+esac
