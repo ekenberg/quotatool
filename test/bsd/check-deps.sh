@@ -39,6 +39,9 @@ PASS=0
 FAIL=0
 WARN=0
 
+# Collect missing packages for aggregate install command
+MISSING_PKGS=""
+
 # Colors (disabled if not a terminal)
 if [ -t 1 ]; then
     GREEN='\033[0;32m'
@@ -108,11 +111,31 @@ _check_cmd() {
     else
         if [ "$required" -eq 1 ]; then
             _fail "$name" "$(_hint "$deb_pkg" "$rpm_pkg" "$arch_pkg")"
+            _collect_pkg "$deb_pkg" "$rpm_pkg" "$arch_pkg"
         else
             _warn "$name" "not found — $(_hint "$deb_pkg" "$rpm_pkg" "$arch_pkg")"
         fi
         return 1
     fi
+}
+
+# Track missing package for aggregate install command
+_collect_pkg() {
+    local deb_pkg="$1"
+    local rpm_pkg="${2:-$deb_pkg}"
+    local arch_pkg="${3:-$deb_pkg}"
+    local pkg
+    case "$DISTRO" in
+        deb)  pkg="$deb_pkg" ;;
+        rpm)  pkg="$rpm_pkg" ;;
+        arch) pkg="$arch_pkg" ;;
+        *)    pkg="$deb_pkg" ;;
+    esac
+    # Avoid duplicates
+    case " $MISSING_PKGS " in
+        *" $pkg "*) ;;
+        *) MISSING_PKGS="$MISSING_PKGS $pkg" ;;
+    esac
 }
 
 # ---------------------------------------------------------------------------
@@ -189,6 +212,17 @@ else
         printf ", ${YELLOW}${WARN} warnings${NC}"
     fi
     echo ""
-    echo "Install missing tools before running BSD tests. See test/bsd/DEPENDENCIES.md"
+    echo ""
+    # Show single install command for all missing packages
+    if [ -n "$MISSING_PKGS" ]; then
+        MISSING_PKGS="${MISSING_PKGS# }"  # trim leading space
+        case "$DISTRO" in
+            deb)  printf "  ${BOLD}sudo apt install %s${NC}\n" "$MISSING_PKGS" ;;
+            rpm)  printf "  ${BOLD}sudo dnf install %s${NC}\n" "$MISSING_PKGS" ;;
+            arch) printf "  ${BOLD}sudo pacman -S %s${NC}\n" "$MISSING_PKGS" ;;
+            *)    printf "  ${BOLD}Install: %s${NC}\n" "$MISSING_PKGS" ;;
+        esac
+        echo ""
+    fi
     exit 1
 fi
