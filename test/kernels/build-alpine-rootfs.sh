@@ -192,9 +192,12 @@ build_static_quotatool() {
         return 1
     fi
 
-    cp -r /usr/include/linux "$kinclude/linux"
-    cp -r /usr/include/asm-generic "$kinclude/asm-generic"
-    cp -r "$asm_dir" "$kinclude/asm"
+    # Use -rL to follow symlinks (Debian/Ubuntu /usr/include/asm is
+    # a relative symlink to x86_64-linux-gnu/asm which breaks when
+    # copied to a tmpdir).
+    cp -rL /usr/include/linux "$kinclude/linux"
+    cp -rL /usr/include/asm-generic "$kinclude/asm-generic"
+    cp -rL "$asm_dir" "$kinclude/asm"
 
     # Ensure config.h exists (from normal ./configure)
     if [[ ! -f "$PROJECT_DIR/config.h" ]]; then
