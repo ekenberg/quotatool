@@ -94,12 +94,15 @@ int main (int argc, char **argv) {
 	    BLOCKS_TO_KB(quota->block_soft),
 	    BLOCKS_TO_KB(quota->block_hard),
 #if ANY_BSD || PLATFORM_DARWIN
+	    /* Check both: user is over limit AND timer hasn't expired.
+	     * Without the > now check, expired timers wrap to huge
+	     * unsigned values (bug #36). */
 	    (unsigned long)
 	    ((
 	       (quota->block_soft && (BYTES_TO_BLOCKS(quota->diskspace_used) >= quota->block_soft))
 	    ||
 	       (quota->block_hard && (BYTES_TO_BLOCKS(quota->diskspace_used) >= quota->block_hard))
-            ) ? quota->block_time - now : 0),
+            ) && quota->block_time > now ? quota->block_time - now : 0),
 #else
 	    (unsigned long)(quota->block_time > now ? quota->block_time - now : 0),
 #endif /* ANY_BSD */
@@ -112,10 +115,7 @@ int main (int argc, char **argv) {
 	      (quota->inode_soft && (quota->inode_used >= quota->inode_soft))
 	    ||
 	      (quota->inode_hard && (quota->inode_used >= quota->inode_hard))
-            ) ? quota->inode_time - now : 0));
-
-#else
-	    (unsigned long)(quota->inode_time > now ? quota->inode_time - now : 0));
+            ) && quota->inode_time > now ? quota->inode_time - now : 0));
 #endif /* ANY_BSD */
      exit(0);
   }
