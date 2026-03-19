@@ -25,9 +25,7 @@ declare -A _FS_REGISTRY
 _FS_OS=""
 
 fs_detect_os() {
-    if [ -n "$_FS_OS" ]; then
-        return 0
-    fi
+    # Always detect — don't cache, because --all runs multiple VMs
     local uname
     uname=$(vm_run "uname -s")
     case "$uname" in

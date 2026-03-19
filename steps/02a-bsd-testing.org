@@ -1,7 +1,7 @@
 #+TITLE: M2a: BSD Test Coverage — Step Plan
 #+DATE: 2026-03-18
 
-*Status: DONE + follow-up. Tasks 1-15 complete. BSD bug fixes in progress (tasks 16-18).*
+*Status: DONE + follow-up. Tasks 1-16 complete. Cleanup tasks 17-18 remaining.*
 *Branch: =m2-1.8-development=*
 
 * Overview
@@ -426,7 +426,18 @@ Removed =sync= calls from test scripts.
 
 Commit: 4c4b26d
 
-** Grace period: =-t= may not set per-user grace on FreeBSD
+** RESOLVED: Grace period =-t= on BSD requires quota cycle
+
+=quotatool -t= now correctly writes grace to uid 0 via =Q_SETQUOTA=.
+But BSD kernels cache grace at =quotaon= time — a =quotaoff=/=quotaon=
+cycle is needed for the new value to take effect. This is identical
+to how =edquota -t= works. Confirmed on FreeBSD (vnd + root) and
+OpenBSD (vnd + /home). Not a bug — BSD UFS quota design.
+
+Previously, =quotatool -t= wrote to the target user's =dqb_btime=
+(ignored by kernel for non-root users). Now writes to uid 0.
+
+Original finding below for reference:
 
 =quotatool -u testuser -b -t "1hours"= does not change the
 grace period from the default 604800s (7 days). The command
@@ -549,7 +560,7 @@ Low risk: the file always exists when quotas are enabled.
 Fix known BSD issues while context is fresh, before moving to
 platform drops. Test infrastructure is running, code is audited.
 
-** TODO 16. Fix #37: =-t= Grace Period on BSD
+** DONE 16. Fix #37: =-t= Grace Period on BSD
 
 *File*: =src/bsd/quota.c=, =src/main.c=
 *Bug*: =-t= sets =dqb_btime= on the target user, but BSD kernels

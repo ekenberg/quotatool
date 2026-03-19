@@ -169,6 +169,39 @@ int quota_set (quota_t *myquota){
     return 0;
   }
 
+  /* Set global grace period via uid 0's dqb_btime/dqb_itime.
+   * On BSD, the kernel ignores dqb_btime/dqb_itime for non-root
+   * users in Q_SETQUOTA. The global default grace period is stored
+   * on uid 0. This matches what edquota -t does. */
+  if (myquota->_do_set_global_block_gracetime || myquota->_do_set_global_inode_gracetime) {
+    struct dqblk grace_dq;
+    memset(&grace_dq, 0, sizeof(grace_dq));
+
+    /* Read uid 0's current quota to preserve existing fields */
+    retval = quotactl(myquota->_qfile, QCMD(Q_GETQUOTA, myquota->_id_type),
+                      0, (caddr_t) &grace_dq);
+    if (retval < 0) {
+      output_error("Failed reading global grace period: %s", strerror(errno));
+      return 0;
+    }
+
+    if (myquota->_do_set_global_block_gracetime) {
+      output_debug(">> set global block gracetime = %d", (int) myquota->block_grace);
+      grace_dq.dqb_btime = myquota->block_grace;
+    }
+    if (myquota->_do_set_global_inode_gracetime) {
+      output_debug(">> set global inode gracetime = %d", (int) myquota->inode_grace);
+      grace_dq.dqb_itime = myquota->inode_grace;
+    }
+
+    retval = quotactl(myquota->_qfile, QCMD(Q_SETQUOTA, myquota->_id_type),
+                      0, (caddr_t) &grace_dq);
+    if (retval < 0) {
+      output_error("Failed setting global grace period: %s", strerror(errno));
+      return 0;
+    }
+  }
+
   /* Q_SYNC removed: Q_SETQUOTA already persists quota data via the
    * kernel's internal dqrele()/dqsync() path. An explicit Q_SYNC is
    * redundant — BSD edquota(8) doesn't use it either. On OpenBSD,
