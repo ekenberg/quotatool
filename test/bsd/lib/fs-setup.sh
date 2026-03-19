@@ -91,20 +91,23 @@ fs_create_ufs() {
                 # Create image file
                 dd if=/dev/zero of=$image_file bs=1M count=${size%M} 2>/dev/null
 
-                # Attach as vnode disk
+                # Attach as vnode disk and create disklabel with partition a
                 device=\$(vnconfig $image_file)
+                printf 'a a\n\n*\n\n4.2BSD\nw\nq\n' | disklabel -E \$device >/dev/null 2>&1
 
-                # Create FFS filesystem on whole-disk partition (c)
-                newfs /dev/r\${device}c >/dev/null
+                # Create FFS filesystem on partition a
+                newfs /dev/r\${device}a >/dev/null
 
-                # Add fstab entry (OpenBSD quota tools need it)
-                echo \"/dev/\${device}c $mntpoint ffs rw,userquota,groupquota 0 0\" >> /etc/fstab
+                # Add fstab entry using DUID (required for quotacheck on OpenBSD)
+                # passno must be > 0 for quotacheck to process the entry
+                duid=\$(disklabel \$device | grep '^duid:' | awk '{print \$2}')
+                echo \"\${duid}.a $mntpoint ffs rw,userquota,groupquota 1 2\" >> /etc/fstab
 
                 # Mount via fstab
                 mkdir -p $mntpoint
                 mount $mntpoint
 
-                # Create quota files and enable
+                # Initialize quota database and enable
                 touch ${mntpoint}/quota.user ${mntpoint}/quota.group
                 quotacheck -u -g $mntpoint
                 quotaon $mntpoint
