@@ -41,7 +41,7 @@ and low-effort.
 - *Test suite complete for Linux* — 25 kernels, 2 filesystems (ext4, XFS)
 - *25/25 pass* — verified on multiple hosts with different mkfs/kernel versions
 - *BSD test framework for FreeBSD complete* — 16 tests, 50 subtests, E2E validated
-- *OpenBSD setup complete* but quotatool hangs on quotactl() — under investigation
+- *BSD test framework complete* — FreeBSD 16/16, OpenBSD 16/16 (Q_SYNC hang found and fixed)
 - Several supported platforms are dead or broken
 - Missing support for newer kernel APIs (quotactl_fd, project quotas)
 - Packaged in Debian, Ubuntu, Fedora, EPEL, Gentoo, openSUSE, Homebrew

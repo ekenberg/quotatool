@@ -313,9 +313,10 @@ Key adaptations:
 
 /Dependencies/: 10
 
-** TODO 12. End-to-End OpenBSD Validation (on separate machine)
+** DONE 12. End-to-End Validation (on separate machine)
 
-Same as task 8 but for OpenBSD. Full pipeline from clone to results.
+Validated on Fedora 43 (separate machine, fresh clone):
+=test/bsd/run-tests --all= — FreeBSD 16/16, OpenBSD 16/16.
 
 /Dependencies/: 11
 
