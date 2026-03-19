@@ -69,7 +69,7 @@ while [ $# -gt 0 ]; do
         --freebsd)     MODE="freebsd" ;;
         --openbsd)     MODE="openbsd" ;;
         --all)         MODE="all" ;;
-        --interactive) MODE="interactive"; INTERACTIVE_OS="${2:-}"; shift ;;
+        --interactive) MODE="interactive"; INTERACTIVE_OS="${2:-}"; [ -n "$INTERACTIVE_OS" ] && shift ;;
         --verbose|-v)  VERBOSE=1 ;;
         --help|-h)     show_help; exit 0 ;;
         --ssh-port)    export VM_SSH_PORT="$2"; shift ;;
