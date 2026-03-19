@@ -38,11 +38,6 @@
 #  include "linux/linux_quota.h"
 #  define QUOTA_USER  USRQUOTA + 1
 #  define QUOTA_GROUP GRPQUOTA + 1
-#elif HAVE_JFS_QUOTA_H
-#  include <sys/types.h>
-#  include <jfs/quota.h>
-#  define QUOTA_USER  USRQUOTA + 1
-#  define QUOTA_GROUP GRPQUOTA + 1
 #elif HAVE_UFS_UFS_QUOTA_H /* FreeBSD || OpenBSD */
 #  include <sys/types.h>
 #  include <ufs/ufs/quota.h>

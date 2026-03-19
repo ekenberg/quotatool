@@ -26,19 +26,16 @@
 #elif HAVE_FSTAB_H /* *BSD && ! GNU/kFreeBSD */
 #  include <fstab.h>
 #  define MOUNTFILE _PATH_FSTAB
-#elif HAVE_SYS_MNTCTL_H /* AIX :( */
-#  include <sys/mntctl.h>
 #endif
 
-#if HAVE_SYS_MNTCTL_H || HAVE_FSTAB_H /* AIX || *BSD */
+#if HAVE_FSTAB_H /* *BSD */
 struct mntent {
   char *mnt_fsname;
   char *mnt_dir;
   char *mnt_special;
   char *mnt_mountp;
-  int  vmt_flags;
 };
-#endif /* AIX || *BSD */
+#endif /* *BSD */
 
 #include <sys/types.h>
 
@@ -58,11 +55,7 @@ fs_t *system_getfs (char *fs_spec) {
   FILE *etc_mtab;
   fs_t *ent;
   int done;
-#if HAVE_SYS_MNTCTL_H /* AIX :( */
-  char *vmnt_buffer;
-  struct vmount   *vmnt;
-  int vmnt_retval, vmnt_size, vmnt_nent;
-#elif HAVE_FSTAB_H /* *BSD */
+#if HAVE_FSTAB_H /* *BSD */
   struct fstab *entry;
 #endif
 
@@ -73,22 +66,7 @@ fs_t *system_getfs (char *fs_spec) {
   }
 
 
-#if HAVE_SYS_MNTCTL_H /* AIX, we are again in trouble. */
-  /* first mntctl call is only for getting the size of
-   * vmnt array. is there a better way? */
-  vmnt_retval = mntctl (MCTL_QUERY, sizeof(int), (char*)&vmnt_size);
-  if (vmnt_retval != -1) {
-    vmnt_buffer = (char*) malloc(vmnt_size);
-    vmnt_retval = mntctl (MCTL_QUERY, vmnt_size, vmnt_buffer);
-  }
-  if ( vmnt_retval == -1 ) {
-    output_error ("Failed getting vmnt info: %s", strerror(errno));
-    return NULL;
-  }
-  vmnt_nent = vmnt_retval; /* number of entries */
-  vmnt = (struct vmount*) vmnt_buffer;
-  current_fs = (struct mntent*) malloc(sizeof(struct mntent));
-#elif HAVE_FSTAB_H /* *BSD */
+#if HAVE_FSTAB_H /* *BSD */
   if (! setfsent()) {
     output_error("Failed opening fstab: %s", strerror(errno));
     return NULL;
@@ -119,14 +97,6 @@ fs_t *system_getfs (char *fs_spec) {
 #if HAVE_MNTENT_H
     current_fs=getmntent(etc_mtab);
     if ( ! current_fs ) {
-#elif HAVE_SYS_MNTCTL_H /* AIX, we are again in trouble. */
-   current_fs->mnt_special =
-	(char*)vmnt + (vmnt->vmt_data[VMT_OBJECT].vmt_off);
-   current_fs->mnt_mountp =
-	(char*)vmnt + (vmnt->vmt_data[VMT_STUB].vmt_off);
-   current_fs->vmt_flags = vmnt->vmt_flags;
-   vmnt = (struct vmount*) ((char*)vmnt + vmnt->vmt_length);
-   if ( --vmnt_nent < 0 ) {
 #elif HAVE_FSTAB_H /* *BSD */
    if ( ((entry = getfsfile(fs_spec)) != NULL)
 	||
@@ -201,13 +171,7 @@ fs_t *system_getfs (char *fs_spec) {
 
 
   /* can we write to the device? */
-#if HAVE_SYS_MNTCTL_H
-  if( ! (current_fs->vmt_flags && MNT_READONLY) ) {
-    printf("0x%x\n", current_fs->vmt_flags);
-    output_error ("Filesystem %s is mounted read-only\n", fs_spec);
-    free(current_fs);
-    free(vmnt_buffer);
-#elif HAVE_FSTAB_H /* *BSD */
+#if HAVE_FSTAB_H /* *BSD */
     // BSD: fs_type can be 'ro', 'rw', 'sw' (swap) or 'xx' (ignore) - we want 'rw'
   if (! strstr(entry->fs_type, "rw")) {
     output_error ("Filesystem %s is mounted read-only\n", fs_spec);
@@ -225,10 +189,7 @@ fs_t *system_getfs (char *fs_spec) {
 
   /* we're good -- cleanup and return */
   output_info ("filesystem %s has device node %s", fs_spec, ent->device);
-#if HAVE_SYS_MNTCTL_H
-  free(current_fs);
-  free(vmnt_buffer);
-#elif HAVE_FSTAB_H /* *BSD */
+#if HAVE_FSTAB_H /* *BSD */
   if (current_fs->mnt_special) free(current_fs->mnt_special);
   if (current_fs->mnt_mountp)  free(current_fs->mnt_mountp);
   free(current_fs);
