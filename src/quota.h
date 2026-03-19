@@ -22,9 +22,6 @@
 #  else
 #    include <linux/fs.h>
 #  endif
-#elif HAVE_STD_H
-#  include <std.h>
-#  define BLOCK_SIZE MULBSIZE
 #elif HAVE_UFS_UFS_QUOTA_H
 #  define BLOCK_SIZE 512
 #else

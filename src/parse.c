@@ -329,9 +329,7 @@ argdata_t *parse_commandline (int argc, char **argv)
 #define _PARSE_OP_SUB '-'
 
 
-/* On aix MIN definition conflicts with MIN definition at
- * <include/sys/param.h>
- */
+/* MIN may be defined by system headers (e.g. sys/param.h on BSD) */
 #undef MIN
 
 #define SEC   1

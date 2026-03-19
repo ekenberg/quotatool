@@ -2620,30 +2620,12 @@ case $host in
 printf "%s\n" "#define PLATFORM_LINUX 1" >>confdefs.h
 
 	;;
-  *solaris*)
-	PLATFORM=solaris
-
-printf "%s\n" "#define PLATFORM_SOLARIS 1" >>confdefs.h
-
-	;;
-  *aix*)
-	PLATFORM=aix
-
-printf "%s\n" "#define PLATFORM_AIX 1" >>confdefs.h
-
-	;;
-  *freebsd*|*openbsd*|*netbsd*)
+  *freebsd*|*openbsd*)
 	PLATFORM=bsd
 
 printf "%s\n" "#define PLATFORM_BSD 1" >>confdefs.h
 
 	;;
-  *apple-darwin*)
-        PLATFORM=darwin
-
-printf "%s\n" "#define PLATFORM_DARWIN 1" >>confdefs.h
-
-        ;;
   *)
 	PLATFORM=unknown
 
@@ -3801,7 +3783,7 @@ fi
 done
 
 
-       for ac_header in mntent.h sys/mnttab.h sys/mntctl.h fstab.h
+       for ac_header in mntent.h fstab.h
 do :
   as_ac_Header=`printf "%s\n" "ac_cv_header_$ac_header" | $as_tr_sh`
 ac_fn_c_check_header_compile "$LINENO" "$ac_header" "$as_ac_Header" "$ac_includes_default"
@@ -3832,46 +3814,26 @@ done
 test $FOUND_TYPES || as_fn_error $? "Can't find system types" "$LINENO" 5
 
 if test "$PLATFORM" != "linux"; then
-  if test "$PLATFORM" == "darwin"; then
-           for ac_header in sys/quota.h
+         for ac_header in ufs/ufs/quota.h
 do :
-  ac_fn_c_check_header_compile "$LINENO" "sys/quota.h" "ac_cv_header_sys_quota_h" "$ac_includes_default"
-if test "x$ac_cv_header_sys_quota_h" = xyes
+  ac_fn_c_check_header_compile "$LINENO" "ufs/ufs/quota.h" "ac_cv_header_ufs_ufs_quota_h" "$ac_includes_default"
+if test "x$ac_cv_header_ufs_ufs_quota_h" = xyes
 then :
-  printf "%s\n" "#define HAVE_SYS_QUOTA_H 1" >>confdefs.h
+  printf "%s\n" "#define HAVE_UFS_UFS_QUOTA_H 1" >>confdefs.h
  FOUND_QUOTA=1;break
 fi
 
 done
-    test $FOUND_QUOTA || as_fn_error $? "Can't find quota defs" "$LINENO" 5
-  else
-           for ac_header in sys/fs/ufs_quota.h jfs/quota.h ufs/ufs/quota1.h ufs/ufs/quota.h
-do :
-  as_ac_Header=`printf "%s\n" "ac_cv_header_$ac_header" | $as_tr_sh`
-ac_fn_c_check_header_compile "$LINENO" "$ac_header" "$as_ac_Header" "$ac_includes_default"
-if eval test \"x\$"$as_ac_Header"\" = x"yes"
-then :
-  cat >>confdefs.h <<_ACEOF
-#define `printf "%s\n" "HAVE_$ac_header" | $as_tr_cpp` 1
-_ACEOF
- FOUND_QUOTA=1;break
-fi
-
-done
-    test $FOUND_QUOTA || as_fn_error $? "Can't find quota defs" "$LINENO" 5
-  fi
+  test $FOUND_QUOTA || as_fn_error $? "Can't find quota defs" "$LINENO" 5
 fi
 
 
-       for ac_header in std.h linux/fs.h
+       for ac_header in linux/fs.h
 do :
-  as_ac_Header=`printf "%s\n" "ac_cv_header_$ac_header" | $as_tr_sh`
-ac_fn_c_check_header_compile "$LINENO" "$ac_header" "$as_ac_Header" "$ac_includes_default"
-if eval test \"x\$"$as_ac_Header"\" = x"yes"
+  ac_fn_c_check_header_compile "$LINENO" "linux/fs.h" "ac_cv_header_linux_fs_h" "$ac_includes_default"
+if test "x$ac_cv_header_linux_fs_h" = xyes
 then :
-  cat >>confdefs.h <<_ACEOF
-#define `printf "%s\n" "HAVE_$ac_header" | $as_tr_cpp` 1
-_ACEOF
+  printf "%s\n" "#define HAVE_LINUX_FS_H 1" >>confdefs.h
  FOUND_BSIZE=1
 fi
 

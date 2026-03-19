@@ -41,22 +41,10 @@ case [$host] in
 	PLATFORM=linux
 	AC_DEFINE(PLATFORM_LINUX, 1, [Is this a Linux platform?])
 	;;
-  *solaris*)
-	PLATFORM=solaris
-	AC_DEFINE(PLATFORM_SOLARIS, 1, [Is this a Solaris platform?])
-	;;
-  *aix*)
-	PLATFORM=aix
-	AC_DEFINE(PLATFORM_AIX, 1, [Is this an AIX platform?])
-	;;
-  *freebsd*|*openbsd*|*netbsd*)
+  *freebsd*|*openbsd*)
 	PLATFORM=bsd
 	AC_DEFINE(PLATFORM_BSD, 1, [Is this a *BSD platform?])
 	;;
-  *apple-darwin*)
-        PLATFORM=darwin
-        AC_DEFINE(PLATFORM_DARWIN, 1, [Is this an OSX platform?])
-        ;;
   *)
 	PLATFORM=unknown
 	AC_DEFINE(PLATFORM_UNKNOWN, 1, [Is this an unknown platform?])
@@ -77,7 +65,7 @@ AC_CHECK_HEADERS(unistd.h fcntl.h limits.h, ,\
 
 dnl Check for pick-one header files (required)
 
-AC_CHECK_HEADERS(mntent.h sys/mnttab.h sys/mntctl.h fstab.h, FOUND_MNT=1;break)
+AC_CHECK_HEADERS(mntent.h fstab.h, FOUND_MNT=1;break)
 test [$FOUND_MNT] || AC_MSG_ERROR([Can't find getmntent() or getfsent()])
 
 AC_CHECK_HEADERS(linux/types.h sys/types.h, FOUND_TYPES=1;break)
@@ -85,18 +73,13 @@ test [$FOUND_TYPES] || AC_MSG_ERROR([Can't find system types])
 
 dnl Check for quota header files except for linux (we ship our own)
 if test "$PLATFORM" != "linux"; then
-  if test "$PLATFORM" == "darwin"; then
-    AC_CHECK_HEADERS(sys/quota.h, FOUND_QUOTA=1;break)
-    test [$FOUND_QUOTA] || AC_MSG_ERROR([Can't find quota defs])
-  else
-    AC_CHECK_HEADERS(sys/fs/ufs_quota.h jfs/quota.h ufs/ufs/quota1.h ufs/ufs/quota.h, FOUND_QUOTA=1;break)
-    test [$FOUND_QUOTA] || AC_MSG_ERROR([Can't find quota defs])
-  fi
+  AC_CHECK_HEADERS(ufs/ufs/quota.h, FOUND_QUOTA=1;break)
+  test [$FOUND_QUOTA] || AC_MSG_ERROR([Can't find quota defs])
 fi
 
 dnl Check for pick-one header files (optional)
 
-AC_CHECK_HEADERS(std.h linux/fs.h, FOUND_BSIZE=1)
+AC_CHECK_HEADERS(linux/fs.h, FOUND_BSIZE=1)
 test [$FOUND_BSIZE] || AC_MSG_WARN([Using hard-coded default BLOCK_SIZE])
 
 AC_CHECK_HEADERS(inttypes.h)
