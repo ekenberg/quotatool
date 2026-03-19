@@ -42,8 +42,8 @@ Prerequisites:
   - Run 'test/bsd/check-deps.sh' to verify
 
 Setup (first time):
-  test/bsd/run-tests --setup      # downloads ~660MB FreeBSD image
-  test/bsd/run-tests --freebsd    # run tests (~30s)
+  test/bsd/run-tests --setup      # downloads images, provisions VMs
+  test/bsd/run-tests --all        # run tests on all BSDs
 
 What it does:
   1. Boots BSD VM from provisioned snapshot (~12s)
