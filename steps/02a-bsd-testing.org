@@ -1,7 +1,7 @@
 #+TITLE: M2a: BSD Test Coverage — Step Plan
 #+DATE: 2026-03-18
 
-*Status: DONE. All 15 tasks complete. FreeBSD 17/17, OpenBSD 17/17 (54 subtests each).*
+*Status: DONE + follow-up. Tasks 1-15 complete. BSD bug fixes in progress (tasks 16-18).*
 *Branch: =m2-1.8-development=*
 
 * Overview
@@ -543,3 +543,58 @@ Both FreeBSD and OpenBSD kernels use =namei()= to resolve it to a
 mount point, so it works IF the quota file exists. System tools
 (=edquota=) pass the mount point directly — more robust.
 Low risk: the file always exists when quotas are enabled.
+
+* BSD Bug Fixes (added post-audit, before M2b/M2c)
+
+Fix known BSD issues while context is fresh, before moving to
+platform drops. Test infrastructure is running, code is audited.
+
+** TODO 16. Fix #37: =-t= Grace Period on BSD
+
+*File*: =src/bsd/quota.c=, =src/main.c=
+*Bug*: =-t= sets =dqb_btime= on the target user, but BSD kernels
+ignore =dqb_btime= for non-root users. The global grace period
+is stored on uid 0's =dqb_btime=.
+
+*Fix*: when =-t= is used, call =Q_SETQUOTA= on uid 0 with the
+desired grace duration in =dqb_btime=, not on the target user.
+This matches what =edquota -t= does.
+
+*Also investigate*: can =-r= (grace reset) use direct
+=dqb_btime=0= on uid 0 instead of the raise/restore hack?
+
+/Subtasks/:
+- [ ] Write test that verifies =-t= actually changes grace period
+- [ ] Verify test fails (current behavior: grace stays at 604800s)
+- [ ] Fix =-t= to target uid 0 on BSD
+- [ ] Verify test passes
+- [ ] Verify no regressions (=run-tests --all=)
+- [ ] Close #37
+
+/Dependencies/: 15
+
+** TODO 17. Clean Up Dead Code in =quota_set()=
+
+*File*: =src/bsd/quota.c=
+
+Remove =dqb_curblocks= and =dqb_curinodes= assignments in
+=quota_set()= — the BSD kernel explicitly ignores these fields
+in =Q_SETQUOTA= (overwrites with existing values). Setting them
+is misleading dead code.
+
+/Dependencies/: 16
+
+** TODO 18. Use Mount Point for quotactl Path Argument
+
+*File*: =src/bsd/quota.c=
+
+Change =_qfile= from ={mountpoint}/quota.user= to just
+={mountpoint}=. The kernel uses =namei()= to find the mount
+point from any path on the filesystem. Using the mount point
+directly (like =edquota= does) is more robust — doesn't depend
+on the quota file existing.
+
+This also simplifies =quota_new()= — no need to construct and
+manage the quota file path string.
+
+/Dependencies/: 17

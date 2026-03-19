@@ -40,14 +40,14 @@ and low-effort.
 - Supports Linux, FreeBSD, OpenBSD, NetBSD, macOS, Solaris, AIX
 - *Test suite complete for Linux* — 25 kernels, 2 filesystems (ext4, XFS)
 - *25/25 pass* — verified on multiple hosts with different mkfs/kernel versions
-- *BSD test framework for FreeBSD complete* — 16 tests, 50 subtests, E2E validated
-- *BSD test framework complete* — FreeBSD 16/16, OpenBSD 16/16 (Q_SYNC hang found and fixed)
+- *M2a DONE*: BSD test framework — FreeBSD 17/17, OpenBSD 17/17 (54 subtests)
+- Bugs fixed: Q_SYNC hang, #36 expired grace display, 5 audit bugs in bsd/quota.c
 - Several supported platforms are dead or broken
 - Missing support for newer kernel APIs (quotactl_fd, project quotas)
 - Packaged in Debian, Ubuntu, Fedora, EPEL, Gentoo, openSUSE, Homebrew
 - *v1.7.0 released* (March 2026): bug fixes + test framework
 - *v1.7.1 released*: macOS install fix (#30)
-- In progress: M2 (BSD testing + platform drops → v1.8.0)
+- In progress: M2 — BSD bug fixes (#37), then platform drops → v1.8.0
 
 * Strategy
 
@@ -147,7 +147,7 @@ This is the first milestone that touches =src/=.
 -----
 
 ** DOING M2: Platform Testing & Cleanup [step-plan: steps/02a-bsd-testing.org]
-/Status: M2a in progress — FreeBSD testing complete (16/16), OpenBSD blocked on quotactl hang/
+/Status: M2a DONE. BSD bug fixes in progress, then M2b/M2c./
 
 *** M2a: BSD Test Coverage (scaffolding)
 
