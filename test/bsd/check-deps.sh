@@ -182,6 +182,12 @@ _check_cmd "curl" "curl" \
 _check_cmd "xz" "xz" \
     "xz-utils" "xz" "xz"
 
+_check_cmd "python3" "python3" \
+    "python3" "python3" "python"
+
+_check_cmd "mformat (mtools)" "mformat" \
+    "mtools" "mtools" "mtools"
+
 echo ""
 
 # --- SSH ---
