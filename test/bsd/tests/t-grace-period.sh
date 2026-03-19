@@ -24,7 +24,7 @@ $QUOTATOOL -u $TEST_USER_NAME -b -t "1hours" $MOUNTPOINT
 
 # Exceed soft limit
 su -m $TEST_USER_NAME -c "dd if=/dev/zero of=$TESTDIR/file1 bs=1024 count=100 2>/dev/null"
-sync
+
 dump=$($QUOTATOOL -u $TEST_USER_NAME -d $MOUNTPOINT)
 parse_dump "$dump"
 

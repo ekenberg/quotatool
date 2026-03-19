@@ -152,13 +152,12 @@ int quota_set (quota_t *myquota){
     return 0;
   }
 
-  retval = quotactl (myquota->_qfile, QCMD(Q_SYNC, myquota->_id_type),
-                       0, NULL);
-  if ( retval < 0 ) {
-    output_error ("Failed syncing quotas on %s: %s", myquota->_qfile,
-                 strerror (errno));
-    return 0;
-  }
+  /* Q_SYNC removed: Q_SETQUOTA already persists quota data via the
+   * kernel's internal dqrele()/dqsync() path. An explicit Q_SYNC is
+   * redundant — BSD edquota(8) doesn't use it either. On OpenBSD,
+   * Q_SYNC hangs indefinitely on vnd-backed FFS due to dquot lock
+   * contention or buffer cache stalls (softdep disabled since 2023).
+   */
 
   return 1;
 }

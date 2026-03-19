@@ -25,7 +25,7 @@ test_start "inode grace starts after exceeding soft limit"
 for i in $(seq 1 10); do
     su -m $TEST_USER_NAME -c "touch $TESTDIR/f$i"
 done
-sync
+
 dump=$($QUOTATOOL -u $TEST_USER_NAME -d $MOUNTPOINT)
 parse_dump "$dump"
 if [ "$DUMP_IGRACE" -gt 0 ]; then
@@ -38,7 +38,7 @@ fi
 test_start "inode grace clears when back under soft limit"
 # Remove files to get clearly UNDER soft limit (soft=5, keep 2)
 rm -f "$TESTDIR"/f[3-9] "$TESTDIR"/f10
-sync
+
 dump=$($QUOTATOOL -u $TEST_USER_NAME -d $MOUNTPOINT)
 parse_dump "$dump"
 if assert_zero "$DUMP_IGRACE" "inode_grace"; then
