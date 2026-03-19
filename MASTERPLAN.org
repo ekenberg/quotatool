@@ -34,18 +34,20 @@ well-tested Linux (+BSD) utility with modern kernel API support.
 Establish automated testing that makes ongoing maintenance confident
 and low-effort.
 
-* Current State (2026-03-18)
+* Current State (2026-03-19)
 
 - Working tool, ~5,500 LOC of clean C, no dependencies
 - Supports Linux, FreeBSD, OpenBSD, NetBSD, macOS, Solaris, AIX
 - *Test suite complete for Linux* — 25 kernels, 2 filesystems (ext4, XFS)
 - *25/25 pass* — verified on multiple hosts with different mkfs/kernel versions
+- *BSD test framework for FreeBSD complete* — 16 tests, 50 subtests, E2E validated
+- *OpenBSD setup complete* but quotatool hangs on quotactl() — under investigation
 - Several supported platforms are dead or broken
 - Missing support for newer kernel APIs (quotactl_fd, project quotas)
 - Packaged in Debian, Ubuntu, Fedora, EPEL, Gentoo, openSUSE, Homebrew
 - *v1.7.0 released* (March 2026): bug fixes + test framework
 - *v1.7.1 released*: macOS install fix (#30)
-- Next: M2 (BSD testing + platform drops → v1.8.0)
+- In progress: M2 (BSD testing + platform drops → v1.8.0)
 
 * Strategy
 
@@ -144,8 +146,8 @@ This is the first milestone that touches =src/=.
 
 -----
 
-** TODO M2: Platform Testing & Cleanup [step-plan: steps/02-platforms.org]
-/Status: NOT STARTED/
+** DOING M2: Platform Testing & Cleanup [step-plan: steps/02a-bsd-testing.org]
+/Status: M2a in progress — FreeBSD testing complete (16/16), OpenBSD blocked on quotactl hang/
 
 *** M2a: BSD Test Coverage (scaffolding)
 

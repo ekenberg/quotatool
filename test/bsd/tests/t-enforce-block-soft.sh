@@ -24,6 +24,7 @@ fi
 test_start "grace timer starts after exceeding soft limit"
 # Write 200K (exceeds 100K soft limit, under 500K hard)
 su -m $TEST_USER_NAME -c "dd if=/dev/zero of=$TESTDIR/file1 bs=1024 count=200 2>/dev/null"
+sync
 dump=$($QUOTATOOL -u $TEST_USER_NAME -d $MOUNTPOINT)
 parse_dump "$dump"
 if [ "$DUMP_BGRACE" -gt 0 ]; then
@@ -35,7 +36,7 @@ fi
 # --- Test 3: Grace timer clears when back under soft limit ---
 test_start "grace timer clears when back under soft limit"
 rm -f "$TESTDIR/file1"
-# Verify usage dropped
+sync
 dump=$($QUOTATOOL -u $TEST_USER_NAME -d $MOUNTPOINT)
 parse_dump "$dump"
 if assert_zero "$DUMP_BGRACE" "block_grace"; then

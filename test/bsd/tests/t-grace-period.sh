@@ -6,11 +6,11 @@ source "$(dirname "$0")/../lib/common.sh"
 # --- Test 1: Set block grace period ---
 test_start "set block grace period"
 # Set grace to 3600 seconds (1 hour)
-$QUOTATOOL -u $TEST_USER_NAME -b -t "1hours" $MOUNTPOINT
-# Grace period is a global setting, not per-user on BSD
-# We verify via quotatool -d after triggering grace
-# For now, just verify the command succeeds
-test_pass
+# Note: on FreeBSD, -t may not actually change the grace period
+# (see Findings in step-plan). We verify the command at least succeeds.
+if assert_success $QUOTATOOL -u $TEST_USER_NAME -b -t "1hours" $MOUNTPOINT; then
+    test_pass
+fi
 
 # --- Test 2: Grace timer value after exceeding soft limit ---
 test_start "grace timer reflects configured period"
@@ -24,7 +24,7 @@ $QUOTATOOL -u $TEST_USER_NAME -b -t "1hours" $MOUNTPOINT
 
 # Exceed soft limit
 su -m $TEST_USER_NAME -c "dd if=/dev/zero of=$TESTDIR/file1 bs=1024 count=100 2>/dev/null"
-
+sync
 dump=$($QUOTATOOL -u $TEST_USER_NAME -d $MOUNTPOINT)
 parse_dump "$dump"
 

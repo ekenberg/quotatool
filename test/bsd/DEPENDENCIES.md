@@ -13,6 +13,8 @@ Most are likely already installed from the Linux test framework setup.
 | `ssh` / `scp` | File transfer & command execution in VM | `openssh-client` | `openssh-clients` | `openssh` |
 | `curl` | Download BSD images | `curl` | `curl` | `curl` |
 | `xz` | Decompress .qcow2.xz images | `xz-utils` | `xz` | `xz` |
+| `python3` | OpenBSD setup automation (QEMU monitor control) | `python3` | `python3` | `python` |
+| `mtools` | Create FAT floppy images (OpenBSD setup, optional) | `mtools` | `mtools` | `mtools` |
 | `/dev/kvm` | Hardware acceleration (without this, VMs are painfully slow) | — | — | — |
 
 ## Quick Install

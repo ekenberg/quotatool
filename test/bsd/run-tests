@@ -59,7 +59,8 @@ HELP
 # ---------------------------------------------------------------------------
 
 MODE=""
-export VM_SSH_PORT="${VM_SSH_PORT:-2222}"
+# VM_SSH_PORT defaults per-OS in vm.sh: FreeBSD=2222, OpenBSD=2223
+# Only export if user explicitly set it (e.g. --ssh-port)
 export VM_MEMORY="${VM_MEMORY:-2048}"
 
 while [ $# -gt 0 ]; do
@@ -70,7 +71,7 @@ while [ $# -gt 0 ]; do
         --all)         MODE="all" ;;
         --interactive) MODE="interactive" ;;
         --help|-h)     show_help; exit 0 ;;
-        --ssh-port)    VM_SSH_PORT="$2"; shift ;;
+        --ssh-port)    export VM_SSH_PORT="$2"; shift ;;
         --memory)      VM_MEMORY="$2"; shift ;;
         *)
             echo "Unknown option: $1" >&2
@@ -227,7 +228,7 @@ do_interactive() {
     # Create quota filesystem
     fs_create_ufs /mnt/quota-test 256M
 
-    local ssh_key="$_VM_IMAGES_DIR/test-key"
+    local ssh_key="$SCRIPT_DIR/images/test-key"
 
     echo ""
     echo "========================================"

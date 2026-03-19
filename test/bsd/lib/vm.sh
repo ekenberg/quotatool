@@ -86,6 +86,9 @@ vm_start() {
         return 1
     fi
 
+    # Register cleanup trap early — before creating resources that need cleanup
+    trap vm_cleanup EXIT
+
     # Create CoW overlay
     _VM_WORK_IMAGE="$_VM_IMAGES_DIR/${os}-test-$$.qcow2"
     qemu-img create -f qcow2 -b "$base_image" -F qcow2 "$_VM_WORK_IMAGE" >/dev/null
@@ -105,9 +108,6 @@ vm_start() {
 
     _VM_PID=$(cat "$_VM_PID_FILE")
     _vm_log "QEMU PID: $_VM_PID"
-
-    # Register cleanup trap
-    trap vm_cleanup EXIT
 }
 
 # ---------------------------------------------------------------------------

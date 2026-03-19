@@ -146,9 +146,8 @@ fs_teardown() {
                 mdconfig -d -u ${device#md} 2>/dev/null || true
                 rm -f $image_file
                 rmdir $mntpoint 2>/dev/null || true
-                # Remove temporary fstab entry
-                sed -i '' '\\|$image_file|d' /etc/fstab 2>/dev/null || true
-                sed -i '' '\\|$mntpoint|d' /etc/fstab 2>/dev/null || true
+                # Remove temporary fstab entry (use | as sed delimiter to avoid path escaping)
+                sed -i '' '\\|${mntpoint}|d' /etc/fstab 2>/dev/null || true
             " 2>/dev/null || true
             ;;
         openbsd)
@@ -158,9 +157,8 @@ fs_teardown() {
                 vnconfig -u $device 2>/dev/null || true
                 rm -f $image_file
                 rmdir $mntpoint 2>/dev/null || true
-                # Remove temporary fstab entry
-                sed -i '/$image_file/d' /etc/fstab 2>/dev/null || true
-                sed -i '/$(echo $mntpoint | sed 's/\//\\\//g')/d' /etc/fstab 2>/dev/null || true
+                # Remove temporary fstab entry (use | as sed delimiter to avoid path escaping)
+                sed -i '\\|${mntpoint}|d' /etc/fstab 2>/dev/null || true
             " 2>/dev/null || true
             ;;
     esac
