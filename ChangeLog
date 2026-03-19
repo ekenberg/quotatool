@@ -1,3 +1,21 @@
+19 Mar 2026 (1.8.0)
+	- Drop macOS, AIX, Solaris, NetBSD platform support
+	  See PLATFORM-CHANGES.md for rationale and references
+	  v1.7.x continues to support these platforms
+	- Add BSD test framework (FreeBSD 14.4, OpenBSD 7.8)
+	- Fix: Q_SYNC hangs on OpenBSD vnd-backed FFS (#35)
+	- Fix: BSD expired grace period displays as huge number (#36)
+	- Fix: BSD -t grace period writes to wrong uid (#37)
+	- Fix: 5 bugs in src/bsd/quota.c found by code audit
+	  (uninitialized struct, grace fields, memory leaks,
+	  pointer arithmetic, incorrect casts)
+	- Fix: memory leak in linux/quota.c quota_new()
+	- Fix: uninitialized _do_set_global_* flags (malloc → calloc)
+	- Use mount point directly for BSD quotactl (simpler, matches edquota)
+	- Remove dead code: dqb_curblocks/curinodes in BSD quota_set()
+	- Clean build system: remove dropped platform detection and headers
+	- Null-terminate strncpy buffers in system.c
+
 18 Mar 2026 (1.7.0)
 	- Fix: +0M clearing quota instead of no-op (#31)
 	- Fix: ambiguous "5m" timespan silently passed to quotactl (#32)
