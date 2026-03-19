@@ -45,11 +45,6 @@
 #  include <sys/quota.h>
 #  define QUOTA_USER  USRQUOTA + 1
 #  define QUOTA_GROUP GRPQUOTA + 1
-#elif HAVE_SYS_FS_UFS_QUOTA_H
-#  include <sys/types.h>
-#  include <sys/fs/ufs_quota.h>
-#  define QUOTA_USER 1
-#  define QUOTA_GROUP 2
 #elif HAVE_JFS_QUOTA_H
 #  include <sys/types.h>
 #  include <jfs/quota.h>

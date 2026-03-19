@@ -23,12 +23,6 @@
 #  define MOUNTFILE "/etc/mtab"
 #  define mnt_special mnt_fsname
 #  define mnt_mountp mnt_dir
-#elif HAVE_SYS_MNTTAB_H
-#  include <sys/mnttab.h>
-#  define MOUNTFILE "/etc/mnttab"
-#  define mntent mnttab
-#  define setmntent(file,mode) fopen((file),(mode))
-#  define endmntent(file)      fclose((file))
 #elif HAVE_FSTAB_H /* *BSD && ! GNU/kFreeBSD */
 #  include <fstab.h>
 #  define MOUNTFILE _PATH_FSTAB
@@ -122,11 +116,7 @@ fs_t *system_getfs (char *fs_spec) {
   do {
 
     /* read the next entry */
-#if HAVE_SYS_MNTTAB_H
-    int retval;
-    retval = getmntent(etc_mtab, current_fs);
-    if ( retval != 0 ) {
-#elif HAVE_MNTENT_H
+#if HAVE_MNTENT_H
     current_fs=getmntent(etc_mtab);
     if ( ! current_fs ) {
 #elif HAVE_SYS_MNTCTL_H /* AIX, we are again in trouble. */
@@ -149,7 +139,7 @@ fs_t *system_getfs (char *fs_spec) {
    else
    {
      free(current_fs);
-#endif /* HAVE_SYS_MNTTAB_H */
+#endif
       output_error ("Filesystem %s does not exist", fs_spec);
       return NULL;
     }
