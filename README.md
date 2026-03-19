@@ -162,93 +162,48 @@ Add an issue on https://github.com/ekenberg/quotatool/issues
 
 ## Testing
 
-quotatool includes a multi-kernel test suite that boots vendor kernels in
-QEMU/virtme-ng VMs and tests quota operations on both ext4 and XFS.
+quotatool has VM-based test suites for all supported platforms.
+Tests boot real kernels in QEMU/KVM and run quota operations.
+All tests run from a Linux host.
 
-The kernel matrix covers actively supported Linux distros (Ubuntu,
-Debian, RHEL/Alma/CentOS, Fedora, openSUSE) plus recently EOL and
-historical versions for regression coverage. Kernels are grouped
-into three tiers:
+**Prerequisites**: Linux host with KVM support (`/dev/kvm`).
 
-- **Tier 1**: Actively supported distros — must test before release
-- **Tier 2**: Recently EOL or significant niche — should test
-- **Tier 3**: Historical/EOL — nice to have, catches regressions
+    test/check-deps.sh                # show what's needed
+    test/bsd/check-deps.sh            # BSD-specific deps
 
-Run `test/run-tests --list` to see the current matrix.
+### Linux tests
 
-### Prerequisites
-
-Linux host with KVM support (`/dev/kvm` must exist and be accessible).
-If `/dev/kvm` exists but isn't accessible, add yourself to the kvm group:
-
-    sudo usermod -aG kvm $USER
-    # then log out and back in
-
-Check what's needed:
-
-    test/check-deps.sh
-
-This shows required and optional tools with distro-specific install
-hints. The essentials:
-
-A working Python 3 installation with pip is required for virtme-ng.
-
-**Debian/Ubuntu:**
-
-    sudo apt install qemu-system-x86 e2fsprogs xfsprogs quota \
-        util-linux cpio rpm2cpio curl kmod file zstd dpkg
-    pip install virtme-ng
-
-**Fedora/RHEL:**
-
-    sudo dnf install qemu-system-x86-core e2fsprogs xfsprogs quota \
-        util-linux cpio rpm2cpio curl kmod file zstd dpkg
-    pip install virtme-ng
-
-### Quick start
-
-From a fresh clone:
+25+ vendor kernels (Ubuntu, Debian, RHEL/Alma, Fedora, openSUSE),
+ext4 and XFS, three boot paths (virtme-ng, QEMU+9p, QEMU+Alpine).
 
     ./configure && make               # build quotatool
     test/run-tests --setup --smoke    # download kernels, smoke test
-
-`--setup` handles everything: downloads busybox, builds initramfs,
-downloads vendor kernels, builds rootfs for RHEL kernels.
-First run takes a while (mostly kernel downloads).
-
-`--smoke` runs one kernel per boot path (~30 seconds) to verify
-the infrastructure works.
-
-### Full test run
-
-    test/run-tests --all              # all kernels
+    test/run-tests --all              # full matrix
     test/run-tests --kernel debian-12 # single kernel
     test/run-tests --tier 1           # tier 1 only
-    test/run-tests --list             # show all kernels and status
+    test/run-tests --list             # show all kernels and tiers
     test/run-tests --help             # full list of options
 
+First run downloads vendor kernels (~minutes). Subsequent runs reuse them.
 Results are saved to `test/results/`.
 
-### BSD testing
+### BSD tests
 
-BSD tests run quotatool inside FreeBSD and OpenBSD VMs (QEMU/KVM).
-Separate from the Linux tests — different entry point, different
-infrastructure.
+FreeBSD 14.4 and OpenBSD 7.8 in full-OS VMs. Builds quotatool
+inside each VM, runs the same quota operations as the Linux tests.
 
-    test/bsd/check-deps.sh            # verify host tools
     test/bsd/run-tests --setup        # download images, provision VMs
-    test/bsd/run-tests --all          # run on FreeBSD + OpenBSD
+    test/bsd/run-tests --all          # FreeBSD + OpenBSD
     test/bsd/run-tests --freebsd      # FreeBSD only
     test/bsd/run-tests --openbsd      # OpenBSD only
-    test/bsd/run-tests --all -v       # verbose (show all subtests)
     test/bsd/run-tests --interactive freebsd  # SSH into VM with quotas
 
-First run downloads ~660MB (FreeBSD image) and installs OpenBSD
-from CD (~300MB). Subsequent runs use provisioned snapshots (~15s boot).
+First run downloads ~660MB (FreeBSD) and installs OpenBSD from
+CD (~300MB). Subsequent runs use provisioned snapshots (~15s boot).
 
 ### Troubleshooting
 
-If a test fails, run the failing kernel with `--verbose`:
+If a test fails, run it with `--verbose`:
 
     test/run-tests --kernel <name> --verbose
 
