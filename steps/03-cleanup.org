@@ -1,7 +1,8 @@
 #+TITLE: M3: Bug Fixes & Codebase Cleanup — Step Plan
 #+DATE: 2026-03-15
 
-*Branch: =m3-bugfixes= (off =m1-testing=)*
+*Status: DONE — released as v1.7.0*
+*Branch: =m3-bugfixes= (merged to =master=)*
 
 This is the first milestone that modifies =src/=. Every change runs
 on production servers — work carefully, self-review, human review

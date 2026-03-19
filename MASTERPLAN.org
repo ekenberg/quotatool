@@ -34,19 +34,18 @@ well-tested Linux (+BSD) utility with modern kernel API support.
 Establish automated testing that makes ongoing maintenance confident
 and low-effort.
 
-* Current State (2026-03-19)
+* Current State (2026-03-20)
 
 - Working tool, ~4,800 LOC of clean C, no dependencies
 - Supports Linux, FreeBSD, OpenBSD
-- *Test suite complete* — Linux 25 kernels (ext4+XFS), FreeBSD 14.4, OpenBSD 7.8
-- *M2 DONE*: BSD testing, platform drops, code cleanup
-- Bugs fixed: Q_SYNC hang, #36/#37 grace, 5 audit bugs, memory leak, uninit fields
-- Dropped: macOS, AIX, Solaris, NetBSD (see PLATFORM-CHANGES.md)
-- Missing support for newer kernel APIs (quotactl_fd, project quotas)
-- Packaged in Debian, Ubuntu, Fedora, EPEL, Gentoo, openSUSE, Homebrew
+- *Test suite complete* — Linux 25+ kernels (ext4+XFS), FreeBSD 14.4, OpenBSD 7.8
+- *M1 DONE*, *M3 DONE*, *M2 DONE*
 - *v1.7.0 released* (March 2026): bug fixes + test framework
 - *v1.7.1 released*: macOS install fix (#30)
-- Ready for v1.8.0 release
+- *v1.8.0 released* (March 2026): platform drops + BSD testing
+- Dropped: macOS, AIX, Solaris, NetBSD (see PLATFORM-CHANGES.md)
+- Packaged in Debian, Ubuntu, Fedora, EPEL, Gentoo, openSUSE, Homebrew
+- Next: M4 (quotactl_fd) and M5 (project quotas) for v1.9.0
 
 * Strategy
 

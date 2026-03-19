@@ -1,7 +1,8 @@
 #+TITLE: M1: Interactive Shell Mode — Step Plan
 #+DATE: 2026-03-15
 
-*Branch: =m1-interactive= (off =m1-testing=)*
+*Status: DONE — merged with M1*
+*Branch: =m1-interactive= (merged to =master=)*
 
 Add =--interactive= flag to =run-tests= that boots any kernel
 with quota filesystems ready and drops to a shell for manual
