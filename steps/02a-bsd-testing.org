@@ -1,7 +1,7 @@
 #+TITLE: M2a: BSD Test Coverage — Step Plan
 #+DATE: 2026-03-18
 
-*Status: DOING — FreeBSD tests complete, OpenBSD next.*
+*Status: DOING — FreeBSD 16/16, OpenBSD 16/16. E2E + bug fix + audit remaining.*
 *Branch: =m2-1.8-development=*
 
 * Overview
@@ -262,7 +262,7 @@ Validated E2E on Fedora 43 (separate machine, fresh clone).
 
 /Dependencies/: 8
 
-** DOING 10. OpenBSD Image Setup
+** DONE 10. OpenBSD Image Setup
 
 Create automated OpenBSD 7.8 installation using autoinstall(8).
 
@@ -292,7 +292,7 @@ Key differences from FreeBSD:
 
 /Dependencies/: 9
 
-** TODO 11. Adapt Tests for OpenBSD
+** DONE 11. Adapt Tests for OpenBSD
 
 Update =test/bsd/lib/fs-setup.sh= for OpenBSD differences and
 verify all test scripts pass on OpenBSD 7.8.
@@ -313,7 +313,7 @@ Key adaptations:
 
 /Dependencies/: 10
 
-** TODO 12. End-to-End OpenBSD Validation
+** TODO 12. End-to-End OpenBSD Validation (on separate machine)
 
 Same as task 8 but for OpenBSD. Full pipeline from clone to results.
 
@@ -401,26 +401,29 @@ Bug fixes and audit (14-15) only after framework is validated.
 Issues discovered during BSD testing. To be investigated
 during task 15 (BSD code audit) unless noted otherwise.
 
-** CRITICAL: quotatool hangs on OpenBSD quotactl()
+** FIXED: quotatool hung on OpenBSD due to Q_SYNC in quota_set()
 
-quotatool blocks indefinitely on OpenBSD 7.8 when trying to
-set quotas. The filesystem mounts correctly with quotas enabled
-(=mount= shows "ffs, local, with quotas") but any =quotactl()=
-call blocks. System tools (=repquota=) also appear to hang.
+*Root cause*: =quotactl(Q_SYNC)= blocks indefinitely on OpenBSD 7.8
+vnd-backed FFS. =Q_GETQUOTA= and =Q_SETQUOTA= work fine.
 
-Hypotheses (from code audit agent):
-1. Quota file path: =quota_new()= constructs ={mountpoint}/quota.user=
-   as the path passed to =quotactl()=. OpenBSD may need the mountpoint
-   itself or the block device, not the quota file.
-2. vnd0c (whole-disk partition) may not work correctly for quotas —
-   OpenBSD may need a proper disklabel partition.
-3. =quotacheck= / =quotaon= may not have initialized correctly on
-   the vnd0c device.
+Diagnosed using minimal C test program (=test/bsd/openbsd/test-quotactl.c=):
+- Step 1: =Q_GETQUOTA= → ret=0 (OK)
+- Step 2: =Q_SETQUOTA= → ret=0 (OK)
+- Step 3: =Q_SYNC= → hangs indefinitely
 
-*Action*: investigate interactively before proceeding with OpenBSD
-tests. Use =ktrace= to identify which syscall blocks. Try system
-=edquota= / =repquota= to isolate whether it's a quotatool bug
-or a quota setup issue.
+Cause: dquot lock contention or vnd buffer cache stalls. OpenBSD
+disabled softdep in 2023, making FFS metadata writes synchronous.
+On vnd devices this can trigger buffer cache exhaustion.
+
+*Fix*: removed =Q_SYNC= from =quota_set()= for all BSDs. The call
+was redundant — =Q_SETQUOTA= already persists data via the kernel's
+internal =dqrele()/dqsync()= path. OpenBSD's own =edquota(8)= does
+not call =Q_SYNC= either.
+
+Also discovered: =sync(1)= triggers the same hang on OpenBSD vnd.
+Removed =sync= calls from test scripts.
+
+Commit: 4c4b26d
 
 ** Grace period: =-t= may not set per-user grace on FreeBSD
 
