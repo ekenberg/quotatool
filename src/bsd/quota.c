@@ -21,24 +21,16 @@
 #include "quota.h"
 #include "quotatool.h"
 
-#define Q_USER_FILENAME  "/quota.user"
-#define Q_GROUP_FILENAME "/quota.group"
-
 quota_t *quota_new (int q_type, int id, char *fs_spec)
 {
   quota_t *myquota;
   fs_t *fs;
   char *qfile;
-  char *qfile_alloc; /* preserve original malloc pointer for free() */
-  char *q_filename;
 
   if (q_type > MAXQUOTAS) {
     output_error ("Unknown quota type: %d", q_type);
     return 0;
   }
-
-  if (q_type == QUOTA_USER) q_filename = Q_USER_FILENAME;
-  else q_filename = Q_GROUP_FILENAME;
 
   --q_type;                    /* see defs in quota.h */
 
@@ -54,32 +46,17 @@ quota_t *quota_new (int q_type, int id, char *fs_spec)
     return NULL;
   }
 
-  qfile = malloc (strlen(fs->mount_pt) + strlen(q_filename) + 1);
+  /* Pass the mount point directly to quotactl(). The kernel uses
+   * namei() to resolve any path to its mount point, so the old
+   * approach of appending "/quota.user" was unnecessary. Using the
+   * mount point directly is simpler and matches what edquota(8) does. */
+  qfile = strdup(fs->mount_pt);
   if (! qfile) {
     output_error ("Insufficient memory");
     free (myquota);
     free (fs);
     exit (ERR_MEM);
   }
-  qfile_alloc = qfile; /* save original pointer for free() */
-
-#if HAVE_STRLCPY
-  strlcpy(qfile, fs->mount_pt, strlen(fs->mount_pt) + 1);
-#else
-  strcpy (qfile, fs->mount_pt);
-#endif /* HAVE_STRLCPY */
-
-#if HAVE_STRLCAT
-  strlcat(qfile, q_filename, strlen(qfile) + strlen(q_filename) + 1);
-#else
-  strcat (qfile, q_filename);
-#endif /* HAVE_STRLCAT */
-
-  /* Skip duplicated / at start of qfile.
-   * Use memmove to shift in-place instead of pointer arithmetic,
-   * which would break free() on the original malloc'd address. */
-  while (strlen(qfile) > 1 && qfile[0] == '/' && qfile[1] == '/')
-    memmove(qfile, qfile + 1, strlen(qfile));
 
   output_debug ("qfile is \"%s\"\n", qfile);
 
@@ -154,10 +131,8 @@ int quota_set (quota_t *myquota){
 
   sysquota.dqb_bhardlimit = myquota->block_hard;
   sysquota.dqb_bsoftlimit = myquota->block_soft;
-  sysquota.dqb_curblocks  = BYTES_TO_BLOCKS(myquota->diskspace_used);
   sysquota.dqb_ihardlimit = myquota->inode_hard;
   sysquota.dqb_isoftlimit = myquota->inode_soft;
-  sysquota.dqb_curinodes  = myquota->inode_used;
   sysquota.dqb_btime      = myquota->block_grace;
   sysquota.dqb_itime      = myquota->inode_grace;
 
