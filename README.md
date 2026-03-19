@@ -3,7 +3,7 @@ quotatool
 
 > **[Roadmap](ROADMAP.md)** — upcoming releases and platform changes.
 
-![Quotatool](http://quotatool.ekenberg.se/diskusage.gif) Commandline utility for filesystem quotas on Linux, Mac OS X, FreeBSD, OpenBSD, NetBSD, Solaris and AIX
+![Quotatool](http://quotatool.ekenberg.se/diskusage.gif) Commandline utility for filesystem quotas on Linux, FreeBSD and OpenBSD
 
 *Set 50Gb soft and hard diskusage limits for user johan on filesystem /home*
 
@@ -28,13 +28,6 @@ quotatool
 * Gentoo Linux:
     `emerge quotatool`
 
-### Mac OS X
-
-* MacPorts
-    `sudo port sync; sudo port install quotatool`
-* Homebrew
-    `brew update; brew install quotatool`
-
 ### Install from source code
 
     ./configure
@@ -49,10 +42,7 @@ quotatool
     quotatool { -u uid | -g gid } -r filesystem
     quotatool { -u uid | -g gid } -d filesystem
 
-The actual arguments accepted depends on your system.  Solaris,
-for example, doesn't support group quotas, so the -g option is
-useless.   If your getopt() doesn't support optional arguments,
-then you always need to pass an argument to -u and -g.
+Both -u (user) and -g (group) quotas are supported on all platforms.
 
 
 ### Arguments and Options
@@ -157,16 +147,11 @@ quotatool currently builds and works well on:
 Quota formats: old, vfsv0, vfsv1 and "generic"
 Filesystems: ext2, ext3, ext4, ReiserFS and XFS
 
--- Mac OS X --
-
 -- BSD --
-FreeBSD, OpenBSD, NetBSD (ufs, ffs)
+FreeBSD, OpenBSD (UFS, FFS)
 
--- Solaris --
-
--- AIX --
-
-See [ROADMAP.md](ROADMAP.md) for planned platform changes in v1.8.0.
+See [PLATFORM-CHANGES.md](PLATFORM-CHANGES.md) for details on
+platforms dropped in v1.8.0 (macOS, AIX, Solaris, NetBSD).
 
 Missing a feature or found a bug?
 Feel free to add an Issue on https://github.com/ekenberg/quotatool

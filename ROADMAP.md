@@ -21,18 +21,22 @@ What's NOT in it:
 Drops platforms that no longer have working quota infrastructure.
 Adds BSD test coverage for the platforms we keep.
 
-Planned changes:
-- **Drop**: macOS (APFS has no quotactl), AIX, Solaris (ZFS has its
-  own quota system), NetBSD (incompatible quotactl API change)
-- **Keep**: Linux, FreeBSD, OpenBSD
-- BSD test coverage (FreeBSD, OpenBSD)
-- Possibly: `quotactl_fd()` support (tmpfs/bcachefs quotas, kernel 5.14+)
-- Possibly: project quotas `-p` flag (XFS, ext4 4.4+)
+Changes:
+- **Dropped**: macOS (APFS has no quotactl), AIX (proprietary JFS2
+  extensions), Solaris (ZFS has its own quota system), NetBSD
+  (replaced quotactl with incompatible libquota in 6.0)
+- **Kept**: Linux, FreeBSD, OpenBSD
+- BSD test coverage (FreeBSD 14.4, OpenBSD 7.8)
+- BSD bug fixes: Q_SYNC hang on OpenBSD, grace period display (#36),
+  grace period setting (#37), 5 code audit fixes
 
-**macOS/Homebrew users**: v1.7.x maintenance releases will continue
-to receive bug fixes after v1.8.0 ships.
+See [PLATFORM-CHANGES.md](PLATFORM-CHANGES.md) for detailed rationale
+and references for each platform decision.
+
+**macOS/Homebrew users**: v1.7.x continues to build on macOS and will
+receive bug fixes.
 
 ## v1.7.x — Maintenance
 
-Bug fixes backported to the `release-1.7` branch. For users who
-can't upgrade to v1.8.0 (which drops platforms).
+Bug fixes backported to the v1.7.x line. For users who can't upgrade
+to v1.8.0 (which drops platforms).

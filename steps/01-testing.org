@@ -1033,7 +1033,7 @@ quota RPM → extract =repquota= binary + libs.
 /Affects/: 3.3, 3.4
 
 ** DONE Q3: XFS on very old kernels
-Resolved 2026-03-09. XFS works on all tested kernels (3.2 through 6.12)
+Resolved 2026-03-09. XFS works on all tested kernels (3.2 through 6.19)
 with format fallback in =fs-setup.sh=. Issues found:
 - Modern =mkfs.xfs= creates formats old kernels can't mount (reflink,
   crc, ftype). Fixed by try-and-fallback: default → reflink=0 → crc=0
