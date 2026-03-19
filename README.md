@@ -184,7 +184,7 @@ ext4 and XFS, three boot paths (virtme-ng, QEMU+9p, QEMU+Alpine).
     test/run-tests --list             # show all kernels and tiers
     test/run-tests --help             # full list of options
 
-First run downloads vendor kernels (~minutes). Subsequent runs reuse them.
+First run downloads vendor kernels. Subsequent runs reuse them.
 Results are saved to `test/results/`.
 
 ### BSD tests
