@@ -26,9 +26,9 @@ Usage: test/bsd/run-tests <mode> [options]
 Modes:
   --setup             Download BSD images, provision VMs, verify deps
   --freebsd           Run all tests on FreeBSD
-  --openbsd           Run all tests on OpenBSD (not yet implemented)
+  --openbsd           Run all tests on OpenBSD
   --all               Run tests on all available BSDs
-  --interactive       Boot FreeBSD VM with quota filesystem, SSH in
+  --interactive <os>  Boot VM with quota filesystem, SSH in (freebsd|openbsd)
   --help              Show this help
 
 Options:
@@ -69,7 +69,7 @@ while [ $# -gt 0 ]; do
         --freebsd)     MODE="freebsd" ;;
         --openbsd)     MODE="openbsd" ;;
         --all)         MODE="all" ;;
-        --interactive) MODE="interactive" ;;
+        --interactive) MODE="interactive"; INTERACTIVE_OS="${2:-}"; shift ;;
         --verbose|-v)  VERBOSE=1 ;;
         --help|-h)     show_help; exit 0 ;;
         --ssh-port)    export VM_SSH_PORT="$2"; shift ;;
@@ -221,10 +221,10 @@ run_tests_on() {
 # ---------------------------------------------------------------------------
 
 do_interactive() {
+    local os="${1:?Interactive mode requires --freebsd or --openbsd}"
+
     source "$SCRIPT_DIR/lib/vm.sh"
     source "$SCRIPT_DIR/lib/fs-setup.sh"
-
-    local os="freebsd"  # default for now
 
     echo ""
     echo "=== Interactive mode: $os ==="
@@ -244,6 +244,7 @@ do_interactive() {
     rm -f "$tarball"
 
     vm_run "
+        . /root/.profile 2>/dev/null
         rm -rf /tmp/quotatool
         mkdir -p /tmp/quotatool
         cd /tmp/quotatool
@@ -345,6 +346,10 @@ case "$MODE" in
         exit $rc
         ;;
     interactive)
-        do_interactive
+        if [ -z "$INTERACTIVE_OS" ] || { [ "$INTERACTIVE_OS" != "freebsd" ] && [ "$INTERACTIVE_OS" != "openbsd" ]; }; then
+            echo "Usage: test/bsd/run-tests --interactive <freebsd|openbsd>" >&2
+            exit 1
+        fi
+        do_interactive "$INTERACTIVE_OS"
         ;;
 esac
