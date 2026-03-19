@@ -47,7 +47,8 @@ and low-effort.
 - Packaged in Debian, Ubuntu, Fedora, EPEL, Gentoo, openSUSE, Homebrew
 - *v1.7.0 released* (March 2026): bug fixes + test framework
 - *v1.7.1 released*: macOS install fix (#30)
-- In progress: M2 — BSD bug fixes (#37), then platform drops → v1.8.0
+- #37 resolved (BSD grace -t: not a bug, needs quota cycle — documented)
+- In progress: M2 — platform drops, then v1.8.0
 
 * Strategy
 
@@ -147,7 +148,7 @@ This is the first milestone that touches =src/=.
 -----
 
 ** DOING M2: Platform Testing & Cleanup [step-plan: steps/02a-bsd-testing.org]
-/Status: M2a DONE. BSD bug fixes in progress, then M2b/M2c./
+/Status: M2a DONE (BSD testing + bug fixes). M2b/M2c next (platform drops)./
 
 *** M2a: BSD Test Coverage (scaffolding)
 

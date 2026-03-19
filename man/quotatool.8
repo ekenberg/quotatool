@@ -110,9 +110,7 @@ On Linux,
 works with both "old", "vfsv0" and "vfsv1" + "generic" kernel-quota formats.
 Supported filesystems: ext2, ext3, ext4, ReiserFS and XFS.
 
-Mac OS X: hfs
-
-FreeBSD / OpenBSD / NetBSD: filesystems ufs and ffs
+FreeBSD / OpenBSD: filesystems UFS and FFS
 .SH EXAMPLES
 
 Set soft block limit to 800Mb, hard block limit to 1.2 Gb for user mpg4 on /home:
@@ -141,11 +139,11 @@ Each quotatype (usrquota / grpquota) on each filesystem has two grace periods
 - one for block limits and one for inode limits.
 It is not possible to set different grace periods for users on the same filesystem.
 
-According to 'man quotactl', global grace periods should be supported on BSD. quotatool on
-BSD does the right thing, which can be confirmed with 'edquota -t'. However, the value
-doesn't seem to be used by the system when usage passes a soft limit.
-
-So far, I haven't been able to make global grace periods work on Mac OS X, either with 'edquota -t' or quotatool.
+On BSD (FreeBSD, OpenBSD), the grace period is cached by the kernel
+at quotaon time. After setting the grace period with -t, a
+quotaoff/quotaon cycle is required for the new value to take effect.
+This is the same behavior as edquota -t on BSD \(em it is a BSD
+kernel design choice, not a limitation of quotatool.
 
 Using non-existent uids/gids like ":12345" can be useful when configuring quotas on
 a mounted filesystem which is a separate system in it self, like when preparing an
@@ -165,23 +163,14 @@ Use -v (or -v -v) to see verbose/debug info when running commands
 .B quota.user
 ,
 .B quota.group
-(linux, *BSD, aix)
-.br
-.B .quota.user
-,
-.B .quota.group
-(Mac OS X)
-.br
-.B quotas
-(solaris, ...)
+(Linux, FreeBSD, OpenBSD)
 .SH BUGS
 Please check https://github.com/ekenberg/quotatool for any open issues. Feel free to add a new issue if you find an unresolved bug!
 .PP
 Calling
 .B quotatool
-with more than one -v option will cause a segfault on some systems.
-This will happen if vprintf (3) fails to check for NULL arguments.
-GNU libc doesn't have this problem, solaris libc does.
+with more than one -v option may cause a segfault on some systems
+if vprintf (3) fails to check for NULL arguments.
 .SH SEE ALSO
 .BR quota (1),
 .BR quotactl (2),

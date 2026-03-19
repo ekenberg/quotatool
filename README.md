@@ -130,9 +130,10 @@ Each quotatype (usrquota / grpquota) on each filesystem has two grace periods
 - one for block limits and one for inode limits.
 It is not possible to set different grace periods for users on the same filesystem.
 
-BSD-note: According to 'man quotactl', global grace periods should be supported on BSD.
-quotatool on BSD does the right thing, which can be confirmed with 'edquota -t'.
-However, the value doesn't seem to be used by the system when usage passes a soft limit.
+BSD-note: On BSD (FreeBSD, OpenBSD), the grace period is cached by the kernel
+at `quotaon` time. After setting the grace period with `-t`, a `quotaoff`/`quotaon`
+cycle is required for the new value to take effect. This is the same behavior as
+`edquota -t` on BSD — it is a BSD kernel design choice, not a limitation of quotatool.
 
 * Using non-existent uids/gids like ":12345" can be useful when configuring quotas on
 a mounted filesystem which is a separate system in it self, like when preparing an
@@ -238,6 +239,23 @@ the infrastructure works.
     test/run-tests --help             # full list of options
 
 Results are saved to `test/results/`.
+
+### BSD testing
+
+BSD tests run quotatool inside FreeBSD and OpenBSD VMs (QEMU/KVM).
+Separate from the Linux tests — different entry point, different
+infrastructure.
+
+    test/bsd/check-deps.sh            # verify host tools
+    test/bsd/run-tests --setup        # download images, provision VMs
+    test/bsd/run-tests --all          # run on FreeBSD + OpenBSD
+    test/bsd/run-tests --freebsd      # FreeBSD only
+    test/bsd/run-tests --openbsd      # OpenBSD only
+    test/bsd/run-tests --all -v       # verbose (show all subtests)
+    test/bsd/run-tests --interactive freebsd  # SSH into VM with quotas
+
+First run downloads ~660MB (FreeBSD image) and installs OpenBSD
+from CD (~300MB). Subsequent runs use provisioned snapshots (~15s boot).
 
 ### Troubleshooting
 
