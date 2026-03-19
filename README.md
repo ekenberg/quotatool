@@ -65,7 +65,7 @@ Both -u (user) and -g (group) quotas are supported on all platforms.
    n can be integer or floating point
    See examples below.
 
-   -R      Raise only - makes sure you don't accidentally lower quotas for a user/group
+   -R      Raise only - avoid accidentally lowering quotas for a user/group
 
    -t      time set global grace period to time.
            The time parameter consists of an optional
@@ -154,7 +154,7 @@ See [PLATFORM-CHANGES.md](PLATFORM-CHANGES.md) for details on
 platforms dropped in v1.8.0 (macOS, AIX, Solaris, NetBSD).
 
 Missing a feature or found a bug?
-Feel free to add an Issue on https://github.com/ekenberg/quotatool
+Add an issue on https://github.com/ekenberg/quotatool/issues
 
 ## Testing
 

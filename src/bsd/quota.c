@@ -34,7 +34,7 @@ quota_t *quota_new (int q_type, int id, char *fs_spec)
 
   --q_type;                    /* see defs in quota.h */
 
-  myquota = (quota_t *) malloc (sizeof(quota_t));
+  myquota = (quota_t *) calloc (1, sizeof(quota_t));
   if (! myquota) {
     output_error ("Insufficient memory");
     exit (ERR_MEM);

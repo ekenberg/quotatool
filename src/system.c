@@ -133,6 +133,7 @@ fs_t *system_getfs (char *fs_spec) {
 
       #if PLATFORM_LINUX
       strncpy(ent->mnt_type, current_fs->mnt_type, PATH_MAX-1);
+      ent->mnt_type[PATH_MAX-1] = '\0';
       #endif
 
       if ((loopd_start = strstr(current_fs->mnt_opts, LOOP_PREFIX "/")) != NULL) {
@@ -159,7 +160,9 @@ fs_t *system_getfs (char *fs_spec) {
       else {
 #endif /* HAVE_MNTENT_H */
       strncpy (ent->device, current_fs->mnt_special, PATH_MAX-1);
+      ent->device[PATH_MAX-1] = '\0';
       strncpy (ent->mount_pt, current_fs->mnt_mountp, PATH_MAX-1);
+      ent->mount_pt[PATH_MAX-1] = '\0';
 #if HAVE_MNTENT_H
       }
 #endif

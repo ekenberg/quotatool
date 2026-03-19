@@ -59,7 +59,7 @@ quota_t *quota_new(int q_type, int id, char *fs_spec) {
 	return 0;
     }
 
-    myquota = (quota_t *) malloc(sizeof(quota_t));
+    myquota = (quota_t *) calloc(1, sizeof(quota_t));
     if (! myquota) {
 	output_error("Insufficient memory");
 	exit(ERR_MEM);
@@ -67,6 +67,7 @@ quota_t *quota_new(int q_type, int id, char *fs_spec) {
 
     fs = system_getfs(fs_spec);
     if (! fs) {
+	free(myquota);
 	return NULL;
     }
 
