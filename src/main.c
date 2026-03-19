@@ -116,6 +116,9 @@ int main (int argc, char **argv) {
 	    ||
 	      (quota->inode_hard && (quota->inode_used >= quota->inode_hard))
             ) && quota->inode_time > now ? quota->inode_time - now : 0));
+
+#else
+	    (unsigned long)(quota->inode_time > now ? quota->inode_time - now : 0));
 #endif /* ANY_BSD */
      exit(0);
   }
