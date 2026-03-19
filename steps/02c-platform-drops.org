@@ -1,7 +1,7 @@
 #+TITLE: M2c: Drop Dead Platforms — Step Plan
 #+DATE: 2026-03-19
 
-*Status: TODO*
+*Status: DONE*
 *Branch: =m2-1.8-development=*
 
 * Overview

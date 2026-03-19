@@ -36,19 +36,17 @@ and low-effort.
 
 * Current State (2026-03-19)
 
-- Working tool, ~5,500 LOC of clean C, no dependencies
-- Supports Linux, FreeBSD, OpenBSD, NetBSD, macOS, Solaris, AIX
-- *Test suite complete for Linux* — 25 kernels, 2 filesystems (ext4, XFS)
-- *25/25 pass* — verified on multiple hosts with different mkfs/kernel versions
-- *M2a DONE*: BSD test framework — FreeBSD 17/17, OpenBSD 17/17 (54 subtests)
-- Bugs fixed: Q_SYNC hang, #36 expired grace display, 5 audit bugs in bsd/quota.c
-- Several supported platforms are dead or broken
+- Working tool, ~4,800 LOC of clean C, no dependencies
+- Supports Linux, FreeBSD, OpenBSD
+- *Test suite complete* — Linux 25 kernels (ext4+XFS), FreeBSD 14.4, OpenBSD 7.8
+- *M2 DONE*: BSD testing, platform drops, code cleanup
+- Bugs fixed: Q_SYNC hang, #36/#37 grace, 5 audit bugs, memory leak, uninit fields
+- Dropped: macOS, AIX, Solaris, NetBSD (see PLATFORM-CHANGES.md)
 - Missing support for newer kernel APIs (quotactl_fd, project quotas)
 - Packaged in Debian, Ubuntu, Fedora, EPEL, Gentoo, openSUSE, Homebrew
 - *v1.7.0 released* (March 2026): bug fixes + test framework
 - *v1.7.1 released*: macOS install fix (#30)
-- #37 resolved (BSD grace -t: not a bug, needs quota cycle — documented)
-- In progress: M2 — platform drops, then v1.8.0
+- Ready for v1.8.0 release
 
 * Strategy
 
@@ -147,8 +145,8 @@ This is the first milestone that touches =src/=.
 
 -----
 
-** DOING M2: Platform Testing & Cleanup [step-plans: steps/02a-bsd-testing.org, steps/02b-platform-docs.org, steps/02c-platform-drops.org]
-/Status: M2a DONE (BSD testing + bug fixes + cleanup). M2b/M2c next (platform drops)./
+** DONE M2: Platform Testing & Cleanup [step-plans: steps/02a-bsd-testing.org, steps/02b-platform-docs.org, steps/02c-platform-drops.org]
+/Status: COMPLETE. M2a (BSD testing), M2b (platform docs), M2c (code drops) all done./
 
 *** M2a: BSD Test Coverage (scaffolding)
 
