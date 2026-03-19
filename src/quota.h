@@ -25,7 +25,7 @@
 #elif HAVE_STD_H
 #  include <std.h>
 #  define BLOCK_SIZE MULBSIZE
-#elif HAVE_UFS_UFS_QUOTA_H || HAVE_UFS_UFS_QUOTA1_H
+#elif HAVE_UFS_UFS_QUOTA_H
 #  define BLOCK_SIZE 512
 #else
 /* WARNING: Making up a block-size */
@@ -41,11 +41,6 @@
 #elif HAVE_UFS_UFS_QUOTA_H /* FreeBSD || OpenBSD */
 #  include <sys/types.h>
 #  include <ufs/ufs/quota.h>
-#  define QUOTA_USER  USRQUOTA + 1
-#  define QUOTA_GROUP GRPQUOTA + 1
-#elif HAVE_UFS_UFS_QUOTA1_H /* NetBSD */
-#  include <sys/types.h>
-#  include <ufs/ufs/quota1.h>
 #  define QUOTA_USER  USRQUOTA + 1
 #  define QUOTA_GROUP GRPQUOTA + 1
 #else
