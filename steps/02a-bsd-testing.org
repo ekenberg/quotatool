@@ -1,7 +1,7 @@
 #+TITLE: M2a: BSD Test Coverage — Step Plan
 #+DATE: 2026-03-18
 
-*Status: DONE + follow-up. Tasks 1-16 complete. Cleanup tasks 17-18 remaining.*
+*Status: DONE. All 18 tasks complete.*
 *Branch: =m2-1.8-development=*
 
 * Overview
@@ -584,28 +584,16 @@ This matches what =edquota -t= does.
 
 /Dependencies/: 15
 
-** TODO 17. Clean Up Dead Code in =quota_set()=
+** DONE 17-18. Clean Up =quota_set()= and =quota_new()=
 
-*File*: =src/bsd/quota.c=
+Combined into one commit (2693fe7):
 
-Remove =dqb_curblocks= and =dqb_curinodes= assignments in
-=quota_set()= — the BSD kernel explicitly ignores these fields
-in =Q_SETQUOTA= (overwrites with existing values). Setting them
-is misleading dead code.
+- Removed =dqb_curblocks=/=dqb_curinodes= in =quota_set()= — kernel
+  ignores these in =Q_SETQUOTA=.
+- Changed =quota_new()= to pass mount point directly to =quotactl()=
+  instead of constructing =/quota.user= path. Kernel uses =namei()=
+  to resolve any path to its mount point. Matches =edquota(8)=.
+  Removed =Q_USER_FILENAME=/=Q_GROUP_FILENAME= defines, slash-dedup
+  code, =strlcpy=/=strlcat= blocks. Net -33 lines.
 
-/Dependencies/: 16
-
-** TODO 18. Use Mount Point for quotactl Path Argument
-
-*File*: =src/bsd/quota.c=
-
-Change =_qfile= from ={mountpoint}/quota.user= to just
-={mountpoint}=. The kernel uses =namei()= to find the mount
-point from any path on the filesystem. Using the mount point
-directly (like =edquota= does) is more robust — doesn't depend
-on the quota file existing.
-
-This also simplifies =quota_new()= — no need to construct and
-manage the quota file path string.
-
-/Dependencies/: 17
+Tested: Linux 25/25, FreeBSD 17/17, OpenBSD 17/17.

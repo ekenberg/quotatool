@@ -1,0 +1,204 @@
+#+TITLE: M2c: Drop Dead Platforms — Step Plan
+#+DATE: 2026-03-19
+
+*Status: TODO*
+*Branch: =m2-1.8-development=*
+
+* Overview
+
+Remove code for macOS/Darwin, AIX, Solaris, and NetBSD. One commit
+per platform drop (atomic, revertible). Full test suite after each.
+
+This is surgery on the build system and conditional compilation.
+Every change must leave the tree buildable and all tests passing.
+
+Code inventory from agent research (2026-03-19) covers all files.
+
+* Commit Strategy
+
+Four platform-removal commits, then one build-system cleanup commit:
+
+1. Drop macOS/Darwin
+2. Drop AIX
+3. Drop Solaris
+4. Drop NetBSD (from =src/bsd/quota.c= + headers)
+5. Build system + header cleanup (configure.ac, config.h.in, dir.mk)
+
+Each commit: remove code → rebuild → test → commit.
+Commit 5 is separate because configure.ac and config.h.in touch
+all platforms at once — easier to review as one coherent change.
+
+* Files Affected (complete inventory)
+
+** Entire directories to delete
+- =src/darwin/= (quota.c, dir.mk)
+- =src/aix/= (quota.c, dir.mk)
+- =src/solaris/= (quota.c, dir.mk)
+
+** Files requiring modification
+
+| File | What to change |
+|------|----------------|
+| =src/bsd/quota.c= | Remove =#if __NetBSD__= blocks (2 locations) |
+| =src/main.c= | Remove =PLATFORM_DARWIN= from =#if= (2 locations) |
+| =src/quota.h= | Remove Darwin/Solaris/AIX/NetBSD header blocks |
+| =src/quotatool.h= | Remove =__NetBSD__= from =ANY_BSD= macro |
+| =src/system.c= | Remove =HAVE_SYS_MNTCTL_H= (AIX) blocks (~7 chunks) |
+| =src/system.h= | No changes needed (only has PLATFORM_LINUX conditional) |
+| =src/dir.mk= | Update subdirs: =linux bsd= (remove solaris aix darwin) |
+| =configure.ac= | Remove platform branches + dead header checks |
+| =src/config.h.in= | Remove PLATFORM_SOLARIS/AIX/DARWIN + dead HAVE_* defines |
+
+* Tasks
+
+** TODO 1. Drop macOS/Darwin
+
+*Files*:
+- Delete =src/darwin/= (quota.c + dir.mk)
+- =src/main.c=: change =#if ANY_BSD || PLATFORM_DARWIN= → =#if ANY_BSD=
+  (2 locations: block grace ~line 96, inode grace ~line 112)
+- =src/quota.h=: remove =PLATFORM_DARWIN= block (BLOCK_SIZE + headers)
+
+*NOT touched yet*: configure.ac, config.h.in, dir.mk — those go in
+task 5 (build system cleanup) to keep each commit focused.
+
+/Subtasks/:
+- [ ] Delete =src/darwin/=
+- [ ] Edit =src/main.c= — remove =|| PLATFORM_DARWIN= (2 places)
+- [ ] Edit =src/quota.h= — remove Darwin BLOCK_SIZE and header block
+- [ ] Rebuild (=./configure && make=)
+- [ ] Run Linux =--host-only= (quick sanity check)
+
+/Verification/: builds clean, host-only passes, no Darwin references
+remain in modified files.
+
+** TODO 2. Drop AIX
+
+*Files*:
+- Delete =src/aix/= (quota.c + dir.mk)
+- =src/system.c=: remove all =HAVE_SYS_MNTCTL_H= blocks:
+  - Header include (=#elif HAVE_SYS_MNTCTL_H=)
+  - Struct condition comment (=/* AIX || *BSD */= → =/* *BSD */=)
+  - Variable declarations (=vmnt_buffer=, =vmnt=, etc.)
+  - Mount reading (=mntctl()= block)
+  - Mount entry parsing (=vmnt->vmt_data= block)
+  - Read-only check (=vmt_flags= block)
+  - Cleanup (=free(vmnt_buffer)= block)
+
+*system.c is the complex one* — AIX mount handling is interleaved
+with BSD and Linux code via =#if/#elif/#else= chains. Careful with
+the preprocessor flow.
+
+/Subtasks/:
+- [ ] Delete =src/aix/=
+- [ ] Edit =src/system.c= — remove all AIX blocks (7 chunks)
+- [ ] Verify =#if/#elif/#else= chains still make sense
+- [ ] Rebuild + host-only test
+
+/Verification/: builds clean, no AIX/mntctl references remain in
+modified files.
+
+** TODO 3. Drop Solaris
+
+*Files*:
+- Delete =src/solaris/= (quota.c + dir.mk)
+- =src/quota.h=: remove =HAVE_SYS_FS_UFS_QUOTA_H= block
+- =src/system.c=: remove =HAVE_SYS_MNTTAB_H= block (Solaris mount
+  table reading). This is the =#elif= between =HAVE_MNTENT_H= (Linux)
+  and =HAVE_FSTAB_H= (BSD).
+
+/Subtasks/:
+- [ ] Delete =src/solaris/=
+- [ ] Edit =src/quota.h= — remove Solaris header block
+- [ ] Edit =src/system.c= — remove =HAVE_SYS_MNTTAB_H= block
+- [ ] Rebuild + host-only test
+
+/Verification/: builds clean, no Solaris references remain.
+
+** TODO 4. Drop NetBSD
+
+*Files*:
+- =src/bsd/quota.c=: remove =#if __NetBSD__= workaround in
+  =quota_get()= (4 lines: hard++, soft++, ihard++, isoft++)
+- =src/bsd/quota.c=: in =quota_reset_grace()=, change =+ 2= to =+ 1=
+  and remove "bug in NetBSD" comment
+- =src/quotatool.h=: remove =__NetBSD__= from =ANY_BSD= macro
+- =src/quota.h=: remove =HAVE_UFS_UFS_QUOTA1_H= (NetBSD) header block
+
+/Subtasks/:
+- [ ] Edit =src/bsd/quota.c= — remove NetBSD workarounds
+- [ ] Edit =src/quotatool.h= — update =ANY_BSD= macro
+- [ ] Edit =src/quota.h= — remove NetBSD header block
+- [ ] Rebuild + host-only test
+
+/Verification/: builds clean, no NetBSD references remain in src/.
+
+** TODO 5. Build System Cleanup
+
+Now that all platform code is removed, clean up the build system
+in one coherent commit.
+
+*Files*:
+- =configure.ac=:
+  - Remove Solaris, AIX, Darwin from platform =case= statement
+  - Remove NetBSD from BSD =case= pattern (=*netbsd*=)
+  - Remove =sys/quota.h= check (Darwin-only)
+  - Remove =jfs/quota.h= check (AIX)
+  - Remove =ufs/ufs/quota1.h= check (NetBSD)
+  - Remove =sys/fs/ufs_quota.h= check (Solaris)
+  - Keep: =ufs/ufs/quota.h= (FreeBSD/OpenBSD)
+  - Remove =sys/mntctl.h= check (AIX)
+  - Remove =sys/mnttab.h= check (Solaris)
+- =src/config.h.in=:
+  - Remove =PLATFORM_SOLARIS=, =PLATFORM_AIX=, =PLATFORM_DARWIN=
+  - Remove =HAVE_SYS_MNTCTL_H=, =HAVE_SYS_FS_UFS_QUOTA_H=,
+    =HAVE_JFS_QUOTA_H=, =HAVE_SYS_MNTTAB_H=,
+    =HAVE_UFS_UFS_QUOTA1_H=
+- =src/dir.mk=: change subdirs to =linux bsd=
+
+/Subtasks/:
+- [ ] Edit =configure.ac=
+- [ ] Edit =src/config.h.in=
+- [ ] Edit =src/dir.mk=
+- [ ] Run =autoconf= to regenerate =configure=
+- [ ] Full rebuild from clean (=make distclean && ./configure && make=)
+- [ ] Linux =--all= (full 25-kernel matrix)
+- [ ] BSD =--all= (FreeBSD + OpenBSD)
+
+/Verification/: 25/25 Linux, 17/17 FreeBSD, 17/17 OpenBSD.
+
+** TODO 6. Final Verification on External Machine
+
+Pull on forte (Fedora 43), build from scratch, run full test suite.
+
+/Subtasks/:
+- [ ] =git pull= on forte
+- [ ] =./configure && make= — clean build
+- [ ] =test/run-tests --all= — Linux full matrix
+- [ ] =test/bsd/run-tests --all= — BSD full matrix
+- [ ] Human review of all diffs
+
+/Verification/: identical pass rates on both machines.
+
+* Dependency Order
+
+#+begin_example
+1 (drop macOS)
+  └→ 2 (drop AIX)
+       └→ 3 (drop Solaris)
+            └→ 4 (drop NetBSD)
+                 └→ 5 (build system cleanup)
+                      └→ 6 (external verification)
+#+end_example
+
+Strictly sequential. Each task must leave the tree buildable.
+
+* Risk Notes
+
+- =src/system.c= AIX removal (task 2) is the most complex — deeply
+  interleaved =#if= chains. Triple-check preprocessor flow.
+- =configure.ac= cleanup (task 5) must not break =autoconf=.
+  Run =autoconf= and verify =./configure= works on Linux.
+- After task 5, the intermediate host-only tests from tasks 1-4
+  are superseded by the full matrix. But they catch regressions
+  early while changes are small and reversible.

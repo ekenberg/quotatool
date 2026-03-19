@@ -1,0 +1,95 @@
+#+TITLE: M2b: Document Platform Decisions — Step Plan
+#+DATE: 2026-03-19
+
+*Status: TODO*
+*Branch: =m2-1.8-development=*
+
+* Overview
+
+Before removing platform code, document *why* each platform is dropped.
+quotatool is packaged in Homebrew and MacPorts — dropping macOS needs
+a clear public explanation, not just a commit message.
+
+v1.7.0's =ROADMAP.md= already announced the planned drops. This step
+makes the rationale permanent and user-facing.
+
+Research: =research/other-os-relevance.org=
+
+* Tasks
+
+** TODO 1. Write =PLATFORM-CHANGES.md=
+
+Create a standalone document explaining each platform decision.
+Tone: factual, respectful, forward-looking. Not apologetic.
+
+Cover:
+
+- *macOS*: APFS replaced HFS+ as default (2017). APFS has no
+  =quotactl()= support. Apple removed quota tools from recent macOS.
+  No path forward — not a temporary gap.
+
+- *AIX*: No accessible test environment, no known users reporting
+  issues. IBM's proprietary JFS2 quota API has diverged from
+  traditional =quotactl()=.
+
+- *Solaris/illumos*: ZFS is the standard filesystem. ZFS has its own
+  quota system (=zfs set quota=) that doesn't use =quotactl()=.
+  Traditional UFS quotas are irrelevant on modern Solaris.
+
+- *NetBSD*: Replaced =quotactl()= with =__quotactl()= and =libquota=
+  in NetBSD 6.0. Incompatible API — would need a full rewrite.
+
+- *FreeBSD, OpenBSD*: kept. Active projects, standard UFS quotas,
+  quotatool works and is tested.
+
+- *v1.7.x maintenance*: bug fixes continue for users on older
+  platforms. v1.7.x still builds everywhere v1.6.x did.
+
+/Verification/: file exists, reads well, covers all platforms.
+
+** TODO 2. Update README Platform References
+
+Update =README.md=:
+- Description line: "Linux, FreeBSD, and OpenBSD" (remove Mac OS X,
+  NetBSD, Solaris, AIX)
+- Remove "Mac OS X" installation section (MacPorts, Homebrew)
+- Update "Platform support" section — remove macOS, Solaris, AIX,
+  NetBSD entries
+- Add pointer to =PLATFORM-CHANGES.md= for rationale
+- Remove or update Solaris note about group quotas
+
+/Verification/: no references to dropped platforms remain (except
+in historical context or pointers to PLATFORM-CHANGES.md).
+
+** TODO 3. Update ROADMAP.md
+
+Update the v1.8.0 section from "planned" to "done" language.
+Keep the macOS/Homebrew maintenance note — it's useful context.
+
+/Verification/: ROADMAP reflects current reality.
+
+** TODO 4. Review Man Page
+
+Check =man/quotatool.8= for any platform-specific references
+that need updating.
+
+/Verification/: man page is accurate for supported platforms.
+
+** TODO 5. Commit Documentation Changes
+
+Single commit for all doc updates. This is documentation only —
+no code changes.
+
+/Verification/: clean commit, no code files changed.
+
+* Dependency Order
+
+#+begin_example
+1 (PLATFORM-CHANGES.md)
+  └→ 2 (README)
+       └→ 3 (ROADMAP)
+            └→ 4 (man page)
+                 └→ 5 (commit)
+#+end_example
+
+Mostly sequential — each doc may reference the others.

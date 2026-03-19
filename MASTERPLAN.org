@@ -147,8 +147,8 @@ This is the first milestone that touches =src/=.
 
 -----
 
-** DOING M2: Platform Testing & Cleanup [step-plan: steps/02a-bsd-testing.org]
-/Status: M2a DONE (BSD testing + bug fixes). M2b/M2c next (platform drops)./
+** DOING M2: Platform Testing & Cleanup [step-plans: steps/02a-bsd-testing.org, steps/02b-platform-docs.org, steps/02c-platform-drops.org]
+/Status: M2a DONE (BSD testing + bug fixes + cleanup). M2b/M2c next (platform drops)./
 
 *** M2a: BSD Test Coverage (scaffolding)
 
