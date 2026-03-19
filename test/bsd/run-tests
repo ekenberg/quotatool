@@ -152,10 +152,11 @@ run_tests_on() {
     local make_cmd="make"
     case "$os" in
         freebsd) make_cmd="gmake" ;;
-        openbsd) make_cmd="make" ;;
+        openbsd) make_cmd="gmake" ;;
     esac
 
     vm_run "
+        . /root/.profile 2>/dev/null
         rm -rf /tmp/quotatool
         mkdir -p /tmp/quotatool
         cd /tmp/quotatool
@@ -265,9 +266,7 @@ case "$MODE" in
         run_tests_on freebsd
         ;;
     openbsd)
-        echo "OpenBSD testing not yet implemented."
-        echo "See steps/02a-bsd-testing.org tasks 10-12."
-        exit 1
+        run_tests_on openbsd
         ;;
     all)
         rc=0

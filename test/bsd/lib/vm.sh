@@ -25,7 +25,8 @@
 
 VM_MEMORY="${VM_MEMORY:-2048}"
 VM_CPUS="${VM_CPUS:-2}"
-VM_SSH_PORT="${VM_SSH_PORT:-2222}"
+# VM_SSH_PORT defaults per-OS in vm_start(): FreeBSD=2222, OpenBSD=2223
+VM_SSH_PORT="${VM_SSH_PORT:-}"
 VM_BOOT_TIMEOUT="${VM_BOOT_TIMEOUT:-120}"
 
 # Paths — set by vm_start() based on OS
@@ -61,9 +62,11 @@ vm_start() {
     case "$os" in
         freebsd)
             local base_image="$_VM_IMAGES_DIR/freebsd-provisioned.qcow2"
+            : "${VM_SSH_PORT:=2222}"
             ;;
         openbsd)
             local base_image="$_VM_IMAGES_DIR/openbsd-provisioned.qcow2"
+            : "${VM_SSH_PORT:=2223}"
             ;;
         *)
             _vm_err "Unknown OS: $os (expected freebsd or openbsd)"

@@ -88,30 +88,32 @@ fs_create_ufs() {
             device=$(echo "$device" | tr -d '[:space:]')
             ;;
         openbsd)
-            vm_run "
+            device=$(vm_run "
                 set -e
                 # Create image file
                 dd if=/dev/zero of=$image_file bs=1M count=${size%M} 2>/dev/null
 
                 # Attach as vnode disk
                 device=\$(vnconfig $image_file)
-                echo \"DEVICE=\$device\"
 
-                # Create FFS filesystem
-                newfs /dev/r\${device}a >/dev/null
+                # Create FFS filesystem on whole-disk partition (c)
+                newfs /dev/r\${device}c >/dev/null
 
-                # Mount with quota options
+                # Add fstab entry (OpenBSD quota tools need it)
+                echo \"/dev/\${device}c $mntpoint ffs rw,userquota,groupquota 0 0\" >> /etc/fstab
+
+                # Mount via fstab
                 mkdir -p $mntpoint
-                mount -o userquota,groupquota /dev/\${device}a $mntpoint
+                mount $mntpoint
 
                 # Create quota files and enable
                 touch ${mntpoint}/quota.user ${mntpoint}/quota.group
                 quotacheck -u -g $mntpoint
                 quotaon $mntpoint
 
-                echo 'FS_SETUP_OK'
-            "
-            device=$(vm_run "vnconfig -l" | grep "$image_file" | cut -d: -f1)
+                echo \$device
+            ")
+            device=$(echo "$device" | tr -d '[:space:]')
             ;;
     esac
 
@@ -156,6 +158,9 @@ fs_teardown() {
                 vnconfig -u $device 2>/dev/null || true
                 rm -f $image_file
                 rmdir $mntpoint 2>/dev/null || true
+                # Remove temporary fstab entry
+                sed -i '/$image_file/d' /etc/fstab 2>/dev/null || true
+                sed -i '/$(echo $mntpoint | sed 's/\//\\\//g')/d' /etc/fstab 2>/dev/null || true
             " 2>/dev/null || true
             ;;
     esac
