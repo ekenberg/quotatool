@@ -1,7 +1,7 @@
 #+TITLE: M2a: BSD Test Coverage — Step Plan
 #+DATE: 2026-03-18
 
-*Status: DOING — FreeBSD 16/16, OpenBSD 16/16. E2E + bug fix + audit remaining.*
+*Status: DONE. All 15 tasks complete. FreeBSD 17/17, OpenBSD 17/17 (54 subtests each).*
 *Branch: =m2-1.8-development=*
 
 * Overview
@@ -332,7 +332,7 @@ Both FreeBSD and OpenBSD under test. Commit, update state files.
 
 /Dependencies/: 12
 
-** TODO 14. Fix #36: BSD Expired Grace Display
+** DONE 14. Fix #36: BSD Expired Grace Display
 
 Now that we have a working BSD test framework, fix the bug.
 
@@ -353,7 +353,7 @@ Now that we have a working BSD test framework, fix the bug.
 
 /Dependencies/: 13
 
-** TODO 15. Full BSD Code Audit
+** DONE 15. Full BSD Code Audit
 
 With test coverage in place, audit all of =src/bsd/quota.c= for
 potential bugs, edge cases, and modernization opportunities.
@@ -474,4 +474,72 @@ key placement under root user in cloud-init config.
 |------|------|
 | Cold boot (cloud-init + packages) | ~75s |
 | Fast boot (provisioned snapshot) | ~12-18s |
-| Full test run (boot + build + 16 tests + shutdown) | ~45s |
+| Full test run (boot + build + 17 tests + shutdown) | ~45s |
+
+** DONE: Code audit — bugs fixed in =src/bsd/quota.c=
+
+Full audit of =src/bsd/quota.c= found and fixed 5 bugs:
+
+1. *=memset(&sysquota, 0, ...)= added to =quota_set()=*: =struct dqblk=
+   was not zeroed before =Q_SETQUOTA=. Uninitialized padding bytes
+   were passed to the kernel.
+
+2. *=block_grace=/=inode_grace= initialized in =quota_get()=*: these
+   fields were never set from kernel data, so =quota_set()= wrote
+   garbage from =malloc()= to =dqb_btime=/=dqb_itime=. The kernel
+   ignores these for non-root users, hiding the bug.
+
+3. *Memory leak fixed*: =myquota= was not freed when =system_getfs()=
+   failed (line 52). Also =myquota= and =fs= not freed on =qfile=
+   =malloc= failure.
+
+4. *Pointer arithmetic on =qfile= replaced with =memmove()=*:
+   the double-slash skipping loop (=qfile++=) advanced the pointer
+   past the =malloc= origin, breaking =free()=. Darwin has the same
+   bug (=// free gives error on darwin, why?= — this is why).
+
+5. *Removed incorrect =(int32_t)= cast on =dqb_btime=/=dqb_itime=*:
+   FreeBSD uses =int64_t=, OpenBSD uses =u_int32_t=. Let the compiler
+   handle the conversion.
+
+** Audit: remaining findings for M2c cleanup
+
+These are deferred to M2c (platform drops) or future work:
+
+*** Dead code: PLATFORM_DARWIN references
+
+=quota.h=, =main.c=: =#if PLATFORM_DARWIN= blocks will be dead
+after macOS drop. Remove during M2c.
+
+*** Dead code: =__NetBSD__= workarounds
+
+=src/bsd/quota.c= lines 118-124: +1 adjustment in =quota_get()=.
+=src/bsd/quota.c= line 171: +2 in =quota_reset_grace()=.
+Remove when NetBSD is dropped in M2c.
+
+*** =dqb_curblocks=/=dqb_curinodes= set but ignored by kernel
+
+=quota_set()= writes current usage fields (lines 140, 143) but
+BSD kernels explicitly overwrite them with existing values in
+=setquota()=. Harmless but misleading. Consider removing.
+
+*** =-t= grace period: #37 (filed)
+
+=quotactl(Q_SETQUOTA)= ignores =dqb_btime=/=dqb_itime= for
+non-root users. =-t= needs to target uid 0 for global grace.
+=-r= grace reset could potentially use direct =dqb_btime=0=
+for uid 0. See GitHub issue #37.
+
+*** =struct dqblk= size differences
+
+FreeBSD: 64-bit fields (=dqblk64=). OpenBSD: 32-bit fields.
+Max quota on OpenBSD: ~2TB (=2^32= × 512-byte blocks).
+Not a bug — just a platform limitation.
+
+*** quotactl first argument
+
+quotatool passes ={mountpoint}/quota.user= as the path.
+Both FreeBSD and OpenBSD kernels use =namei()= to resolve it to a
+mount point, so it works IF the quota file exists. System tools
+(=edquota=) pass the mount point directly — more robust.
+Low risk: the file always exists when quotas are enabled.

@@ -29,6 +29,7 @@ quota_t *quota_new (int q_type, int id, char *fs_spec)
   quota_t *myquota;
   fs_t *fs;
   char *qfile;
+  char *qfile_alloc; /* preserve original malloc pointer for free() */
   char *q_filename;
 
   if (q_type > MAXQUOTAS) {
@@ -49,14 +50,18 @@ quota_t *quota_new (int q_type, int id, char *fs_spec)
 
   fs = system_getfs (fs_spec);
   if ( ! fs ) {
+    free (myquota);
     return NULL;
   }
 
   qfile = malloc (strlen(fs->mount_pt) + strlen(q_filename) + 1);
   if (! qfile) {
     output_error ("Insufficient memory");
+    free (myquota);
+    free (fs);
     exit (ERR_MEM);
   }
+  qfile_alloc = qfile; /* save original pointer for free() */
 
 #if HAVE_STRLCPY
   strlcpy(qfile, fs->mount_pt, strlen(fs->mount_pt) + 1);
@@ -70,8 +75,11 @@ quota_t *quota_new (int q_type, int id, char *fs_spec)
   strcat (qfile, q_filename);
 #endif /* HAVE_STRLCAT */
 
-  // skip duplicated / at start of qfile
-  while (strlen(qfile) > 1 && qfile[0] == '/' && qfile[1] == '/') qfile++;
+  /* Skip duplicated / at start of qfile.
+   * Use memmove to shift in-place instead of pointer arithmetic,
+   * which would break free() on the original malloc'd address. */
+  while (strlen(qfile) > 1 && qfile[0] == '/' && qfile[1] == '/')
+    memmove(qfile, qfile + 1, strlen(qfile));
 
   output_debug ("qfile is \"%s\"\n", qfile);
 
@@ -114,6 +122,11 @@ int quota_get (quota_t *myquota)
   myquota->inode_used  = sysquota.dqb_curinodes ;
   myquota->block_time = (time_t) sysquota.dqb_btime;
   myquota->inode_time = (time_t) sysquota.dqb_itime;
+  /* Initialize grace fields from the kernel's timer values.
+   * Without this, block_grace/inode_grace contain garbage from
+   * malloc, which quota_set() would then write to dqb_btime/itime. */
+  myquota->block_grace = (time_t) sysquota.dqb_btime;
+  myquota->inode_grace = (time_t) sysquota.dqb_itime;
 
 #if __NetBSD__
   /* Seems a bug in NetBSD (at least 6.0), quotas are returned one block/inode less than previously set */
@@ -135,14 +148,18 @@ int quota_set (quota_t *myquota){
     return 0;
   }
 
+  /* Zero the struct to avoid passing uninitialized padding bytes
+   * or extra fields to the kernel via quotactl. */
+  memset(&sysquota, 0, sizeof(sysquota));
+
   sysquota.dqb_bhardlimit = myquota->block_hard;
   sysquota.dqb_bsoftlimit = myquota->block_soft;
   sysquota.dqb_curblocks  = BYTES_TO_BLOCKS(myquota->diskspace_used);
   sysquota.dqb_ihardlimit = myquota->inode_hard;
   sysquota.dqb_isoftlimit = myquota->inode_soft;
   sysquota.dqb_curinodes  = myquota->inode_used;
-  sysquota.dqb_btime      = (int32_t) myquota->block_grace;
-  sysquota.dqb_itime      = (int32_t) myquota->inode_grace;
+  sysquota.dqb_btime      = myquota->block_grace;
+  sysquota.dqb_itime      = myquota->inode_grace;
 
   /* make the syscall */
   retval = quotactl (myquota->_qfile, QCMD(Q_SETQUOTA, myquota->_id_type),
