@@ -114,7 +114,7 @@ do_setup() {
     fi
 
     echo ""
-    echo "Setup complete. Run 'test/bsd/run-tests --freebsd' to test."
+    echo "Setup complete. Run 'test/bsd/run-tests --all' to test."
 }
 
 # ---------------------------------------------------------------------------
