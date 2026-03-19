@@ -2,6 +2,7 @@ quotatool
 =========
 
 > **[Roadmap](ROADMAP.md)** — upcoming releases and platform changes.
+
 > **[Platform Changes](PLATFORM-CHANGES.md)** — v1.8.0 drops support for macOS, AIX, Solaris, and NetBSD.
 
 ![Quotatool](http://quotatool.ekenberg.se/diskusage.gif) Commandline utility for filesystem quotas on Linux, FreeBSD and OpenBSD
